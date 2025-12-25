@@ -95,7 +95,6 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
     
     state = state.copyWith(
       isLoading: true,
-      error: null,
       questions: [],
       currentPage: 0,
     );
@@ -107,7 +106,7 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
   Future<void> loadMore() async {
     if (state.isLoading || !state.hasMore) return;
     
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
     await _loadPage(state.currentPage + 1);
   }
 

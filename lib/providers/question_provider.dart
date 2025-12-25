@@ -63,7 +63,7 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
     final auth = _ref.read(authProvider);
     if (!auth.isAuthenticated) return;
     
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
     
     // Try cache first (unless force refresh)
     if (!forceRefresh) {
@@ -116,7 +116,7 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
         state = state.copyWith(question: question, isLoading: false);
       } else if (response.statusCode == 404) {
         // No question for today
-        state = state.copyWith(question: null, isLoading: false);
+        state = state.copyWith(isLoading: false);
       } else {
         final exception = ApiException.fromResponse(response);
         state = state.copyWith(
@@ -144,7 +144,7 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
     
     if (!auth.isAuthenticated || question == null) return false;
     
-    state = state.copyWith(isSubmitting: true, error: null);
+    state = state.copyWith(isSubmitting: true);
     
     try {
       final token = await AuthService.getToken(auth.groupId!);
@@ -230,7 +230,7 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
 
   /// Clear error
   void clearError() {
-    state = state.copyWith(error: null);
+    state = state.copyWith();
   }
 }
 

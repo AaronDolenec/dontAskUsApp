@@ -72,8 +72,8 @@ class QuestionCardSkeleton extends StatelessWidget {
               const SizedBox(height: 8),
               const SkeletonBox(width: 200, height: 24),
               const SizedBox(height: 24),
-              ...List.generate(3, (index) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+              ...List.generate(3, (index) => const Padding(
+                padding: EdgeInsets.only(bottom: 12),
                 child: SkeletonBox(height: 56, borderRadius: 12),
               )),
             ],
@@ -90,24 +90,24 @@ class MemberItemSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LoadingShimmer(
+    return const LoadingShimmer(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           children: [
-            const SkeletonBox(width: 48, height: 48, borderRadius: 24),
-            const SizedBox(width: 16),
+            SkeletonBox(width: 48, height: 48, borderRadius: 24),
+            SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   SkeletonBox(width: 120, height: 16),
                   SizedBox(height: 8),
                   SkeletonBox(width: 80, height: 12),
                 ],
               ),
             ),
-            const SkeletonBox(width: 60, height: 28, borderRadius: 14),
+            SkeletonBox(width: 60, height: 28, borderRadius: 14),
           ],
         ),
       ),
@@ -135,14 +135,14 @@ class HistoryItemSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LoadingShimmer(
+    return const LoadingShimmer(
       child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               SkeletonBox(width: 100, height: 14),
               SizedBox(height: 12),
               SkeletonBox(height: 20),

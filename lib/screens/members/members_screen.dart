@@ -210,7 +210,7 @@ class _MemberListItem extends StatelessWidget {
                 width: 28,
                 child: Text(
                   '#$rank',
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: AppColors.textLight,
                     fontWeight: FontWeight.w500,
                     fontSize: 12,
@@ -232,7 +232,7 @@ class _MemberListItem extends StatelessWidget {
         ),
         subtitle: Text(
           'Best: ${member.longestAnswerStreak} days',
-          style: TextStyle(
+          style: const TextStyle(
             color: AppColors.textLight,
             fontSize: 12,
           ),

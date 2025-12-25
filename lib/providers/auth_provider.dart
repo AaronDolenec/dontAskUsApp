@@ -114,7 +114,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String displayName,
     String? colorAvatar,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
     
     try {
       final api = _ref.read(apiClientProvider);
@@ -180,7 +180,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Create a new group
   Future<Group?> createGroup(String name) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
     
     try {
       final api = _ref.read(apiClientProvider);
@@ -216,7 +216,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Switch to a different group
   Future<bool> switchGroup(String groupId) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
     
     try {
       final token = await AuthService.getToken(groupId);
@@ -310,7 +310,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Clear error
   void clearError() {
-    state = state.copyWith(error: null);
+    state = state.copyWith();
   }
 }
 

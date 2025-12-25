@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/widgets.dart';
@@ -28,7 +29,9 @@ class SettingsScreen extends ConsumerWidget {
           children: [
             // Group Info Section
             groupInfoAsync.when(
-              data: (group) => group != null ? _GroupInfoCard(group: group) : const SizedBox(),
+              data: (group) => group != null
+                  ? _GroupInfoCard(group: group)
+                  : const SizedBox(),
               loading: () => const Card(
                 child: Padding(
                   padding: EdgeInsets.all(20),
@@ -44,9 +47,9 @@ class SettingsScreen extends ConsumerWidget {
             Text(
               'Account',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
             ),
             const SizedBox(height: 8),
             Card(
@@ -79,9 +82,9 @@ class SettingsScreen extends ConsumerWidget {
               Text(
                 'Admin',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
-                ),
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
               ),
               const SizedBox(height: 8),
               Card(
@@ -114,9 +117,9 @@ class SettingsScreen extends ConsumerWidget {
             Text(
               'About',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: AppColors.textSecondary,
-              ),
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
             ),
             const SizedBox(height: 8),
             Card(
@@ -195,7 +198,7 @@ class SettingsScreen extends ConsumerWidget {
             onPressed: () async {
               Navigator.of(context).pop();
               await ref.read(authProvider.notifier).leaveGroup();
-              
+
               if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
                   MaterialPageRoute(builder: (_) => const JoinGroupScreen()),
@@ -213,7 +216,7 @@ class SettingsScreen extends ConsumerWidget {
 }
 
 class _GroupInfoCard extends StatelessWidget {
-  final group;
+  final Group group;
 
   const _GroupInfoCard({required this.group});
 
@@ -247,7 +250,6 @@ class _GroupInfoCard extends StatelessWidget {
               ),
               child: QrImageView(
                 data: group.inviteCode,
-                version: QrVersions.auto,
                 size: 200,
               ),
             ),
@@ -299,30 +301,28 @@ class _GroupInfoCard extends StatelessWidget {
                       Text(
                         group.name,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
                       Text(
                         '${group.memberCount} member${group.memberCount != 1 ? 's' : ''}',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
+                              color: AppColors.textSecondary,
+                            ),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-
             const SizedBox(height: 20),
             const Divider(),
             const SizedBox(height: 16),
-
             Text(
               'Invite Code',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.textLight,
-              ),
+                    color: AppColors.textLight,
+                  ),
             ),
             const SizedBox(height: 8),
             Row(
@@ -331,10 +331,10 @@ class _GroupInfoCard extends StatelessWidget {
                   child: Text(
                     group.inviteCode,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 4,
-                      color: AppColors.primary,
-                    ),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 4,
+                          color: AppColors.primary,
+                        ),
                   ),
                 ),
                 IconButton(
@@ -349,9 +349,7 @@ class _GroupInfoCard extends StatelessWidget {
                 ),
               ],
             ),
-
             const SizedBox(height: 16),
-
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(

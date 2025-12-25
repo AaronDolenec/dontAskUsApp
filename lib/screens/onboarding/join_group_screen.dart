@@ -220,7 +220,7 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
                                         ),
                                         Text(
                                           '$_previewMemberCount member${_previewMemberCount != 1 ? 's' : ''}',
-                                          style: TextStyle(
+                                          style: const TextStyle(
                                             color: AppColors.textSecondary,
                                             fontSize: 12,
                                           ),
@@ -336,17 +336,17 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
                 const SizedBox(height: 24),
 
                 // Or divider
-                Row(
+                const Row(
                   children: [
-                    const Expanded(child: Divider()),
+                    Expanded(child: Divider()),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
                         'or',
                         style: TextStyle(color: AppColors.textLight),
                       ),
                     ),
-                    const Expanded(child: Divider()),
+                    Expanded(child: Divider()),
                   ],
                 ),
 

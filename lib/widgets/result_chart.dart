@@ -57,7 +57,6 @@ class ResultChart extends StatelessWidget {
                 ),
               ),
               titlesData: FlTitlesData(
-                show: true,
                 bottomTitles: AxisTitles(
                   sideTitles: SideTitles(
                     showTitles: true,
@@ -104,14 +103,13 @@ class ResultChart extends StatelessWidget {
                   ),
                 ),
                 topTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
+                  
                 ),
                 rightTitles: const AxisTitles(
-                  sideTitles: SideTitles(showTitles: false),
+                  
                 ),
               ),
               gridData: FlGridData(
-                show: true,
                 horizontalInterval: 1,
                 getDrawingHorizontalLine: (value) {
                   return FlLine(

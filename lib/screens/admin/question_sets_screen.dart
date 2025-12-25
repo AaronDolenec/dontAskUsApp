@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,26 +8,39 @@ import '../../utils/utils.dart';
 import '../../widgets/widgets.dart';
 
 // Provider for fetching question sets
-final questionSetsProvider = FutureProvider.autoDispose<List<QuestionSet>>((ref) async {
+final questionSetsProvider =
+    FutureProvider.autoDispose<List<QuestionSet>>((ref) async {
   final apiClient = ref.read(apiClientProvider);
   final response = await apiClient.get('/question-sets');
-  
-  if (response is List) {
-    return response.map((json) => QuestionSet.fromJson(json)).toList();
+
+  if (response.statusCode == 200) {
+    final data = jsonDecode(response.body);
+    if (data is List) {
+      return data
+          .map((json) => QuestionSet.fromJson(json as Map<String, dynamic>))
+          .toList();
+    }
   }
   return [];
 });
 
 // Provider for group's assigned sets
-final groupQuestionSetsProvider = FutureProvider.autoDispose<List<QuestionSet>>((ref) async {
+final groupQuestionSetsProvider =
+    FutureProvider.autoDispose<List<QuestionSet>>((ref) async {
   final authState = ref.read(authProvider);
-  if (authState == null) return [];
-  
+  if (!authState.isAuthenticated || authState.groupId == null) return [];
+
   final apiClient = ref.read(apiClientProvider);
-  final response = await apiClient.get('/groups/${authState.groupId}/question-sets');
-  
-  if (response is List) {
-    return response.map((json) => QuestionSet.fromJson(json)).toList();
+  final response =
+      await apiClient.get('/groups/${authState.groupId}/question-sets');
+
+  if (response.statusCode == 200) {
+    final data = jsonDecode(response.body);
+    if (data is List) {
+      return data
+          .map((json) => QuestionSet.fromJson(json as Map<String, dynamic>))
+          .toList();
+    }
   }
   return [];
 });
@@ -38,7 +52,7 @@ class QuestionSetsScreen extends ConsumerStatefulWidget {
   ConsumerState<QuestionSetsScreen> createState() => _QuestionSetsScreenState();
 }
 
-class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen> 
+class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
@@ -57,16 +71,19 @@ class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
   Future<void> _assignSet(QuestionSet set) async {
     try {
       final authState = ref.read(authProvider);
-      if (authState == null) return;
+      if (!authState.isAuthenticated || authState.groupId == null) return;
+
+      final adminToken = await ref.read(adminTokenProvider.future);
 
       final apiClient = ref.read(apiClientProvider);
       await apiClient.post(
-        '/groups/${authState.groupId}/question-sets/${set.id}/assign',
-        adminToken: authState.adminToken,
+        '/groups/${authState.groupId}/question-sets/${set.setId}/assign',
+        const {},
+        adminToken: adminToken,
       );
 
       ref.invalidate(groupQuestionSetsProvider);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -111,16 +128,18 @@ class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
 
     try {
       final authState = ref.read(authProvider);
-      if (authState == null) return;
+      if (!authState.isAuthenticated || authState.groupId == null) return;
+
+      final adminToken = await ref.read(adminTokenProvider.future);
 
       final apiClient = ref.read(apiClientProvider);
       await apiClient.delete(
-        '/groups/${authState.groupId}/question-sets/${set.id}',
-        adminToken: authState.adminToken,
+        '/groups/${authState.groupId}/question-sets/${set.setId}',
+        adminToken: adminToken,
       );
 
       ref.invalidate(groupQuestionSetsProvider);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -168,14 +187,14 @@ class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
     final groupSetsAsync = ref.watch(groupQuestionSetsProvider);
 
     return setsAsync.when(
-      loading: () => const LoadingShimmer(),
+      loading: () => const _QuestionSetListLoading(),
       error: (error, _) => ErrorDisplay(
         message: error.toString(),
         onRetry: () => ref.invalidate(questionSetsProvider),
       ),
       data: (sets) {
         final groupSets = groupSetsAsync.valueOrNull ?? [];
-        final assignedIds = groupSets.map((s) => s.id).toSet();
+        final assignedIds = groupSets.map((s) => s.setId).toSet();
 
         if (sets.isEmpty) {
           return const Center(
@@ -202,7 +221,7 @@ class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
             itemCount: sets.length,
             itemBuilder: (context, index) {
               final set = sets[index];
-              final isAssigned = assignedIds.contains(set.id);
+              final isAssigned = assignedIds.contains(set.setId);
 
               return _QuestionSetCard(
                 set: set,
@@ -222,7 +241,7 @@ class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
     final groupSetsAsync = ref.watch(groupQuestionSetsProvider);
 
     return groupSetsAsync.when(
-      loading: () => const LoadingShimmer(),
+      loading: () => const _QuestionSetListLoading(),
       error: (error, _) => ErrorDisplay(
         message: error.toString(),
         onRetry: () => ref.invalidate(groupQuestionSetsProvider),
@@ -307,7 +326,7 @@ class _QuestionSetCard extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
@@ -322,17 +341,19 @@ class _QuestionSetCard extends StatelessWidget {
                     children: [
                       Text(
                         set.name,
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                       ),
                       if (set.description != null) ...[
                         const SizedBox(height: 4),
                         Text(
                           set.description!,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Colors.grey[600],
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Colors.grey[600],
+                                  ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -346,11 +367,12 @@ class _QuestionSetCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: set.isPublic
-                        ? Colors.green.withOpacity(0.1)
-                        : Colors.orange.withOpacity(0.1),
+                        ? Colors.green.withValues(alpha: 0.1)
+                        : Colors.orange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -368,9 +390,10 @@ class _QuestionSetCard extends StatelessWidget {
                   icon: Icon(actionIcon, size: 18),
                   label: Text(actionLabel),
                   style: TextButton.styleFrom(
-                    foregroundColor: actionColor ?? (isAssigned && onTap == null 
-                        ? Colors.grey 
-                        : AppColors.primary),
+                    foregroundColor: actionColor ??
+                        (isAssigned && onTap == null
+                            ? Colors.grey
+                            : AppColors.primary),
                   ),
                 ),
               ],
@@ -378,6 +401,26 @@ class _QuestionSetCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _QuestionSetListLoading extends StatelessWidget {
+  const _QuestionSetListLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 3,
+      itemBuilder: (_, __) {
+        return const LoadingShimmer(
+          child: Card(
+            margin: EdgeInsets.only(bottom: 12),
+            child: SizedBox(height: 110),
+          ),
+        );
+      },
     );
   }
 }

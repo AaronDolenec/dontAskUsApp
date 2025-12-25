@@ -111,7 +111,7 @@ class VoteOptionCard extends StatelessWidget {
                       Container(
                         margin: const EdgeInsets.only(right: 12),
                         padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           color: AppColors.warning,
                           shape: BoxShape.circle,
                         ),

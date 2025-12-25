@@ -10,14 +10,15 @@ class CreateQuestionScreen extends ConsumerStatefulWidget {
   const CreateQuestionScreen({super.key});
 
   @override
-  ConsumerState<CreateQuestionScreen> createState() => _CreateQuestionScreenState();
+  ConsumerState<CreateQuestionScreen> createState() =>
+      _CreateQuestionScreenState();
 }
 
 class _CreateQuestionScreenState extends ConsumerState<CreateQuestionScreen> {
   final _formKey = GlobalKey<FormState>();
   final _questionController = TextEditingController();
   final _optionsControllers = <TextEditingController>[];
-  
+
   QuestionType _selectedType = QuestionType.binaryVote;
   bool _allowMultiple = false;
   bool _isLoading = false;
@@ -66,12 +67,15 @@ class _CreateQuestionScreenState extends ConsumerState<CreateQuestionScreen> {
 
     try {
       final authState = ref.read(authProvider);
-      if (authState == null) {
+      final groupId = authState.groupId;
+      if (groupId == null) {
         throw Exception('Not authenticated');
       }
 
+      final adminToken = await ref.read(adminTokenProvider.future);
+
       final apiClient = ref.read(apiClientProvider);
-      
+
       // Build options based on question type
       List<String>? options;
       if (_selectedType == QuestionType.binaryVote) {
@@ -88,16 +92,18 @@ class _CreateQuestionScreenState extends ConsumerState<CreateQuestionScreen> {
 
       final body = {
         'question_text': _questionController.text.trim(),
-        'question_type': _selectedType.value,
+        'question_type': _selectedType.apiValue,
         if (options != null) 'options': options,
-        if (_selectedType == QuestionType.singleChoice) 'allow_multiple': _allowMultiple,
-        if (_selectedQuestionSetId != null) 'question_set_id': _selectedQuestionSetId,
+        if (_selectedType == QuestionType.singleChoice)
+          'allow_multiple': _allowMultiple,
+        if (_selectedQuestionSetId != null)
+          'question_set_id': _selectedQuestionSetId,
       };
 
       await apiClient.post(
-        '/groups/${authState.groupId}/questions/today',
-        body: body,
-        adminToken: authState.adminToken,
+        '/groups/$groupId/questions/today',
+        body,
+        adminToken: adminToken,
       );
 
       if (mounted) {
@@ -140,7 +146,7 @@ class _CreateQuestionScreenState extends ConsumerState<CreateQuestionScreen> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<QuestionType>(
-              value: _selectedType,
+              initialValue: _selectedType,
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
               ),
@@ -254,7 +260,7 @@ class _CreateQuestionScreenState extends ConsumerState<CreateQuestionScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Row(
@@ -278,7 +284,7 @@ class _CreateQuestionScreenState extends ConsumerState<CreateQuestionScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.secondary.withOpacity(0.1),
+                  color: AppColors.secondary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Row(
@@ -302,7 +308,7 @@ class _CreateQuestionScreenState extends ConsumerState<CreateQuestionScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.accent.withOpacity(0.1),
+                  color: AppColors.accent.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Row(
@@ -326,7 +332,7 @@ class _CreateQuestionScreenState extends ConsumerState<CreateQuestionScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.purple.withOpacity(0.1),
+                  color: Colors.purple.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Row(

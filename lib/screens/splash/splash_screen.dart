@@ -88,7 +88,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },
-        transitionDuration: const Duration(milliseconds: 300),
       ),
     );
   }
@@ -100,7 +99,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },
-        transitionDuration: const Duration(milliseconds: 300),
       ),
     );
   }

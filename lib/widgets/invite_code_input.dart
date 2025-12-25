@@ -37,14 +37,14 @@ class _InviteCodeInputState extends State<InviteCodeInput> {
   void initState() {
     super.initState();
     _controller = widget.controller ?? TextEditingController();
-    
+
     // Sync individual controllers with main controller
     for (int i = 0; i < _controllers.length; i++) {
       _controllers[i].addListener(() {
         _updateMainController();
       });
     }
-    
+
     // Initialize from main controller if it has value
     if (_controller.text.isNotEmpty) {
       _setCodeFromString(_controller.text);
@@ -69,7 +69,7 @@ class _InviteCodeInputState extends State<InviteCodeInput> {
     final code = _controllers.map((c) => c.text).join();
     _controller.text = code;
     widget.onChanged?.call(code);
-    
+
     if (code.length == 6) {
       widget.onSubmitted?.call(code);
     }
@@ -81,8 +81,8 @@ class _InviteCodeInputState extends State<InviteCodeInput> {
     }
   }
 
-  void _handleKeyEvent(int index, RawKeyEvent event) {
-    if (event is RawKeyDownEvent) {
+  void _handleKeyEvent(int index, KeyEvent event) {
+    if (event is KeyDownEvent) {
       if (event.logicalKey == LogicalKeyboardKey.backspace) {
         if (_controllers[index].text.isEmpty && index > 0) {
           _focusNodes[index - 1].requestFocus();
@@ -95,7 +95,8 @@ class _InviteCodeInputState extends State<InviteCodeInput> {
   Future<void> _pasteCode() async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     if (data?.text != null) {
-      final code = data!.text!.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+      final code =
+          data!.text!.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
       if (code.length >= 6) {
         _setCodeFromString(code.substring(0, 6));
         _focusNodes.last.requestFocus();
@@ -121,9 +122,9 @@ class _InviteCodeInputState extends State<InviteCodeInput> {
               ).copyWith(
                 right: index == 2 ? 12 : (index == 5 ? 0 : 4),
               ),
-              child: RawKeyboardListener(
+              child: KeyboardListener(
                 focusNode: FocusNode(),
-                onKey: (event) => _handleKeyEvent(index, event),
+                onKeyEvent: (event) => _handleKeyEvent(index, event),
                 child: TextField(
                   controller: _controllers[index],
                   focusNode: _focusNodes[index],
@@ -156,9 +157,9 @@ class _InviteCodeInputState extends State<InviteCodeInput> {
                       ),
                     ),
                     filled: true,
-                    fillColor: widget.enabled 
-                        ? Colors.grey[50] 
-                        : Colors.grey[200],
+                    fillColor: widget.enabled
+                        ? Colors.grey[50]?.withValues(alpha: 1)
+                        : Colors.grey[200]?.withValues(alpha: 1),
                   ),
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
@@ -176,7 +177,7 @@ class _InviteCodeInputState extends State<InviteCodeInput> {
           }),
         ),
         const SizedBox(height: 8),
-        
+
         // Paste button
         Center(
           child: TextButton.icon(
@@ -185,7 +186,7 @@ class _InviteCodeInputState extends State<InviteCodeInput> {
             label: const Text('Paste Code'),
           ),
         ),
-        
+
         // Error text
         if (widget.errorText != null) ...[
           const SizedBox(height: 8),
@@ -238,10 +239,10 @@ class InviteCodeDisplay extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.1),
+        color: AppColors.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: AppColors.primary.withOpacity(0.3),
+          color: AppColors.primary.withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -272,8 +273,7 @@ class InviteCodeDisplay extends StatelessWidget {
                   icon: const Icon(Icons.copy, size: 18),
                   label: const Text('Copy'),
                 ),
-              if (onCopy != null && onShare != null)
-                const SizedBox(width: 12),
+              if (onCopy != null && onShare != null) const SizedBox(width: 12),
               if (onShare != null)
                 ElevatedButton.icon(
                   onPressed: onShare,

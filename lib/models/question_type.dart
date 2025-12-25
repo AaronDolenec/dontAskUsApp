@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 /// Question types available in the app
 enum QuestionType {
   binaryVote,
@@ -8,6 +10,9 @@ enum QuestionType {
 }
 
 extension QuestionTypeExtension on QuestionType {
+  /// Backward-compatible alias for API value
+  String get value => apiValue;
+
   /// Get the API string value for this question type
   String get apiValue {
     switch (this) {
@@ -21,6 +26,22 @@ extension QuestionTypeExtension on QuestionType {
         return 'member_choice';
       case QuestionType.duoChoice:
         return 'duo_choice';
+    }
+  }
+
+  /// Icon to represent the question type in UI
+  IconData get icon {
+    switch (this) {
+      case QuestionType.binaryVote:
+        return Icons.how_to_vote;
+      case QuestionType.singleChoice:
+        return Icons.radio_button_checked;
+      case QuestionType.freeText:
+        return Icons.edit_note;
+      case QuestionType.memberChoice:
+        return Icons.group;
+      case QuestionType.duoChoice:
+        return Icons.groups_2;
     }
   }
 

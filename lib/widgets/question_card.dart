@@ -74,7 +74,7 @@ class QuestionCard extends StatelessWidget {
                       const SizedBox(width: 6),
                       Text(
                         _questionTypeLabel,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: AppColors.primary,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
@@ -91,7 +91,7 @@ class QuestionCard extends StatelessWidget {
                       color: AppColors.secondary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
+                    child: const Text(
                       'Multi-select',
                       style: TextStyle(
                         color: AppColors.secondary,
@@ -129,7 +129,7 @@ class QuestionCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.how_to_vote,
                     size: 16,
                     color: AppColors.textSecondary,
@@ -206,7 +206,7 @@ class QuestionHistoryCard extends StatelessWidget {
                         color: AppColors.success.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Row(
+                      child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
@@ -214,7 +214,7 @@ class QuestionHistoryCard extends StatelessWidget {
                             size: 14,
                             color: AppColors.success,
                           ),
-                          const SizedBox(width: 4),
+                          SizedBox(width: 4),
                           Text(
                             'Answered',
                             style: TextStyle(
@@ -236,7 +236,7 @@ class QuestionHistoryCard extends StatelessWidget {
                     ),
                     child: Text(
                       '${question.totalVotes} votes',
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 12,
                       ),

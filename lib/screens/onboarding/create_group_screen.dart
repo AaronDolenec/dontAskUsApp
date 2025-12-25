@@ -152,11 +152,11 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
                   ),
-                  child: Row(
+                  child: const Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.info_outline, color: AppColors.info, size: 20),
-                      const SizedBox(width: 12),
+                      Icon(Icons.info_outline, color: AppColors.info, size: 20),
+                      SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           'You\'ll become the admin of this group and can create daily questions for everyone to answer.',
@@ -327,7 +327,6 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                         ),
                         child: QrImageView(
                           data: _createdGroup!.inviteCode,
-                          version: QrVersions.auto,
                           size: 180,
                           backgroundColor: Colors.white,
                         ),

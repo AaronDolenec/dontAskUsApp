@@ -15,7 +15,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   dynamic _selectedAnswer;
-  List<String> _selectedMultipleAnswers = [];
+  final List<String> _selectedMultipleAnswers = [];
   final _textAnswerController = TextEditingController();
 
   @override
@@ -25,7 +25,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _handleRefresh() async {
-    await ref.read(questionProvider.notifier).fetchTodaysQuestion(forceRefresh: true);
+    await ref
+        .read(questionProvider.notifier)
+        .fetchTodaysQuestion(forceRefresh: true);
   }
 
   Future<void> _submitAnswer(DailyQuestion question) async {
@@ -37,9 +39,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         return;
       }
       await ref.read(questionProvider.notifier).submitAnswer(
-        null,
-        textAnswer: _textAnswerController.text.trim(),
-      );
+            null,
+            textAnswer: _textAnswerController.text.trim(),
+          );
     } else if (question.allowMultiple) {
       if (_selectedMultipleAnswers.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -47,7 +49,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
         return;
       }
-      await ref.read(questionProvider.notifier).submitAnswer(_selectedMultipleAnswers);
+      await ref
+          .read(questionProvider.notifier)
+          .submitAnswer(_selectedMultipleAnswers);
     } else {
       if (_selectedAnswer == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -90,8 +94,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                 child: StreakDisplay(
                   streak: userStreak,
-                  longestStreak: questionState.question?.longestStreak ?? 
-                                 authState.user?.longestAnswerStreak,
+                  longestStreak: questionState.question?.longestStreak ??
+                      authState.user?.longestAnswerStreak,
                 ),
               ),
 
@@ -131,12 +135,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildQuestionContent(DailyQuestion question) {
-    final questionState = ref.watch(questionProvider);
-
     return QuestionCard(
       question: question,
       votingWidget: question.hasUserVoted ? null : _buildVotingWidget(question),
-      resultsWidget: question.hasUserVoted ? _buildResultsWidget(question) : null,
+      resultsWidget:
+          question.hasUserVoted ? _buildResultsWidget(question) : null,
     );
   }
 
@@ -174,7 +177,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       default:
         // Single or multiple choice
         final options = question.options ?? [];
-        
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -182,7 +185,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               final index = entry.key;
               final option = entry.value;
               final color = AppColors.getVoteColor(index);
-              
+
               if (question.allowMultiple) {
                 final isSelected = _selectedMultipleAnswers.contains(option);
                 return Padding(
@@ -218,9 +221,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 );
               }
             }),
-            
             const SizedBox(height: 8),
-            
             ElevatedButton(
               onPressed: isSubmitting ? null : () => _submitAnswer(question),
               child: isSubmitting
@@ -229,7 +230,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       width: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Text(question.allowMultiple ? 'Submit Votes' : 'Submit Vote'),
+                  : Text(
+                      question.allowMultiple ? 'Submit Votes' : 'Submit Vote'),
             ),
           ],
         );
@@ -250,10 +252,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            const Row(
               children: [
-                const Icon(Icons.check_circle, color: AppColors.success, size: 20),
-                const SizedBox(width: 8),
+                Icon(Icons.check_circle,
+                    color: AppColors.success, size: 20),
+                SizedBox(width: 8),
                 Text(
                   'Your Answer',
                   style: TextStyle(
@@ -280,8 +283,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final voteCount = question.optionCounts?[option] ?? 0;
         final color = AppColors.getVoteColor(index);
         final isWinner = option == winningOption;
-        final isUserVote = question.userVoteList?.contains(option) ?? 
-                          question.userVoteString == option;
+        final isUserVote = question.userVoteList?.contains(option) ??
+            question.userVoteString == option;
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),

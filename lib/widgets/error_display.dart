@@ -34,7 +34,7 @@ class ErrorDisplay extends StatelessWidget {
             Expanded(
               child: Text(
                 message,
-                style: TextStyle(color: AppColors.error),
+                style: const TextStyle(color: AppColors.error),
               ),
             ),
             if (onRetry != null)
@@ -59,7 +59,7 @@ class ErrorDisplay extends StatelessWidget {
             Container(
               width: 80,
               height: 80,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppColors.errorLight,
                 shape: BoxShape.circle,
               ),
@@ -128,7 +128,7 @@ class EmptyStateDisplay extends StatelessWidget {
             Container(
               width: 80,
               height: 80,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: AppColors.background,
                 shape: BoxShape.circle,
               ),

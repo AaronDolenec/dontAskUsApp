@@ -15,18 +15,19 @@ class CacheService {
   /// Check if device has internet connection
   static Future<bool> hasConnection() async {
     final result = await Connectivity().checkConnectivity();
-    return !result.contains(ConnectivityResult.none);
+    return result != ConnectivityResult.none;
   }
 
   /// Listen to connectivity changes
-  static Stream<List<ConnectivityResult>> get connectivityStream {
+  static Stream<ConnectivityResult> get connectivityStream {
     return Connectivity().onConnectivityChanged;
   }
 
   // ============= Question Cache =============
 
   /// Cache today's question
-  static Future<void> cacheQuestion(String groupId, DailyQuestion question) async {
+  static Future<void> cacheQuestion(
+      String groupId, DailyQuestion question) async {
     final prefs = await SharedPreferences.getInstance();
     final key = '${_questionCacheKey}_$groupId';
     await prefs.setString(key, jsonEncode(question.toJson()));
@@ -38,7 +39,7 @@ class CacheService {
     final prefs = await SharedPreferences.getInstance();
     final key = '${_questionCacheKey}_$groupId';
     final data = prefs.getString(key);
-    
+
     if (data != null) {
       try {
         return DailyQuestion.fromJson(jsonDecode(data) as Map<String, dynamic>);
@@ -71,7 +72,7 @@ class CacheService {
     final prefs = await SharedPreferences.getInstance();
     final key = '$_groupInfoCacheKey$groupId';
     final data = prefs.getString(key);
-    
+
     if (data != null) {
       try {
         return Group.fromJson(jsonDecode(data) as Map<String, dynamic>);
@@ -85,7 +86,8 @@ class CacheService {
   // ============= Members Cache =============
 
   /// Cache group members
-  static Future<void> cacheMembers(String groupId, List<GroupMember> members) async {
+  static Future<void> cacheMembers(
+      String groupId, List<GroupMember> members) async {
     final prefs = await SharedPreferences.getInstance();
     final key = '$_membersCacheKey$groupId';
     final data = members.map((m) => m.toJson()).toList();
@@ -98,11 +100,13 @@ class CacheService {
     final prefs = await SharedPreferences.getInstance();
     final key = '$_membersCacheKey$groupId';
     final data = prefs.getString(key);
-    
+
     if (data != null) {
       try {
         final list = jsonDecode(data) as List;
-        return list.map((m) => GroupMember.fromJson(m as Map<String, dynamic>)).toList();
+        return list
+            .map((m) => GroupMember.fromJson(m as Map<String, dynamic>))
+            .toList();
       } catch (_) {
         return null;
       }
@@ -124,7 +128,7 @@ class CacheService {
     final prefs = await SharedPreferences.getInstance();
     final key = '$_lastSyncKey${groupId}_$type';
     final timestamp = prefs.getInt(key);
-    
+
     if (timestamp != null) {
       return DateTime.fromMillisecondsSinceEpoch(timestamp);
     }
@@ -132,10 +136,11 @@ class CacheService {
   }
 
   /// Check if cache is stale (older than specified duration)
-  static Future<bool> isCacheStale(String groupId, String type, Duration maxAge) async {
+  static Future<bool> isCacheStale(
+      String groupId, String type, Duration maxAge) async {
     final lastSync = await getLastSyncTime(groupId, type);
     if (lastSync == null) return true;
-    
+
     return DateTime.now().difference(lastSync) > maxAge;
   }
 
@@ -156,7 +161,7 @@ class CacheService {
   static Future<void> clearAllCache() async {
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs.getKeys();
-    
+
     for (final key in keys) {
       if (key.startsWith(_questionCacheKey) ||
           key.startsWith(_groupInfoCacheKey) ||

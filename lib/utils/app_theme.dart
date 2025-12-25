@@ -15,13 +15,10 @@ class AppTheme {
       scaffoldBackgroundColor: AppColors.background,
       colorScheme: const ColorScheme.light(
         primary: AppColors.primary,
-        onPrimary: AppColors.textOnPrimary,
         secondary: AppColors.secondary,
         onSecondary: AppColors.textOnPrimary,
-        surface: AppColors.surface,
         onSurface: AppColors.textPrimary,
         error: AppColors.error,
-        onError: AppColors.textOnPrimary,
       ),
 
       // AppBar Theme
@@ -39,7 +36,7 @@ class AppTheme {
       ),
 
       // Card Theme
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.card,
         elevation: 2,
         shadowColor: Colors.black.withValues(alpha: 0.1),
@@ -98,7 +95,8 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.border),
@@ -130,8 +128,10 @@ class AppTheme {
         unselectedItemColor: AppColors.textLight,
         type: BottomNavigationBarType.fixed,
         elevation: 8,
-        selectedLabelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
+        selectedLabelStyle:
+            TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+        unselectedLabelStyle:
+            TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
       ),
 
       // Divider Theme
@@ -152,7 +152,7 @@ class AppTheme {
       ),
 
       // Dialog Theme
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
@@ -224,7 +224,7 @@ class AppTheme {
       ),
 
       // Card Theme
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.cardDark,
         elevation: 2,
         shadowColor: Colors.black.withValues(alpha: 0.3),
@@ -271,7 +271,8 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.cardDark,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.borderDark),
@@ -299,8 +300,10 @@ class AppTheme {
         unselectedItemColor: AppColors.textLightDark,
         type: BottomNavigationBarType.fixed,
         elevation: 8,
-        selectedLabelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-        unselectedLabelStyle: TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
+        selectedLabelStyle:
+            TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+        unselectedLabelStyle:
+            TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
       ),
 
       // Divider Theme
@@ -321,7 +324,7 @@ class AppTheme {
       ),
 
       // Dialog Theme
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: AppColors.cardDark,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
