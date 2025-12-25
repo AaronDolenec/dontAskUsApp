@@ -1,0 +1,368 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import '../../providers/providers.dart';
+import '../../utils/app_colors.dart';
+import '../../widgets/widgets.dart';
+import '../onboarding/join_group_screen.dart';
+
+/// Settings screen
+class SettingsScreen extends ConsumerWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+    final groupInfoAsync = ref.watch(groupInfoProvider);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Settings'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Group Info Section
+            groupInfoAsync.when(
+              data: (group) => group != null ? _GroupInfoCard(group: group) : const SizedBox(),
+              loading: () => const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ),
+              error: (_, __) => const SizedBox(),
+            ),
+
+            const SizedBox(height: 24),
+
+            // User Section
+            Text(
+              'Account',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  if (authState.user != null)
+                    ListTile(
+                      leading: AvatarCircle(
+                        colorHex: authState.user!.colorAvatar,
+                        initials: authState.user!.displayName.substring(0, 2),
+                      ),
+                      title: Text(authState.user!.displayName),
+                      subtitle: const Text('Your profile'),
+                    ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.exit_to_app),
+                    title: const Text('Leave Group'),
+                    subtitle: const Text('You can rejoin with the invite code'),
+                    onTap: () => _showLeaveGroupDialog(context, ref),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Admin Section (only shown to admins)
+            if (authState.isAdmin) ...[
+              Text(
+                'Admin',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.add_circle_outline),
+                      title: const Text('Create Question'),
+                      subtitle: const Text('Add today\'s question'),
+                      onTap: () {
+                        // TODO: Navigate to create question
+                      },
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.library_books_outlined),
+                      title: const Text('Question Sets'),
+                      subtitle: const Text('Manage question templates'),
+                      onTap: () {
+                        // TODO: Navigate to question sets
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+
+            // About Section
+            Text(
+              'About',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.info_outline),
+                    title: const Text('About dontAskUs'),
+                    subtitle: const Text('Version 1.0.0'),
+                    onTap: () {
+                      showAboutDialog(
+                        context: context,
+                        applicationName: 'dontAskUs',
+                        applicationVersion: '1.0.0',
+                        applicationIcon: Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Center(
+                            child: Text(
+                              '?',
+                              style: TextStyle(
+                                fontSize: 32,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                        children: [
+                          const Text(
+                            'A group-based daily question and voting platform. '
+                            'Answer questions, vote with your friends, and maintain your streak!',
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.help_outline),
+                    title: const Text('Help & Support'),
+                    onTap: () {
+                      // TODO: Open help
+                    },
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLeaveGroupDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Leave Group?'),
+        content: const Text(
+          'Are you sure you want to leave this group? '
+          'You can rejoin later using the invite code.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await ref.read(authProvider.notifier).leaveGroup();
+              
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const JoinGroupScreen()),
+                  (route) => false,
+                );
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GroupInfoCard extends StatelessWidget {
+  final group;
+
+  const _GroupInfoCard({required this.group});
+
+  void _copyInviteCode(BuildContext context) {
+    Clipboard.setData(ClipboardData(text: group.inviteCode));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Invite code copied!')),
+    );
+  }
+
+  void _shareInviteCode() {
+    Share.share(
+      'Join my group "${group.name}" on dontAskUs!\n\nInvite code: ${group.inviteCode}',
+      subject: 'Join my dontAskUs group!',
+    );
+  }
+
+  void _showQRCode(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Invite QR Code'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: QrImageView(
+                data: group.inviteCode,
+                version: QrVersions.auto,
+                size: 200,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              group.inviteCode,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 2,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(Icons.group, color: Colors.white, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        group.name,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        '${group.memberCount} member${group.memberCount != 1 ? 's' : ''}',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+            const Divider(),
+            const SizedBox(height: 16),
+
+            Text(
+              'Invite Code',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.textLight,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    group.inviteCode,
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 4,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.copy),
+                  onPressed: () => _copyInviteCode(context),
+                  tooltip: 'Copy',
+                ),
+                IconButton(
+                  icon: const Icon(Icons.qr_code),
+                  onPressed: () => _showQRCode(context),
+                  tooltip: 'Show QR',
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _shareInviteCode,
+                icon: const Icon(Icons.share),
+                label: const Text('Share Invite'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
