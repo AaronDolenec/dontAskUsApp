@@ -11,43 +11,77 @@ dependencies:
     sdk: flutter
 
   # State Management
-  flutter_riverpod: ^2.4.0
+  flutter_riverpod: ^2.6.1
 
   # HTTP & WebSocket
-  http: ^1.1.0
-  web_socket_channel: ^2.4.0
+  http: ^1.2.0
+  web_socket_channel: ^3.0.0
 
   # Secure Storage
-  flutter_secure_storage: ^9.0.0
+  flutter_secure_storage: ^10.0.0
 
   # UI Components
   shimmer: ^3.0.0
-  fl_chart: ^0.65.0
+  fl_chart: ^0.69.0
 
   # Utilities
-  intl: ^0.18.0
-  share_plus: ^7.2.0
+  intl: ^0.20.2
+  share_plus: ^10.0.0
   qr_flutter: ^4.1.0
-  connectivity_plus: ^5.0.0
-  shared_preferences: ^2.2.0
+  connectivity_plus: ^6.1.0
+  shared_preferences: ^2.3.0
 
   # Cupertino Icons
-  cupertino_icons: ^1.0.6
+  cupertino_icons: ^1.0.8
+
+  # Localization
+  flutter_localizations:
+    sdk: flutter
+
+  # App Icon Generator
+  flutter_launcher_icons: ^0.14.2
+
+  # Native Splash Screen
+  flutter_native_splash: ^2.4.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
-  mockito: ^5.4.0
-  build_runner: ^2.4.0
+  flutter_lints: ^5.0.0
+  mockito: ^5.4.4
+  build_runner: ^2.4.13
+  integration_test:
+    sdk: flutter
+
+# Flutter Launcher Icons Configuration
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#6366F1"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  min_sdk_android: 23
+
+# Flutter Native Splash Configuration
+flutter_native_splash:
+  color: "#6366F1"
+  image: "assets/splash/splash_logo.png"
+  android: true
+  ios: true
+  android_12:
+    color: "#6366F1"
+    icon_background_color: "#6366F1"
+    image: "assets/splash/splash_logo.png"
 
 flutter:
   uses-material-design: true
+  generate: true
 
-  # Assets (uncomment when adding assets)
-  # assets:
-  #   - assets/images/
-  #   - assets/icons/
+  # Assets
+  assets:
+    - assets/icon/
+    - assets/splash/
+    - assets/images/
 
   # Fonts (uncomment when adding custom fonts)
   # fonts:

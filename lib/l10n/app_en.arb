@@ -1,0 +1,191 @@
+{
+  "@@locale": "en",
+  "appTitle": "dontAskUs",
+  "@appTitle": {
+    "description": "The title of the application"
+  },
+  
+  "welcomeTitle": "Welcome to dontAskUs",
+  "@welcomeTitle": {
+    "description": "Welcome screen title"
+  },
+  
+  "onboardingTitle1": "Daily Questions",
+  "onboardingDesc1": "Get a fun question every day to answer with your group. No pressure, just vibes!",
+  
+  "onboardingTitle2": "Vote Together",
+  "onboardingDesc2": "Vote on questions and see what your friends think. Discover surprising opinions!",
+  
+  "onboardingTitle3": "Build Your Streak",
+  "onboardingDesc3": "Answer daily to keep your streak going. How long can you keep it up?",
+  
+  "skip": "Skip",
+  "next": "Next",
+  "getStarted": "Get Started",
+  
+  "joinGroup": "Join a Group",
+  "joinGroupSubtitle": "Enter an invite code from a friend",
+  "createGroup": "Create a Group",
+  "createGroupSubtitle": "Start a new group and invite friends",
+  
+  "inviteCode": "Invite Code",
+  "enterInviteCode": "Enter invite code",
+  "pasteCode": "Paste Code",
+  "invalidCode": "Invalid invite code",
+  "groupNotFound": "Group not found",
+  
+  "displayName": "Display Name",
+  "enterDisplayName": "Enter your display name",
+  "nameTaken": "This name is already taken",
+  "nameRequired": "Name is required",
+  "nameTooShort": "Name must be at least 2 characters",
+  "nameTooLong": "Name must be less than 20 characters",
+  
+  "chooseColor": "Choose Your Color",
+  "selectAvatarColor": "Select an avatar color",
+  
+  "join": "Join",
+  "joining": "Joining...",
+  "create": "Create",
+  "creating": "Creating...",
+  
+  "groupName": "Group Name",
+  "enterGroupName": "Enter group name",
+  "groupCreated": "Group Created!",
+  "shareInviteCode": "Share this invite code with your friends:",
+  "copyCode": "Copy Code",
+  "shareCode": "Share Code",
+  "codeCopied": "Invite code copied!",
+  
+  "home": "Home",
+  "members": "Members",
+  "history": "History",
+  "settings": "Settings",
+  
+  "todaysQuestion": "Today's Question",
+  "noQuestion": "No Question Today",
+  "noQuestionDesc": "Check back tomorrow for a new question!",
+  "alreadyAnswered": "You've already answered today",
+  "resultsAvailable": "Results will be available soon",
+  
+  "submitVote": "Submit Vote",
+  "submitting": "Submitting...",
+  "voteSubmitted": "Vote submitted!",
+  "voteFailed": "Failed to submit vote",
+  
+  "votes": "{count, plural, =0{No votes} =1{1 vote} other{{count} votes}}",
+  "@votes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  
+  "streak": "Streak",
+  "currentStreak": "Current Streak",
+  "longestStreak": "Longest Streak",
+  "days": "{count, plural, =0{0 days} =1{1 day} other{{count} days}}",
+  "@days": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  
+  "memberCount": "{count, plural, =1{1 member} other{{count} members}}",
+  "@memberCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  
+  "sortByStreak": "Sort by Streak",
+  "sortByName": "Sort by Name",
+  
+  "questionHistory": "Question History",
+  "noHistory": "No Questions Yet",
+  "noHistoryDesc": "Past questions will appear here",
+  
+  "yourAnswer": "Your Answer",
+  "viewResults": "View Results",
+  
+  "groupSettings": "Group Settings",
+  "inviteCodeLabel": "Invite Code",
+  "qrCode": "QR Code",
+  "leaveGroup": "Leave Group",
+  "leaveGroupConfirm": "Are you sure you want to leave this group?",
+  "leave": "Leave",
+  "cancel": "Cancel",
+  
+  "switchGroup": "Switch Group",
+  "currentGroup": "Current Group",
+  "otherGroups": "Other Groups",
+  "joinAnotherGroup": "Join Another Group",
+  
+  "appearance": "Appearance",
+  "darkMode": "Dark Mode",
+  "systemTheme": "System Theme",
+  "lightTheme": "Light Theme",
+  "darkTheme": "Dark Theme",
+  
+  "about": "About",
+  "version": "Version",
+  "privacyPolicy": "Privacy Policy",
+  "termsOfService": "Terms of Service",
+  "help": "Help & Support",
+  
+  "admin": "Admin",
+  "createQuestion": "Create Question",
+  "questionSets": "Question Sets",
+  "manageGroup": "Manage Group",
+  
+  "questionType": "Question Type",
+  "binaryVote": "Yes/No",
+  "singleChoice": "Single Choice",
+  "multipleChoice": "Multiple Choice",
+  "freeText": "Free Text",
+  "memberChoice": "Member Choice",
+  "duoChoice": "Duo Choice",
+  
+  "questionText": "Question Text",
+  "enterQuestion": "Enter your question",
+  "options": "Options",
+  "addOption": "Add Option",
+  "removeOption": "Remove Option",
+  "allowMultiple": "Allow Multiple Answers",
+  "questionSet": "Question Set (Optional)",
+  "selectSet": "Select a question set",
+  
+  "error": "Error",
+  "retry": "Retry",
+  "somethingWentWrong": "Something went wrong",
+  "networkError": "Network error. Please check your connection.",
+  "serverError": "Server error. Please try again later.",
+  "sessionExpired": "Session expired. Please log in again.",
+  "rateLimited": "Too many requests. Please wait a moment.",
+  "offline": "You're offline",
+  "backOnline": "Back online",
+  
+  "loading": "Loading...",
+  "refreshing": "Refreshing...",
+  "pullToRefresh": "Pull to refresh",
+  
+  "yes": "Yes",
+  "no": "No",
+  "ok": "OK",
+  "done": "Done",
+  "save": "Save",
+  "delete": "Delete",
+  "edit": "Edit",
+  "close": "Close",
+  "confirm": "Confirm",
+  
+  "typeYourAnswer": "Type your answer...",
+  "selectMember": "Select a member",
+  "selectFirstMember": "Select first member",
+  "selectSecondMember": "Select second member"
+}

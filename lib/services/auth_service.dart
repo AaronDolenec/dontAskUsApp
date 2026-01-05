@@ -30,9 +30,10 @@ class AuthService {
   }) async {
     await _storage.write(key: '$_tokenKeyPrefix$groupId', value: token);
     await _storage.write(key: '$_userIdKeyPrefix$groupId', value: oderId);
-    await _storage.write(key: '$_displayNameKeyPrefix$groupId', value: displayName);
+    await _storage.write(
+        key: '$_displayNameKeyPrefix$groupId', value: displayName);
     await _storage.write(key: _currentGroupKey, value: groupId);
-    
+
     // Add to groups list
     await _addToGroupsList(groupId);
   }
@@ -68,10 +69,10 @@ class AuthService {
     await _storage.delete(key: '$_userIdKeyPrefix$groupId');
     await _storage.delete(key: '$_displayNameKeyPrefix$groupId');
     await _storage.delete(key: '$_adminTokenKeyPrefix$groupId');
-    
+
     // Remove from groups list
     await _removeFromGroupsList(groupId);
-    
+
     // If this was the current group, clear it
     final currentGroup = await getCurrentGroupId();
     if (currentGroup == groupId) {
@@ -93,7 +94,8 @@ class AuthService {
 
   /// Save admin token for a group
   static Future<void> saveAdminToken(String groupId, String adminToken) async {
-    await _storage.write(key: '$_adminTokenKeyPrefix$groupId', value: adminToken);
+    await _storage.write(
+        key: '$_adminTokenKeyPrefix$groupId', value: adminToken);
   }
 
   /// Get admin token for a group
@@ -153,7 +155,7 @@ class AuthService {
         'displayName': null,
       };
     }
-    
+
     return {
       'groupId': groupId,
       'token': await getToken(groupId),
@@ -161,4 +163,40 @@ class AuthService {
       'displayName': await getDisplayName(groupId),
     };
   }
+
+  // ============= Instance Methods for Provider =============
+
+  /// Get all groups with their info (for multi-group provider)
+  Future<List<GroupInfo>> getAllGroups() async {
+    final groupIds = await getGroupsList();
+    final groups = <GroupInfo>[];
+
+    for (final groupId in groupIds) {
+      final displayName = await getDisplayName(groupId);
+      groups.add(GroupInfo(
+        groupId: groupId,
+        groupName: displayName ?? 'Unknown Group',
+      ));
+    }
+
+    return groups;
+  }
+
+  /// Remove a group (instance method)
+  Future<void> removeGroup(String groupId) async {
+    await clearSession(groupId);
+  }
+}
+
+/// Basic group info for multi-group support
+class GroupInfo {
+  final String groupId;
+  final String groupName;
+  final String? inviteCode;
+
+  const GroupInfo({
+    required this.groupId,
+    required this.groupName,
+    this.inviteCode,
+  });
 }

@@ -1,0 +1,164 @@
+{
+  "@@locale": "de",
+  "appTitle": "dontAskUs",
+  
+  "welcomeTitle": "Willkommen bei dontAskUs",
+  
+  "onboardingTitle1": "Tägliche Fragen",
+  "onboardingDesc1": "Bekomme jeden Tag eine lustige Frage, die du mit deiner Gruppe beantworten kannst. Kein Druck, einfach Spaß!",
+  
+  "onboardingTitle2": "Gemeinsam abstimmen",
+  "onboardingDesc2": "Stimme über Fragen ab und sieh, was deine Freunde denken. Entdecke überraschende Meinungen!",
+  
+  "onboardingTitle3": "Baue deine Serie auf",
+  "onboardingDesc3": "Antworte täglich, um deine Serie zu halten. Wie lange schaffst du es?",
+  
+  "skip": "Überspringen",
+  "next": "Weiter",
+  "getStarted": "Los geht's",
+  
+  "joinGroup": "Gruppe beitreten",
+  "joinGroupSubtitle": "Gib einen Einladungscode von einem Freund ein",
+  "createGroup": "Gruppe erstellen",
+  "createGroupSubtitle": "Starte eine neue Gruppe und lade Freunde ein",
+  
+  "inviteCode": "Einladungscode",
+  "enterInviteCode": "Einladungscode eingeben",
+  "pasteCode": "Code einfügen",
+  "invalidCode": "Ungültiger Einladungscode",
+  "groupNotFound": "Gruppe nicht gefunden",
+  
+  "displayName": "Anzeigename",
+  "enterDisplayName": "Gib deinen Anzeigenamen ein",
+  "nameTaken": "Dieser Name ist bereits vergeben",
+  "nameRequired": "Name ist erforderlich",
+  "nameTooShort": "Name muss mindestens 2 Zeichen haben",
+  "nameTooLong": "Name darf nicht länger als 20 Zeichen sein",
+  
+  "chooseColor": "Wähle deine Farbe",
+  "selectAvatarColor": "Wähle eine Avatar-Farbe",
+  
+  "join": "Beitreten",
+  "joining": "Beitreten...",
+  "create": "Erstellen",
+  "creating": "Erstellen...",
+  
+  "groupName": "Gruppenname",
+  "enterGroupName": "Gruppenname eingeben",
+  "groupCreated": "Gruppe erstellt!",
+  "shareInviteCode": "Teile diesen Einladungscode mit deinen Freunden:",
+  "copyCode": "Code kopieren",
+  "shareCode": "Code teilen",
+  "codeCopied": "Einladungscode kopiert!",
+  
+  "home": "Start",
+  "members": "Mitglieder",
+  "history": "Verlauf",
+  "settings": "Einstellungen",
+  
+  "todaysQuestion": "Frage des Tages",
+  "noQuestion": "Heute keine Frage",
+  "noQuestionDesc": "Schau morgen wieder vorbei für eine neue Frage!",
+  "alreadyAnswered": "Du hast heute bereits geantwortet",
+  "resultsAvailable": "Ergebnisse sind bald verfügbar",
+  
+  "submitVote": "Abstimmen",
+  "submitting": "Wird gesendet...",
+  "voteSubmitted": "Stimme abgegeben!",
+  "voteFailed": "Abstimmung fehlgeschlagen",
+  
+  "votes": "{count, plural, =0{Keine Stimmen} =1{1 Stimme} other{{count} Stimmen}}",
+  
+  "streak": "Serie",
+  "currentStreak": "Aktuelle Serie",
+  "longestStreak": "Längste Serie",
+  "days": "{count, plural, =0{0 Tage} =1{1 Tag} other{{count} Tage}}",
+  
+  "memberCount": "{count, plural, =1{1 Mitglied} other{{count} Mitglieder}}",
+  
+  "sortByStreak": "Nach Serie sortieren",
+  "sortByName": "Nach Name sortieren",
+  
+  "questionHistory": "Fragenverlauf",
+  "noHistory": "Noch keine Fragen",
+  "noHistoryDesc": "Vergangene Fragen erscheinen hier",
+  
+  "yourAnswer": "Deine Antwort",
+  "viewResults": "Ergebnisse anzeigen",
+  
+  "groupSettings": "Gruppeneinstellungen",
+  "inviteCodeLabel": "Einladungscode",
+  "qrCode": "QR-Code",
+  "leaveGroup": "Gruppe verlassen",
+  "leaveGroupConfirm": "Bist du sicher, dass du diese Gruppe verlassen möchtest?",
+  "leave": "Verlassen",
+  "cancel": "Abbrechen",
+  
+  "switchGroup": "Gruppe wechseln",
+  "currentGroup": "Aktuelle Gruppe",
+  "otherGroups": "Andere Gruppen",
+  "joinAnotherGroup": "Einer anderen Gruppe beitreten",
+  
+  "appearance": "Erscheinungsbild",
+  "darkMode": "Dunkelmodus",
+  "systemTheme": "Systemdesign",
+  "lightTheme": "Helles Design",
+  "darkTheme": "Dunkles Design",
+  
+  "about": "Über",
+  "version": "Version",
+  "privacyPolicy": "Datenschutz",
+  "termsOfService": "Nutzungsbedingungen",
+  "help": "Hilfe & Support",
+  
+  "admin": "Admin",
+  "createQuestion": "Frage erstellen",
+  "questionSets": "Fragensets",
+  "manageGroup": "Gruppe verwalten",
+  
+  "questionType": "Fragetyp",
+  "binaryVote": "Ja/Nein",
+  "singleChoice": "Einzelauswahl",
+  "multipleChoice": "Mehrfachauswahl",
+  "freeText": "Freitext",
+  "memberChoice": "Mitgliederwahl",
+  "duoChoice": "Duo-Wahl",
+  
+  "questionText": "Fragetext",
+  "enterQuestion": "Gib deine Frage ein",
+  "options": "Optionen",
+  "addOption": "Option hinzufügen",
+  "removeOption": "Option entfernen",
+  "allowMultiple": "Mehrere Antworten erlauben",
+  "questionSet": "Fragenset (optional)",
+  "selectSet": "Wähle ein Fragenset",
+  
+  "error": "Fehler",
+  "retry": "Erneut versuchen",
+  "somethingWentWrong": "Etwas ist schiefgelaufen",
+  "networkError": "Netzwerkfehler. Bitte überprüfe deine Verbindung.",
+  "serverError": "Serverfehler. Bitte versuche es später erneut.",
+  "sessionExpired": "Sitzung abgelaufen. Bitte melde dich erneut an.",
+  "rateLimited": "Zu viele Anfragen. Bitte warte einen Moment.",
+  "offline": "Du bist offline",
+  "backOnline": "Wieder online",
+  
+  "loading": "Laden...",
+  "refreshing": "Aktualisieren...",
+  "pullToRefresh": "Zum Aktualisieren ziehen",
+  
+  "yes": "Ja",
+  "no": "Nein",
+  "ok": "OK",
+  "done": "Fertig",
+  "save": "Speichern",
+  "delete": "Löschen",
+  "edit": "Bearbeiten",
+  "close": "Schließen",
+  "confirm": "Bestätigen",
+  
+  "typeYourAnswer": "Gib deine Antwort ein...",
+  "selectMember": "Wähle ein Mitglied",
+  "selectFirstMember": "Erstes Mitglied auswählen",
+  "selectSecondMember": "Zweites Mitglied auswählen"
+}

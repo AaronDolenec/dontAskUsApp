@@ -1,0 +1,7 @@
+# dontAskUs Fastlane Configuration
+
+# Update these values before deployment
+app_identifier("com.dontaskus.app")
+apple_id("your-apple-id@email.com")
+itc_team_id("YOUR_ITC_TEAM_ID")
+team_id("YOUR_TEAM_ID")

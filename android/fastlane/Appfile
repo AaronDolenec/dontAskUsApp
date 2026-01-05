@@ -1,0 +1,4 @@
+# dontAskUs Android Fastlane Configuration
+
+json_key_file("path/to/google-play-service-account.json")
+package_name("com.dontaskus.app")

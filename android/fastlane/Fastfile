@@ -1,0 +1,68 @@
+# dontAskUs Android Fastlane Configuration
+
+default_platform(:android)
+
+platform :android do
+  desc "Generate screenshots using screengrab"
+  lane :screenshots do
+    gradle(task: "assembleDebug assembleAndroidTest")
+    screengrab(
+      locales: ["en-US", "de-DE"],
+      clear_previous_screenshots: true,
+      app_package_name: "com.dontaskus.app",
+      use_tests_in_packages: ["com.dontaskus.app.screenshots"],
+      app_apk_path: "../build/app/outputs/flutter-apk/app-debug.apk",
+      tests_apk_path: "../build/app/outputs/apk/androidTest/debug/app-debug-androidTest.apk"
+    )
+  end
+
+  desc "Build and upload to Google Play Internal Testing"
+  lane :internal do
+    # Build the app bundle
+    sh("cd ../.. && flutter build appbundle --release")
+    
+    # Upload to internal testing track
+    upload_to_play_store(
+      track: "internal",
+      aab: "../build/app/outputs/bundle/release/app-release.aab",
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc "Build and upload to Google Play Beta"
+  lane :beta do
+    # Build the app bundle
+    sh("cd ../.. && flutter build appbundle --release")
+    
+    # Upload to beta track
+    upload_to_play_store(
+      track: "beta",
+      aab: "../build/app/outputs/bundle/release/app-release.aab"
+    )
+  end
+
+  desc "Build and upload to Google Play Production"
+  lane :release do
+    # Build the app bundle
+    sh("cd ../.. && flutter build appbundle --release")
+    
+    # Upload to production
+    upload_to_play_store(
+      track: "production",
+      aab: "../build/app/outputs/bundle/release/app-release.aab",
+      release_status: "draft"
+    )
+  end
+
+  desc "Build APK for local testing"
+  lane :build do
+    sh("cd ../.. && flutter build apk --release")
+  end
+
+  desc "Build App Bundle for local testing"
+  lane :build_bundle do
+    sh("cd ../.. && flutter build appbundle --release")
+  end
+end

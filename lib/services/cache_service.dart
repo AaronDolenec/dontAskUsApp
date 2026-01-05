@@ -14,12 +14,12 @@ class CacheService {
 
   /// Check if device has internet connection
   static Future<bool> hasConnection() async {
-    final result = await Connectivity().checkConnectivity();
-    return result != ConnectivityResult.none;
+    final results = await Connectivity().checkConnectivity();
+    return !results.contains(ConnectivityResult.none) && results.isNotEmpty;
   }
 
   /// Listen to connectivity changes
-  static Stream<ConnectivityResult> get connectivityStream {
+  static Stream<List<ConnectivityResult>> get connectivityStream {
     return Connectivity().onConnectivityChanged;
   }
 

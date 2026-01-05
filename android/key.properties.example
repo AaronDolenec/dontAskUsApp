@@ -1,0 +1,24 @@
+# Android Release Signing Configuration
+# ======================================
+# 
+# IMPORTANT: Do NOT commit this file to version control!
+# Add 'key.properties' to your .gitignore file.
+#
+# Instructions:
+# 1. Generate a keystore:
+#    keytool -genkey -v -keystore ~/dontaskus-release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias dontaskus
+#
+# 2. Copy this file to android/key.properties and fill in your values:
+#
+# storePassword=<your-store-password>
+# keyPassword=<your-key-password>
+# keyAlias=dontaskus
+# storeFile=/path/to/your/dontaskus-release-key.jks
+#
+# 3. Keep your keystore file safe! You need it for all future updates.
+
+# Uncomment and fill in these values:
+# storePassword=
+# keyPassword=
+# keyAlias=dontaskus
+# storeFile=
