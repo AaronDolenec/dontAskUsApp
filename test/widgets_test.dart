@@ -103,7 +103,7 @@ void main() {
       );
 
       expect(find.text('Something went wrong'), findsOneWidget);
-      expect(find.text('Retry'), findsOneWidget);
+      expect(find.text('Try Again'), findsOneWidget);
     });
 
     testWidgets('calls onRetry when button pressed', (tester) async {
@@ -120,7 +120,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('Retry'));
+      await tester.tap(find.text('Try Again'));
       expect(retryPressed, true);
     });
   });

@@ -9,6 +9,10 @@ class AuthService {
     iOptions: IOSOptions(
       accessibility: KeychainAccessibility.first_unlock_this_device,
     ),
+    webOptions: WebOptions(
+      dbName: 'dontAskUs',
+      publicKey: 'dontAskUsApp',
+    ),
   );
 
   // Storage keys

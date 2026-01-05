@@ -1,1 +1,1 @@
-{"inputs":[],"outputs":[]}
+{"inputs":["/root/flutter/packages/flutter_tools/lib/src/build_system/targets/localizations.dart","/root/coding/privat/dontAskUsApp/l10n.yaml","/root/coding/privat/dontAskUsApp/lib/l10n/app_de.arb","/root/coding/privat/dontAskUsApp/lib/l10n/app_en.arb"],"outputs":["/root/coding/privat/dontAskUsApp/lib/l10n/app_localizations_de.dart","/root/coding/privat/dontAskUsApp/lib/l10n/app_localizations_en.dart","/root/coding/privat/dontAskUsApp/lib/l10n/app_localizations.dart"]}
