@@ -13,7 +13,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Load environment configuration
-  await dotenv.load(fileName: '.env');
+  await dotenv.load();
 
   // Set preferred orientations (not supported on web)
   if (!kIsWeb) {

@@ -101,7 +101,7 @@ class _CreateQuestionScreenState extends ConsumerState<CreateQuestionScreen> {
       };
 
       await apiClient.post(
-        '/groups/$groupId/questions/today',
+        '/api/groups/$groupId/questions',
         body,
         adminToken: adminToken,
       );

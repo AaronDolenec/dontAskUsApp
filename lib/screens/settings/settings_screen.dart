@@ -4,7 +4,6 @@ import 'package:share_plus/share_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
-import '../../providers/multi_group_provider.dart';
 import '../../services/services.dart';
 import '../../services/share_service.dart';
 import '../../utils/app_colors.dart';

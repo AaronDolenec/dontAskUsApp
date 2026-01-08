@@ -12,15 +12,13 @@ final questionHistoryProvider =
   if (!auth.isAuthenticated) return [];
 
   try {
-    final token = await AuthService.getToken(auth.groupId!);
-    if (token == null) return [];
-
     final api = ref.read(apiClientProvider);
+    // Use skip/limit pagination as per API docs
+    final skip = page * 20;
     final response = await api.get(
-      '/api/groups/${auth.groupId}/questions',
-      sessionToken: token,
+      '/api/groups/${auth.groupId}/questions/history',
       queryParams: {
-        'page': page.toString(),
+        'skip': skip.toString(),
         'limit': '20',
       },
     );
@@ -130,21 +128,13 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
     }
 
     try {
-      final token = await AuthService.getToken(auth.groupId!);
-      if (token == null) {
-        state = state.copyWith(
-          isLoading: false,
-          error: 'Session expired',
-        );
-        return;
-      }
-
       final api = _ref.read(apiClientProvider);
+      // Use skip/limit pagination as per API docs (history is a public endpoint)
+      final skip = page * 20;
       final response = await api.get(
         '/api/groups/${auth.groupId}/questions/history',
-        sessionToken: token,
         queryParams: {
-          'page': page.toString(),
+          'skip': skip.toString(),
           'limit': '20',
         },
       );
@@ -182,7 +172,6 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
           questions: [],
           isLoading: false,
           hasMore: false,
-          error: null,
         );
       } else {
         final exception = ApiException.fromResponse(response);
@@ -198,7 +187,6 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
         questions: [],
         isLoading: false,
         hasMore: false,
-        error: null,
       );
     }
   }

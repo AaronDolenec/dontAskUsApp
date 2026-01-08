@@ -142,6 +142,43 @@ final membersByNameProvider = Provider<List<GroupMember>>((ref) {
   );
 });
 
+/// Provider for group leaderboard (using dedicated leaderboard endpoint)
+/// Returns members sorted by streak from the API
+final leaderboardProvider = FutureProvider<List<GroupMember>>((ref) async {
+  final auth = ref.watch(authProvider);
+  if (auth.groupId == null) return [];
+
+  try {
+    final token = await AuthService.getToken(auth.groupId!);
+    if (token == null) return [];
+
+    final api = ref.read(apiClientProvider);
+    final response = await api.get(
+      '/api/groups/${auth.groupId}/leaderboard',
+      sessionToken: token,
+    );
+
+    print('Leaderboard API response: ${response.statusCode} - ${response.body}');
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      
+      // Leaderboard returns a list directly
+      if (data is List) {
+        return data
+            .map((m) => GroupMember.fromJson(m as Map<String, dynamic>))
+            .toList();
+      }
+    }
+  } catch (e) {
+    print('Leaderboard fetch error: $e');
+    // Fall back to members sorted by streak
+    return ref.read(membersByStreakProvider);
+  }
+
+  return [];
+});
+
 /// Provider for group question sets
 final groupQuestionSetsProvider =
     FutureProvider<List<QuestionSet>>((ref) async {

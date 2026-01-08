@@ -86,7 +86,7 @@ class _SessionInfoScreenState extends ConsumerState<SessionInfoScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.warning_amber_rounded,
                           color: AppColors.warning,
                         ),
@@ -202,7 +202,7 @@ class _SessionInfoScreenState extends ConsumerState<SessionInfoScreen> {
                       padding: const EdgeInsets.all(16),
                       child: Row(
                         children: [
-                          Icon(
+                          const Icon(
                             Icons.security,
                             color: AppColors.error,
                             size: 20,

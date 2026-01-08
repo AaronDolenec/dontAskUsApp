@@ -18,7 +18,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    
+
     // Load initial data
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final state = ref.read(paginatedHistoryProvider);
@@ -36,7 +36,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= 
+    if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       ref.read(paginatedHistoryProvider.notifier).loadMore();
     }
@@ -63,15 +63,17 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       return ErrorDisplay(
         message: 'Failed to load history',
         details: state.error,
-        onRetry: () => ref.read(paginatedHistoryProvider.notifier).loadInitial(),
+        onRetry: () =>
+            ref.read(paginatedHistoryProvider.notifier).loadInitial(),
       );
     }
 
     if (state.questions.isEmpty) {
       return const EmptyStateDisplay(
-        title: 'No Questions Yet',
-        subtitle: 'Past questions will appear here',
-        icon: Icons.history,
+        title: 'History Coming Soon',
+        subtitle:
+            'Question history is not yet available.\nCheck back in a future update!',
+        icon: Icons.hourglass_empty,
       );
     }
 

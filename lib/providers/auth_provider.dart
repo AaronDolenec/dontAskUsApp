@@ -119,7 +119,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String displayName,
     String? colorAvatar,
   }) async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(isLoading: true);
 
     try {
       final api = _ref.read(apiClientProvider);
@@ -174,7 +174,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
               groupId: validation.groupId,
               isLoading: false,
               isAdmin: false,
-              error: null,
             );
             return true;
           } else {

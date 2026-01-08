@@ -76,14 +76,14 @@ class HelpScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
 
-          _FAQItem(
+          const _FAQItem(
             question: 'How do I join a group?',
             answer:
                 'To join a group, you need an invite code from someone already in the group. '
                 'Enter the 6-character code on the join screen and choose your display name and avatar color.',
           ),
 
-          _FAQItem(
+          const _FAQItem(
             question: 'How do streaks work?',
             answer:
                 'Your streak increases each day you answer the daily question. '
@@ -91,7 +91,7 @@ class HelpScreen extends StatelessWidget {
                 'Try to maintain your streak to climb the leaderboard!',
           ),
 
-          _FAQItem(
+          const _FAQItem(
             question: 'What are the different question types?',
             answer: 'There are several question types:\n\n'
                 '• Binary Vote: Choose between two options (Yes/No, A/B)\n'
@@ -101,7 +101,7 @@ class HelpScreen extends StatelessWidget {
                 '• Duo Choice: Select two group members',
           ),
 
-          _FAQItem(
+          const _FAQItem(
             question: 'Can I be in multiple groups?',
             answer:
                 'Yes! You can join multiple groups with different invite codes. '
@@ -109,26 +109,26 @@ class HelpScreen extends StatelessWidget {
                 'or "Join Another Group" to add a new one.',
           ),
 
-          _FAQItem(
+          const _FAQItem(
             question: 'How do I become an admin?',
             answer: 'You become an admin by creating a new group. '
                 'Admins can create daily questions, manage question sets, '
                 'and see the admin token for their group.',
           ),
 
-          _FAQItem(
+          const _FAQItem(
             question: 'When does the daily question reset?',
             answer: 'The daily question resets at midnight (server time). '
                 'Make sure to answer before then to keep your streak!',
           ),
 
-          _FAQItem(
+          const _FAQItem(
             question: 'Can I change my vote after submitting?',
             answer: 'No, once you submit your answer, it cannot be changed. '
                 'Make sure you\'re happy with your choice before submitting!',
           ),
 
-          _FAQItem(
+          const _FAQItem(
             question: 'How do I invite others to my group?',
             answer: 'Go to Settings and look at the Group Info section. '
                 'You can share the invite code directly, show a QR code, '

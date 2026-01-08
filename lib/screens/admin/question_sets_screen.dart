@@ -11,11 +11,16 @@ import '../../widgets/widgets.dart';
 final questionSetsProvider =
     FutureProvider.autoDispose<List<QuestionSet>>((ref) async {
   final apiClient = ref.read(apiClientProvider);
-  final response = await apiClient.get('/question-sets');
+  final response = await apiClient.get('/api/question-sets');
 
   if (response.statusCode == 200) {
     final data = jsonDecode(response.body);
-    if (data is List) {
+    if (data is Map && data.containsKey('sets')) {
+      final setsList = data['sets'] as List;
+      return setsList
+          .map((json) => QuestionSet.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } else if (data is List) {
       return data
           .map((json) => QuestionSet.fromJson(json as Map<String, dynamic>))
           .toList();
@@ -32,11 +37,16 @@ final groupQuestionSetsProvider =
 
   final apiClient = ref.read(apiClientProvider);
   final response =
-      await apiClient.get('/groups/${authState.groupId}/question-sets');
+      await apiClient.get('/api/groups/${authState.groupId}/question-sets');
 
   if (response.statusCode == 200) {
     final data = jsonDecode(response.body);
-    if (data is List) {
+    if (data is Map && data.containsKey('question_sets')) {
+      final setsList = data['question_sets'] as List;
+      return setsList
+          .map((json) => QuestionSet.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } else if (data is List) {
       return data
           .map((json) => QuestionSet.fromJson(json as Map<String, dynamic>))
           .toList();
@@ -76,9 +86,13 @@ class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
       final adminToken = await ref.read(adminTokenProvider.future);
 
       final apiClient = ref.read(apiClientProvider);
+      // API uses POST with question_set_ids array
       await apiClient.post(
-        '/groups/${authState.groupId}/question-sets/${set.setId}/assign',
-        const {},
+        '/api/groups/${authState.groupId}/question-sets',
+        {
+          'question_set_ids': [set.setId],
+          'replace': false,
+        },
         adminToken: adminToken,
       );
 
@@ -134,7 +148,7 @@ class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
 
       final apiClient = ref.read(apiClientProvider);
       await apiClient.delete(
-        '/groups/${authState.groupId}/question-sets/${set.setId}',
+        '/api/groups/${authState.groupId}/question-sets/${set.setId}',
         adminToken: adminToken,
       );
 
