@@ -11,6 +11,7 @@
         "cupertino_icons",
         "fl_chart",
         "flutter",
+        "flutter_dotenv",
         "flutter_launcher_icons",
         "flutter_localizations",
         "flutter_native_splash",
@@ -119,6 +120,13 @@
         "stream_channel",
         "test_api",
         "vector_math"
+      ]
+    },
+    {
+      "name": "flutter_dotenv",
+      "version": "5.2.1",
+      "dependencies": [
+        "flutter"
       ]
     },
     {
