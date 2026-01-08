@@ -9,7 +9,7 @@ import 'auth_provider.dart';
 final groupInfoProvider = FutureProvider<Group?>((ref) async {
   final auth = ref.watch(authProvider);
   if (auth.groupId == null) return null;
-  
+
   // Try cache first
   final cached = await CacheService.getCachedGroupInfo(auth.groupId!);
   final isStale = await CacheService.isCacheStale(
@@ -17,47 +17,51 @@ final groupInfoProvider = FutureProvider<Group?>((ref) async {
     'group',
     const Duration(hours: 1),
   );
-  
+
   if (cached != null && !isStale) {
     return cached;
   }
-  
+
   // Fetch from API
   try {
     final api = ref.read(apiClientProvider);
     final response = await api.get('/api/groups/${auth.groupId}/info');
-    
+
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final group = Group.fromJson(data);
-      
+
       // Cache the result
       await CacheService.cacheGroupInfo(group);
-      
+
+      // Also save group name for multi-group display
+      await AuthService.saveGroupName(auth.groupId!, group.name);
+
       return group;
     }
   } catch (e) {
     // Return cached if available
     if (cached != null) return cached;
   }
-  
+
   return null;
 });
 
 /// Provider for group preview (by invite code)
-final groupPreviewProvider = FutureProvider.family<Group?, String>((ref, inviteCode) async {
+final groupPreviewProvider =
+    FutureProvider.family<Group?, String>((ref, inviteCode) async {
   if (inviteCode.isEmpty) return null;
-  
+
   try {
     final api = ref.read(apiClientProvider);
     final response = await api.get('/api/groups/$inviteCode');
-    
+
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       return Group.fromJson(data);
     }
   } catch (_) {}
-  
+
   return null;
 });
 
@@ -65,7 +69,7 @@ final groupPreviewProvider = FutureProvider.family<Group?, String>((ref, inviteC
 final groupMembersProvider = FutureProvider<List<GroupMember>>((ref) async {
   final auth = ref.watch(authProvider);
   if (auth.groupId == null) return [];
-  
+
   // Try cache first
   final cached = await CacheService.getCachedMembers(auth.groupId!);
   final isStale = await CacheService.isCacheStale(
@@ -73,33 +77,40 @@ final groupMembersProvider = FutureProvider<List<GroupMember>>((ref) async {
     'members',
     const Duration(minutes: 15),
   );
-  
+
   if (cached != null && !isStale) {
     return cached;
   }
-  
+
   // Fetch from API
   try {
     final api = ref.read(apiClientProvider);
     final response = await api.get('/api/groups/${auth.groupId}/members');
-    
+
+    print('Members API response: ${response.statusCode} - ${response.body}');
+
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final membersJson = data['members'] as List;
+      final membersJson = data['members'] as List? ?? [];
       final members = membersJson
           .map((m) => GroupMember.fromJson(m as Map<String, dynamic>))
           .toList();
-      
+
+      print('Parsed ${members.length} members');
+
       // Cache the result
       await CacheService.cacheMembers(auth.groupId!, members);
-      
+
       return members;
+    } else {
+      print('Members API error: ${response.statusCode}');
     }
   } catch (e) {
+    print('Members fetch error: $e');
     // Return cached if available
     if (cached != null) return cached;
   }
-  
+
   return [];
 });
 
@@ -132,14 +143,15 @@ final membersByNameProvider = Provider<List<GroupMember>>((ref) {
 });
 
 /// Provider for group question sets
-final groupQuestionSetsProvider = FutureProvider<List<QuestionSet>>((ref) async {
+final groupQuestionSetsProvider =
+    FutureProvider<List<QuestionSet>>((ref) async {
   final auth = ref.watch(authProvider);
   if (auth.groupId == null) return [];
-  
+
   try {
     final api = ref.read(apiClientProvider);
     final response = await api.get('/api/groups/${auth.groupId}/question-sets');
-    
+
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final setsJson = data['question_sets'] as List;
@@ -148,16 +160,17 @@ final groupQuestionSetsProvider = FutureProvider<List<QuestionSet>>((ref) async 
           .toList();
     }
   } catch (_) {}
-  
+
   return [];
 });
 
 /// Provider for public question sets
-final publicQuestionSetsProvider = FutureProvider<List<QuestionSet>>((ref) async {
+final publicQuestionSetsProvider =
+    FutureProvider<List<QuestionSet>>((ref) async {
   try {
     final api = ref.read(apiClientProvider);
     final response = await api.get('/api/question-sets');
-    
+
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final setsJson = data['sets'] as List;
@@ -166,6 +179,6 @@ final publicQuestionSetsProvider = FutureProvider<List<QuestionSet>>((ref) async
           .toList();
     }
   } catch (_) {}
-  
+
   return [];
 });

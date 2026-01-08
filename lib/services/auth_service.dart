@@ -1,19 +1,100 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+/// Abstract storage interface for cross-platform compatibility
+abstract class _StorageBackend {
+  Future<String?> read(String key);
+  Future<void> write(String key, String value);
+  Future<void> delete(String key);
+  Future<void> deleteAll();
+}
+
+/// Secure storage for mobile platforms
+class _SecureStorageBackend implements _StorageBackend {
+  final FlutterSecureStorage _storage;
+
+  _SecureStorageBackend(this._storage);
+
+  @override
+  Future<String?> read(String key) => _storage.read(key: key);
+
+  @override
+  Future<void> write(String key, String value) =>
+      _storage.write(key: key, value: value);
+
+  @override
+  Future<void> delete(String key) => _storage.delete(key: key);
+
+  @override
+  Future<void> deleteAll() => _storage.deleteAll();
+}
+
+/// SharedPreferences fallback for web (non-secure context)
+class _WebStorageBackend implements _StorageBackend {
+  SharedPreferences? _prefs;
+  static const _prefix = 'auth_';
+
+  Future<SharedPreferences> _getPrefs() async {
+    _prefs ??= await SharedPreferences.getInstance();
+    return _prefs!;
+  }
+
+  @override
+  Future<String?> read(String key) async {
+    final prefs = await _getPrefs();
+    return prefs.getString('$_prefix$key');
+  }
+
+  @override
+  Future<void> write(String key, String value) async {
+    final prefs = await _getPrefs();
+    await prefs.setString('$_prefix$key', value);
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    final prefs = await _getPrefs();
+    await prefs.remove('$_prefix$key');
+  }
+
+  @override
+  Future<void> deleteAll() async {
+    final prefs = await _getPrefs();
+    final keys = prefs.getKeys().where((k) => k.startsWith(_prefix)).toList();
+    for (final key in keys) {
+      await prefs.remove(key);
+    }
+  }
+}
 
 /// Service for secure authentication token storage
+/// Uses FlutterSecureStorage on mobile, SharedPreferences on web
 class AuthService {
-  static const _storage = FlutterSecureStorage(
-    aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
-    ),
-    iOptions: IOSOptions(
-      accessibility: KeychainAccessibility.first_unlock_this_device,
-    ),
-    webOptions: WebOptions(
-      dbName: 'dontAskUs',
-      publicKey: 'dontAskUsApp',
-    ),
-  );
+  static _StorageBackend? _backend;
+
+  /// Get the appropriate storage backend for the platform
+  static _StorageBackend get _storage {
+    if (_backend != null) return _backend!;
+
+    if (kIsWeb) {
+      // Use SharedPreferences on web (works without HTTPS)
+      _backend = _WebStorageBackend();
+    } else {
+      // Use secure storage on mobile
+      _backend = _SecureStorageBackend(
+        const FlutterSecureStorage(
+          aOptions: AndroidOptions(
+            encryptedSharedPreferences: true,
+          ),
+          iOptions: IOSOptions(
+            accessibility: KeychainAccessibility.first_unlock_this_device,
+          ),
+        ),
+      );
+    }
+    return _backend!;
+  }
 
   // Storage keys
   static const _tokenKeyPrefix = 'session_token_';
@@ -21,6 +102,7 @@ class AuthService {
   static const _adminTokenKeyPrefix = 'admin_token_';
   static const _userIdKeyPrefix = 'user_id_';
   static const _displayNameKeyPrefix = 'display_name_';
+  static const _groupNameKeyPrefix = 'group_name_';
   static const _groupsListKey = 'groups_list';
 
   // ============= Session Token Management =============
@@ -31,12 +113,15 @@ class AuthService {
     required String token,
     required String oderId,
     required String displayName,
+    String? groupName,
   }) async {
-    await _storage.write(key: '$_tokenKeyPrefix$groupId', value: token);
-    await _storage.write(key: '$_userIdKeyPrefix$groupId', value: oderId);
-    await _storage.write(
-        key: '$_displayNameKeyPrefix$groupId', value: displayName);
-    await _storage.write(key: _currentGroupKey, value: groupId);
+    await _storage.write('$_tokenKeyPrefix$groupId', token);
+    await _storage.write('$_userIdKeyPrefix$groupId', oderId);
+    await _storage.write('$_displayNameKeyPrefix$groupId', displayName);
+    if (groupName != null) {
+      await _storage.write('$_groupNameKeyPrefix$groupId', groupName);
+    }
+    await _storage.write(_currentGroupKey, groupId);
 
     // Add to groups list
     await _addToGroupsList(groupId);
@@ -44,35 +129,46 @@ class AuthService {
 
   /// Get session token for a group
   static Future<String?> getToken(String groupId) async {
-    return await _storage.read(key: '$_tokenKeyPrefix$groupId');
+    return await _storage.read('$_tokenKeyPrefix$groupId');
   }
 
   /// Get current active group ID
   static Future<String?> getCurrentGroupId() async {
-    return await _storage.read(key: _currentGroupKey);
+    return await _storage.read(_currentGroupKey);
   }
 
   /// Set current active group
   static Future<void> setCurrentGroup(String groupId) async {
-    await _storage.write(key: _currentGroupKey, value: groupId);
+    await _storage.write(_currentGroupKey, groupId);
   }
 
   /// Get user ID for a group
   static Future<String?> getUserId(String groupId) async {
-    return await _storage.read(key: '$_userIdKeyPrefix$groupId');
+    return await _storage.read('$_userIdKeyPrefix$groupId');
   }
 
   /// Get display name for a group
   static Future<String?> getDisplayName(String groupId) async {
-    return await _storage.read(key: '$_displayNameKeyPrefix$groupId');
+    return await _storage.read('$_displayNameKeyPrefix$groupId');
+  }
+
+  /// Get group name for a group
+  static Future<String?> getGroupName(String groupId) async {
+    return await _storage.read('$_groupNameKeyPrefix$groupId');
+  }
+
+  /// Save group name for a group
+  static Future<void> saveGroupName(String groupId, String groupName) async {
+    await _storage.write('$_groupNameKeyPrefix$groupId', groupName);
   }
 
   /// Clear session for a group
   static Future<void> clearSession(String groupId) async {
-    await _storage.delete(key: '$_tokenKeyPrefix$groupId');
-    await _storage.delete(key: '$_userIdKeyPrefix$groupId');
-    await _storage.delete(key: '$_displayNameKeyPrefix$groupId');
-    await _storage.delete(key: '$_adminTokenKeyPrefix$groupId');
+    await _storage.delete('$_tokenKeyPrefix$groupId');
+    await _storage.delete('$_userIdKeyPrefix$groupId');
+    await _storage.delete('$_displayNameKeyPrefix$groupId');
+    await _storage.delete('$_groupNameKeyPrefix$groupId');
+    await _storage.delete('$_adminTokenKeyPrefix$groupId');
 
     // Remove from groups list
     await _removeFromGroupsList(groupId);
@@ -84,7 +180,7 @@ class AuthService {
       if (groups.isNotEmpty) {
         await setCurrentGroup(groups.first);
       } else {
-        await _storage.delete(key: _currentGroupKey);
+        await _storage.delete(_currentGroupKey);
       }
     }
   }
@@ -98,13 +194,12 @@ class AuthService {
 
   /// Save admin token for a group
   static Future<void> saveAdminToken(String groupId, String adminToken) async {
-    await _storage.write(
-        key: '$_adminTokenKeyPrefix$groupId', value: adminToken);
+    await _storage.write('$_adminTokenKeyPrefix$groupId', adminToken);
   }
 
   /// Get admin token for a group
   static Future<String?> getAdminToken(String groupId) async {
-    return await _storage.read(key: '$_adminTokenKeyPrefix$groupId');
+    return await _storage.read('$_adminTokenKeyPrefix$groupId');
   }
 
   /// Check if user is admin for a group
@@ -117,7 +212,7 @@ class AuthService {
 
   /// Get list of all joined groups
   static Future<List<String>> getGroupsList() async {
-    final data = await _storage.read(key: _groupsListKey);
+    final data = await _storage.read(_groupsListKey);
     if (data == null || data.isEmpty) return [];
     return data.split(',');
   }
@@ -127,7 +222,7 @@ class AuthService {
     final groups = await getGroupsList();
     if (!groups.contains(groupId)) {
       groups.add(groupId);
-      await _storage.write(key: _groupsListKey, value: groups.join(','));
+      await _storage.write(_groupsListKey, groups.join(','));
     }
   }
 
@@ -135,7 +230,7 @@ class AuthService {
   static Future<void> _removeFromGroupsList(String groupId) async {
     final groups = await getGroupsList();
     groups.remove(groupId);
-    await _storage.write(key: _groupsListKey, value: groups.join(','));
+    await _storage.write(_groupsListKey, groups.join(','));
   }
 
   // ============= Convenience Methods =============

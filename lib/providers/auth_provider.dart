@@ -55,28 +55,28 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Load existing session from secure storage
   Future<void> _loadSession() async {
     state = state.copyWith(isLoading: true);
-    
+
     try {
       final sessionInfo = await AuthService.getCurrentSessionInfo();
       final groupId = sessionInfo['groupId'];
       final token = sessionInfo['token'];
-      
+
       if (groupId == null || token == null) {
         state = state.copyWith(isLoading: false);
         return;
       }
-      
+
       // Validate session with API
       final api = _ref.read(apiClientProvider);
       final response = await api.get('/api/users/validate-session/$token');
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final validation = SessionValidation.fromJson(data);
-        
+
         if (validation.valid) {
           final isAdmin = await AuthService.isAdmin(groupId);
-          
+
           // Create a minimal user from validation data
           state = state.copyWith(
             user: User(
@@ -96,7 +96,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           return;
         }
       }
-      
+
       // Invalid session - clear it
       await AuthService.clearSession(groupId);
       state = state.copyWith(isLoading: false);
@@ -108,61 +108,93 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// Reload session (used when switching groups)
+  Future<void> reloadSession() async {
+    await _loadSession();
+  }
+
   /// Join a group with invite code
   Future<bool> joinGroup({
     required String inviteCode,
     required String displayName,
     String? colorAvatar,
   }) async {
-    state = state.copyWith(isLoading: true);
-    
+    state = state.copyWith(isLoading: true, error: null);
+
     try {
       final api = _ref.read(apiClientProvider);
+
+      // First, get the group info from the invite code
+      final groupPreviewResponse = await api.get('/api/groups/$inviteCode');
+      String? groupName;
+      if (groupPreviewResponse.statusCode == 200) {
+        final previewData =
+            jsonDecode(groupPreviewResponse.body) as Map<String, dynamic>;
+        groupName = previewData['name'] as String?;
+      }
+
       final response = await api.post('/api/users/join', {
         'display_name': displayName,
         'group_invite_code': inviteCode.toUpperCase(),
         if (colorAvatar != null) 'color_avatar': colorAvatar,
       });
-      
+
+      // Debug: print response status
+      print('Join API response: ${response.statusCode} - ${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final user = User.fromJson(data);
-        
+
         // Get group ID from validating the new token
         final validateResponse = await api.get(
           '/api/users/validate-session/${user.sessionToken}',
         );
-        
+
+        print(
+            'Validate response: ${validateResponse.statusCode} - ${validateResponse.body}');
+
         if (validateResponse.statusCode == 200) {
-          final validateData = jsonDecode(validateResponse.body) as Map<String, dynamic>;
+          final validateData =
+              jsonDecode(validateResponse.body) as Map<String, dynamic>;
           final validation = SessionValidation.fromJson(validateData);
-          
+
           if (validation.valid && validation.groupId != null) {
-            // Save session
+            // Save session with group name
             await AuthService.saveSession(
               groupId: validation.groupId!,
               token: user.sessionToken,
               oderId: user.oderId,
               displayName: user.displayName,
+              groupName: groupName,
             );
-            
+
             state = state.copyWith(
               user: user,
               groupId: validation.groupId,
               isLoading: false,
               isAdmin: false,
+              error: null,
             );
             return true;
+          } else {
+            state = state.copyWith(
+              isLoading: false,
+              error:
+                  'Session validation failed: ${validation.valid ? "missing group ID" : "invalid session"}',
+            );
+            return false;
           }
+        } else {
+          state = state.copyWith(
+            isLoading: false,
+            error:
+                'Failed to validate session (${validateResponse.statusCode})',
+          );
+          return false;
         }
-        
-        state = state.copyWith(
-          isLoading: false,
-          error: 'Failed to validate session',
-        );
-        return false;
       }
-      
+
       final exception = ApiException.fromResponse(response);
       state = state.copyWith(
         isLoading: false,
@@ -170,6 +202,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       return false;
     } catch (e) {
+      print('Join group error: $e');
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
@@ -181,24 +214,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Create a new group
   Future<Group?> createGroup(String name) async {
     state = state.copyWith(isLoading: true);
-    
+
     try {
       final api = _ref.read(apiClientProvider);
       final response = await api.post('/api/groups', {'name': name});
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final group = Group.fromJson(data);
-        
+
         // Save admin token if provided
         if (group.adminToken != null) {
           await AuthService.saveAdminToken(group.groupId, group.adminToken!);
         }
-        
+
         state = state.copyWith(isLoading: false);
         return group;
       }
-      
+
       final exception = ApiException.fromResponse(response);
       state = state.copyWith(
         isLoading: false,
@@ -217,7 +250,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Switch to a different group
   Future<bool> switchGroup(String groupId) async {
     state = state.copyWith(isLoading: true);
-    
+
     try {
       final token = await AuthService.getToken(groupId);
       if (token == null) {
@@ -227,19 +260,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
         );
         return false;
       }
-      
+
       // Validate the token
       final api = _ref.read(apiClientProvider);
       final response = await api.get('/api/users/validate-session/$token');
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final validation = SessionValidation.fromJson(data);
-        
+
         if (validation.valid) {
           await AuthService.setCurrentGroup(groupId);
           final isAdmin = await AuthService.isAdmin(groupId);
-          
+
           state = state.copyWith(
             user: User(
               id: 0,
@@ -258,7 +291,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           return true;
         }
       }
-      
+
       state = state.copyWith(
         isLoading: false,
         error: 'Invalid session for this group',
@@ -277,10 +310,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> leaveGroup() async {
     final groupId = state.groupId;
     if (groupId == null) return;
-    
+
     await AuthService.clearSession(groupId);
     await CacheService.clearGroupCache(groupId);
-    
+
     // Check if there are other groups
     final groups = await AuthService.getGroupsList();
     if (groups.isNotEmpty) {

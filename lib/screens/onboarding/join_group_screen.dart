@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/providers.dart';
+import '../../providers/multi_group_provider.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/widgets.dart';
 import '../main/main_screen.dart';
@@ -9,7 +10,10 @@ import 'create_group_screen.dart';
 
 /// Screen for joining a group with invite code
 class JoinGroupScreen extends ConsumerStatefulWidget {
-  const JoinGroupScreen({super.key});
+  /// If true, this is adding a new group (not initial onboarding)
+  final bool isAddingGroup;
+
+  const JoinGroupScreen({super.key, this.isAddingGroup = false});
 
   @override
   ConsumerState<JoinGroupScreen> createState() => _JoinGroupScreenState();
@@ -19,7 +23,7 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
   final _inviteCodeController = TextEditingController();
   final _displayNameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-  
+
   String? _selectedColor;
   bool _isLoadingPreview = false;
   String? _previewGroupName;
@@ -54,7 +58,8 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
       _previewError = null;
     });
 
-    final group = await ref.read(groupPreviewProvider(code.toUpperCase()).future);
+    final group =
+        await ref.read(groupPreviewProvider(code.toUpperCase()).future);
 
     setState(() {
       _isLoadingPreview = false;
@@ -79,26 +84,80 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
       return;
     }
 
-    final success = await ref.read(authProvider.notifier).joinGroup(
-      inviteCode: _inviteCodeController.text.trim(),
-      displayName: _displayNameController.text.trim(),
-      colorAvatar: _selectedColor,
-    );
+    try {
+      final success = await ref.read(authProvider.notifier).joinGroup(
+            inviteCode: _inviteCodeController.text.trim(),
+            displayName: _displayNameController.text.trim(),
+            colorAvatar: _selectedColor,
+          );
 
-    if (success && mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainScreen()),
-      );
+      if (mounted) {
+        if (success) {
+          // Refresh multi-group list
+          ref.read(multiGroupProvider.notifier).refresh();
+
+          if (widget.isAddingGroup) {
+            // Just pop back to settings when adding another group
+            Navigator.of(context).pop();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Joined "$_previewGroupName"!')),
+            );
+          } else {
+            // Navigate to main screen for initial onboarding
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const MainScreen()),
+            );
+          }
+        } else {
+          // Show error if joining failed
+          final authState = ref.read(authProvider);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  authState.error ?? 'Failed to join group. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _pasteFromClipboard() async {
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    if (data?.text != null) {
-      final code = data!.text!.trim().toUpperCase();
-      if (code.length >= 6 && code.length <= 8) {
-        _inviteCodeController.text = code;
-        _fetchGroupPreview(code);
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (data?.text != null) {
+        final code = data!.text!.trim().toUpperCase();
+        if (code.length >= 6 && code.length <= 8) {
+          _inviteCodeController.text = code;
+          _fetchGroupPreview(code);
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content:
+                      Text('Clipboard doesn\'t contain a valid invite code')),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      // Clipboard access may fail on web without HTTPS
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Could not access clipboard. Please type the code manually.')),
+        );
       }
     }
   }
@@ -108,6 +167,11 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
     final authState = ref.watch(authProvider);
 
     return Scaffold(
+      appBar: widget.isAddingGroup
+          ? AppBar(
+              title: const Text('Join Another Group'),
+            )
+          : null,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -116,33 +180,33 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 40),
-                
+                if (!widget.isAddingGroup) const SizedBox(height: 40),
+
                 // Header
                 Text(
-                  'Join a Group',
+                  widget.isAddingGroup ? 'Join Another Group' : 'Join a Group',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                        fontWeight: FontWeight.bold,
+                      ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Enter your group\'s invite code to get started',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                        color: AppColors.textSecondary,
+                      ),
                   textAlign: TextAlign.center,
                 ),
-                
+
                 const SizedBox(height: 40),
 
                 // Invite Code Input
                 Text(
                   'Invite Code',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -156,7 +220,8 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
                           prefixIcon: Icon(Icons.link),
                         ),
                         inputFormatters: [
-                          FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
+                          FilteringTextInputFormatter.allow(
+                              RegExp(r'[A-Za-z0-9]')),
                           LengthLimitingTextInputFormatter(8),
                           UpperCaseTextFormatter(),
                         ],
@@ -194,7 +259,11 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
                 const SizedBox(height: 16),
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  height: _isLoadingPreview || _previewGroupName != null || _previewError != null ? 60 : 0,
+                  height: _isLoadingPreview ||
+                          _previewGroupName != null ||
+                          _previewError != null
+                      ? 60
+                      : 0,
                   child: _isLoadingPreview
                       ? const Center(child: CircularProgressIndicator())
                       : _previewGroupName != null
@@ -203,20 +272,26 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
                               decoration: BoxDecoration(
                                 color: AppColors.success.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
+                                border: Border.all(
+                                    color: AppColors.success
+                                        .withValues(alpha: 0.3)),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.check_circle, color: AppColors.success),
+                                  const Icon(Icons.check_circle,
+                                      color: AppColors.success),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Text(
                                           _previewGroupName!,
-                                          style: const TextStyle(fontWeight: FontWeight.w600),
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600),
                                         ),
                                         Text(
                                           '$_previewMemberCount member${_previewMemberCount != 1 ? 's' : ''}',
@@ -235,17 +310,22 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
                               ? Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: AppColors.error.withValues(alpha: 0.1),
+                                    color:
+                                        AppColors.error.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                                    border: Border.all(
+                                        color: AppColors.error
+                                            .withValues(alpha: 0.3)),
                                   ),
                                   child: Row(
                                     children: [
-                                      const Icon(Icons.error_outline, color: AppColors.error),
+                                      const Icon(Icons.error_outline,
+                                          color: AppColors.error),
                                       const SizedBox(width: 12),
                                       Text(
                                         _previewError!,
-                                        style: const TextStyle(color: AppColors.error),
+                                        style: const TextStyle(
+                                            color: AppColors.error),
                                       ),
                                     ],
                                   ),
@@ -259,8 +339,8 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
                 Text(
                   'Your Display Name',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
@@ -287,15 +367,15 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
                 Text(
                   'Choose Your Color',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'This will be your avatar color',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                        color: AppColors.textSecondary,
+                      ),
                 ),
                 const SizedBox(height: 16),
                 Center(
@@ -333,34 +413,38 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
                       : const Text('Join Group'),
                 ),
 
-                const SizedBox(height: 24),
+                // Only show "Create Group" option during initial onboarding
+                if (!widget.isAddingGroup) ...[
+                  const SizedBox(height: 24),
 
-                // Or divider
-                const Row(
-                  children: [
-                    Expanded(child: Divider()),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'or',
-                        style: TextStyle(color: AppColors.textLight),
+                  // Or divider
+                  const Row(
+                    children: [
+                      Expanded(child: Divider()),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'or',
+                          style: TextStyle(color: AppColors.textLight),
+                        ),
                       ),
-                    ),
-                    Expanded(child: Divider()),
-                  ],
-                ),
+                      Expanded(child: Divider()),
+                    ],
+                  ),
 
-                const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-                // Create Group Button
-                OutlinedButton(
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const CreateGroupScreen()),
-                    );
-                  },
-                  child: const Text('Create a New Group'),
-                ),
+                  // Create Group Button
+                  OutlinedButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const CreateGroupScreen()),
+                      );
+                    },
+                    child: const Text('Create a New Group'),
+                  ),
+                ],
               ],
             ),
           ),

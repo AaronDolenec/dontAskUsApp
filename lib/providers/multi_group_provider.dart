@@ -21,10 +21,12 @@ class MultiGroupNotifier extends StateNotifier<MultiGroupState> {
 
       final groups = <GroupInfo>[];
       for (final groupId in groupIds) {
+        // Try to get group name first, fall back to display name (user's name in that group)
+        final groupName = await AuthService.getGroupName(groupId);
         final displayName = await AuthService.getDisplayName(groupId);
         groups.add(GroupInfo(
           groupId: groupId,
-          groupName: displayName ?? 'Unknown Group',
+          groupName: groupName ?? displayName ?? 'Unknown Group',
         ));
       }
 
@@ -245,6 +247,9 @@ class GroupSelectorSheet extends ConsumerWidget {
   void _selectGroup(BuildContext context, WidgetRef ref, String groupId) {
     ref.read(multiGroupProvider.notifier).switchGroup(groupId);
     Navigator.pop(context);
+
+    // Reload auth state for new group
+    ref.read(authProvider.notifier).reloadSession();
 
     // Trigger refresh of data for new group
     ref.invalidate(groupInfoProvider);

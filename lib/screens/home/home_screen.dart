@@ -4,6 +4,7 @@ import '../../providers/providers.dart';
 import '../../models/models.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/widgets.dart';
+import '../admin/create_question_screen.dart';
 
 /// Home screen displaying today's question
 class HomeScreen extends ConsumerStatefulWidget {
@@ -77,7 +78,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             IconButton(
               icon: const Icon(Icons.add_circle_outline),
               onPressed: () {
-                // TODO: Navigate to create question screen
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const CreateQuestionScreen(),
+                  ),
+                );
               },
               tooltip: 'Create Question',
             ),
@@ -254,8 +259,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             const Row(
               children: [
-                Icon(Icons.check_circle,
-                    color: AppColors.success, size: 20),
+                Icon(Icons.check_circle, color: AppColors.success, size: 20),
                 SizedBox(width: 8),
                 Text(
                   'Your Answer',

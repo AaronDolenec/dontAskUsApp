@@ -6,14 +6,15 @@ import 'api_provider.dart';
 import 'auth_provider.dart';
 
 /// Provider for question history
-final questionHistoryProvider = FutureProvider.family<List<DailyQuestion>, int>((ref, page) async {
+final questionHistoryProvider =
+    FutureProvider.family<List<DailyQuestion>, int>((ref, page) async {
   final auth = ref.watch(authProvider);
   if (!auth.isAuthenticated) return [];
-  
+
   try {
     final token = await AuthService.getToken(auth.groupId!);
     if (token == null) return [];
-    
+
     final api = ref.read(apiClientProvider);
     final response = await api.get(
       '/api/groups/${auth.groupId}/questions',
@@ -23,10 +24,10 @@ final questionHistoryProvider = FutureProvider.family<List<DailyQuestion>, int>(
         'limit': '20',
       },
     );
-    
+
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      
+
       // Handle both list and object response formats
       List questionsJson;
       if (data is List) {
@@ -36,13 +37,13 @@ final questionHistoryProvider = FutureProvider.family<List<DailyQuestion>, int>(
       } else {
         return [];
       }
-      
+
       return questionsJson
           .map((q) => DailyQuestion.fromJson(q as Map<String, dynamic>))
           .toList();
     }
   } catch (_) {}
-  
+
   return [];
 });
 
@@ -80,7 +81,8 @@ class HistoryState {
 }
 
 /// Provider for paginated history
-final paginatedHistoryProvider = StateNotifierProvider<HistoryNotifier, HistoryState>((ref) {
+final paginatedHistoryProvider =
+    StateNotifierProvider<HistoryNotifier, HistoryState>((ref) {
   return HistoryNotifier(ref);
 });
 
@@ -92,20 +94,20 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
   /// Load initial history
   Future<void> loadInitial() async {
     if (state.isLoading) return;
-    
+
     state = state.copyWith(
       isLoading: true,
       questions: [],
       currentPage: 0,
     );
-    
+
     await _loadPage(0);
   }
 
   /// Load next page
   Future<void> loadMore() async {
     if (state.isLoading || !state.hasMore) return;
-    
+
     state = state.copyWith(isLoading: true);
     await _loadPage(state.currentPage + 1);
   }
@@ -126,7 +128,7 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
       state = state.copyWith(isLoading: false);
       return;
     }
-    
+
     try {
       final token = await AuthService.getToken(auth.groupId!);
       if (token == null) {
@@ -136,20 +138,22 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
         );
         return;
       }
-      
+
       final api = _ref.read(apiClientProvider);
       final response = await api.get(
-        '/api/groups/${auth.groupId}/questions',
+        '/api/groups/${auth.groupId}/questions/history',
         sessionToken: token,
         queryParams: {
           'page': page.toString(),
           'limit': '20',
         },
       );
-      
+
+      print('History API response: ${response.statusCode} - ${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        
+
         List questionsJson;
         if (data is List) {
           questionsJson = data;
@@ -158,20 +162,27 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
         } else {
           questionsJson = [];
         }
-        
+
         final newQuestions = questionsJson
             .map((q) => DailyQuestion.fromJson(q as Map<String, dynamic>))
             .toList();
-        
-        final allQuestions = page == 0 
-            ? newQuestions 
-            : [...state.questions, ...newQuestions];
-        
+
+        final allQuestions =
+            page == 0 ? newQuestions : [...state.questions, ...newQuestions];
+
         state = state.copyWith(
           questions: allQuestions,
           isLoading: false,
           hasMore: newQuestions.length >= 20,
           currentPage: page,
+        );
+      } else if (response.statusCode == 404) {
+        // History endpoint might not exist yet - show empty state instead of error
+        state = state.copyWith(
+          questions: [],
+          isLoading: false,
+          hasMore: false,
+          error: null,
         );
       } else {
         final exception = ApiException.fromResponse(response);
@@ -181,9 +192,13 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
         );
       }
     } catch (e) {
+      print('History fetch error: $e');
+      // If it's a network error or endpoint doesn't exist, show empty state
       state = state.copyWith(
+        questions: [],
         isLoading: false,
-        error: e.toString(),
+        hasMore: false,
+        error: null,
       );
     }
   }

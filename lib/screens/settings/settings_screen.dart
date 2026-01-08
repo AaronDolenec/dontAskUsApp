@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
+import '../../providers/multi_group_provider.dart';
+import '../../services/services.dart';
+import '../../services/share_service.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/widgets.dart';
+import '../admin/create_question_screen.dart';
+import '../admin/question_sets_screen.dart';
 import '../onboarding/join_group_screen.dart';
+import 'help_screen.dart';
+import 'session_info_screen.dart';
 
 /// Settings screen
 class SettingsScreen extends ConsumerWidget {
@@ -62,8 +68,30 @@ class SettingsScreen extends ConsumerWidget {
                         initials: authState.user!.displayName.substring(0, 2),
                       ),
                       title: Text(authState.user!.displayName),
-                      subtitle: const Text('Your profile'),
+                      subtitle: Text(
+                          'Streak: 🔥 ${authState.user!.answerStreak} days (Best: ${authState.user!.longestAnswerStreak})'),
                     ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.swap_horiz),
+                    title: const Text('Switch Groups'),
+                    subtitle: const Text('Manage your groups'),
+                    onTap: () => GroupSelectorSheet.show(context),
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.group_add),
+                    title: const Text('Join Another Group'),
+                    subtitle: const Text('Enter a new invite code'),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              const JoinGroupScreen(isAddingGroup: true),
+                        ),
+                      );
+                    },
+                  ),
                   const Divider(height: 1),
                   ListTile(
                     leading: const Icon(Icons.exit_to_app),
@@ -95,7 +123,11 @@ class SettingsScreen extends ConsumerWidget {
                       title: const Text('Create Question'),
                       subtitle: const Text('Add today\'s question'),
                       onTap: () {
-                        // TODO: Navigate to create question
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const CreateQuestionScreen(),
+                          ),
+                        );
                       },
                     ),
                     const Divider(height: 1),
@@ -104,7 +136,11 @@ class SettingsScreen extends ConsumerWidget {
                       title: const Text('Question Sets'),
                       subtitle: const Text('Manage question templates'),
                       onTap: () {
-                        // TODO: Navigate to question sets
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const QuestionSetsScreen(),
+                          ),
+                        );
                       },
                     ),
                   ],
@@ -129,44 +165,31 @@ class SettingsScreen extends ConsumerWidget {
                     leading: const Icon(Icons.info_outline),
                     title: const Text('About dontAskUs'),
                     subtitle: const Text('Version 1.0.0'),
-                    onTap: () {
-                      showAboutDialog(
-                        context: context,
-                        applicationName: 'dontAskUs',
-                        applicationVersion: '1.0.0',
-                        applicationIcon: Container(
-                          width: 60,
-                          height: 60,
-                          decoration: BoxDecoration(
-                            color: AppColors.primary,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Center(
-                            child: Text(
-                              '?',
-                              style: TextStyle(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                        children: [
-                          const Text(
-                            'A group-based daily question and voting platform. '
-                            'Answer questions, vote with your friends, and maintain your streak!',
-                          ),
-                        ],
-                      );
-                    },
+                    onTap: () => _showAboutDialog(context),
                   ),
                   const Divider(height: 1),
                   ListTile(
                     leading: const Icon(Icons.help_outline),
                     title: const Text('Help & Support'),
                     onTap: () {
-                      // TODO: Open help
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const HelpScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.bug_report_outlined),
+                    title: const Text('Session Info'),
+                    subtitle: const Text('Debug information'),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const SessionInfoScreen(),
+                        ),
+                      );
                     },
                   ),
                 ],
@@ -213,6 +236,80 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
   }
+
+  void _showAboutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Center(
+                child: Text(
+                  '?',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('dontAskUs'),
+                  Text(
+                    'Version 1.0.0',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'A group-based daily question and voting platform. '
+              'Answer questions, vote with your friends, and maintain your streak!',
+            ),
+            SizedBox(height: 16),
+            Divider(),
+            SizedBox(height: 8),
+            Text(
+              '© 2026 dontAskUs',
+              style: TextStyle(fontSize: 12),
+            ),
+            SizedBox(height: 4),
+            Text(
+              'Licensed under Creative Commons',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _GroupInfoCard extends StatelessWidget {
@@ -220,11 +317,11 @@ class _GroupInfoCard extends StatelessWidget {
 
   const _GroupInfoCard({required this.group});
 
-  void _copyInviteCode(BuildContext context) {
-    Clipboard.setData(ClipboardData(text: group.inviteCode));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Invite code copied!')),
-    );
+  Future<void> _copyInviteCode(BuildContext context) async {
+    final success = await ShareService.copyInviteCode(group.inviteCode);
+    if (context.mounted) {
+      ShareService.showCopyResult(context, success, group.inviteCode);
+    }
   }
 
   void _shareInviteCode() {

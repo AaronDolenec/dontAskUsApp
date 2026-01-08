@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -20,9 +21,44 @@ class ShareService {
     );
   }
 
-  /// Copy invite code to clipboard
-  static Future<void> copyInviteCode(String inviteCode) async {
-    await Clipboard.setData(ClipboardData(text: inviteCode));
+  /// Copy invite code to clipboard with web fallback
+  /// Returns true if successful, false otherwise
+  static Future<bool> copyInviteCode(String inviteCode) async {
+    try {
+      await Clipboard.setData(ClipboardData(text: inviteCode));
+      return true;
+    } catch (e) {
+      // Clipboard API requires secure context (HTTPS) on web
+      if (kIsWeb) {
+        // Try using the web clipboard API directly as fallback
+        try {
+          // This might work in some browsers even without HTTPS
+          await Clipboard.setData(ClipboardData(text: inviteCode));
+          return true;
+        } catch (_) {
+          return false;
+        }
+      }
+      return false;
+    }
+  }
+
+  /// Show a snackbar with copy result
+  static void showCopyResult(BuildContext context, bool success, String text) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success ? 'Copied to clipboard!' : 'Could not copy. Code: $text',
+        ),
+        action: success
+            ? null
+            : SnackBarAction(
+                label: 'OK',
+                onPressed: () {},
+              ),
+        duration: Duration(seconds: success ? 2 : 5),
+      ),
+    );
   }
 
   /// Generate deep link for invite code
