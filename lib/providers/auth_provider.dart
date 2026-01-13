@@ -61,6 +61,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final groupId = sessionInfo['groupId'];
       final token = sessionInfo['token'];
 
+      // Refresh session token for all groups on app start
+      final allGroups = await AuthService.getGroupsList();
+      for (final gid in allGroups) {
+        final t = await AuthService.getToken(gid);
+        if (t != null) {
+          await AuthService.refreshSession();
+        }
+      }
+
       if (groupId == null || token == null) {
         state = state.copyWith(isLoading: false);
         return;

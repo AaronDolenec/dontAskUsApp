@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'api_client.dart';
 
 /// Abstract storage interface for cross-platform compatibility
 abstract class _StorageBackend {
@@ -261,6 +263,30 @@ class AuthService {
       'userId': await getUserId(groupId),
       'displayName': await getDisplayName(groupId),
     };
+  }
+
+  /// Explicitly refresh the session token for the current group
+  static Future<Map<String, dynamic>?> refreshSession() async {
+    final groupId = await getCurrentGroupId();
+    if (groupId == null) return null;
+    final token = await getToken(groupId);
+    if (token == null) return null;
+    // Use ApiClient to call refresh endpoint
+    final api = ApiClient();
+    final response = await api.post(
+      '/api/users/refresh-session',
+      {},
+      sessionToken: token,
+    );
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  /// Helper to auto-refresh session after any authenticated API action
+  static Future<void> autoRefreshSession() async {
+    await refreshSession();
   }
 
   // ============= Instance Methods for Provider =============

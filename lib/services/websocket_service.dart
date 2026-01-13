@@ -5,10 +5,13 @@ import 'api_config.dart';
 
 /// WebSocket service for real-time vote updates
 class WebSocketService {
+  /// Public stream getter for listening to WebSocket messages (broadcast)
+  Stream<dynamic> get stream =>
+      _channel?.stream.asBroadcastStream() ?? const Stream.empty();
   WebSocketChannel? _channel;
   StreamSubscription? _subscription;
   Timer? _reconnectTimer;
-  
+
   final String groupId;
   final String questionId;
   final Function(Map<String, int> optionCounts, int totalVotes)? onVoteUpdate;
@@ -37,17 +40,18 @@ class WebSocketService {
   /// Connect to the WebSocket
   void connect() {
     if (_isConnected) return;
-    
+
     try {
-      final wsUrl = '${ApiConfig.wsBaseUrl}/ws/groups/$groupId/questions/$questionId';
+      final wsUrl =
+          '${ApiConfig.wsBaseUrl}/ws/groups/$groupId/questions/$questionId';
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
-      
+
       _subscription = _channel!.stream.listen(
         _handleMessage,
         onError: _handleError,
         onDone: _handleDone,
       );
-      
+
       _isConnected = true;
       _reconnectAttempts = 0;
       onConnected?.call();
@@ -61,9 +65,10 @@ class WebSocketService {
     try {
       final data = jsonDecode(message as String) as Map<String, dynamic>;
       final type = data['type'] as String?;
-      
+
       if (type == 'vote_update') {
-        final optionCounts = Map<String, int>.from(data['option_counts'] as Map);
+        final optionCounts =
+            Map<String, int>.from(data['option_counts'] as Map);
         final totalVotes = data['total_votes'] as int? ?? 0;
         onVoteUpdate?.call(optionCounts, totalVotes);
       }
@@ -93,7 +98,7 @@ class WebSocketService {
       onError?.call('Max reconnection attempts reached');
       return;
     }
-    
+
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(
       _reconnectDelay * (_reconnectAttempts + 1),
@@ -110,7 +115,7 @@ class WebSocketService {
       onError?.call('Not connected to WebSocket');
       return;
     }
-    
+
     try {
       final message = jsonEncode({
         'type': 'vote',

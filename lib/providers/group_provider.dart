@@ -4,6 +4,7 @@ import '../models/models.dart';
 import '../services/services.dart';
 import 'api_provider.dart';
 import 'auth_provider.dart';
+import '../services/websocket_service.dart';
 
 /// Provider for current group info
 final groupInfoProvider = FutureProvider<Group?>((ref) async {
@@ -87,11 +88,19 @@ final groupMembersProvider = FutureProvider<List<GroupMember>>((ref) async {
     final api = ref.read(apiClientProvider);
     final response = await api.get('/api/groups/${auth.groupId}/members');
 
-    print('Members API response: ${response.statusCode} - ${response.body}');
+    print(
+        'Members API response: [33m${response.statusCode} - ${response.body}[0m');
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final membersJson = data['members'] as List? ?? [];
+      final data = jsonDecode(response.body);
+      List membersJson;
+      if (data is Map<String, dynamic> && data.containsKey('members')) {
+        membersJson = data['members'] as List? ?? [];
+      } else if (data is List) {
+        membersJson = data;
+      } else {
+        membersJson = [];
+      }
       final members = membersJson
           .map((m) => GroupMember.fromJson(m as Map<String, dynamic>))
           .toList();
@@ -144,78 +153,130 @@ final membersByNameProvider = Provider<List<GroupMember>>((ref) {
 
 /// Provider for group leaderboard (using dedicated leaderboard endpoint)
 /// Returns members sorted by streak from the API
-final leaderboardProvider = FutureProvider<List<GroupMember>>((ref) async {
-  final auth = ref.watch(authProvider);
-  if (auth.groupId == null) return [];
+/// Provider for group leaderboard with live updates
+final leaderboardProvider =
+    StateNotifierProvider<LeaderboardNotifier, List<GroupMember>>((ref) {
+  return LeaderboardNotifier(ref);
+});
 
-  try {
-    final token = await AuthService.getToken(auth.groupId!);
-    if (token == null) return [];
+class LeaderboardNotifier extends StateNotifier<List<GroupMember>> {
+  final Ref _ref;
+  WebSocketService? _wsService;
 
-    final api = ref.read(apiClientProvider);
-    final response = await api.get(
-      '/api/groups/${auth.groupId}/leaderboard',
-      sessionToken: token,
-    );
-
-    print('Leaderboard API response: ${response.statusCode} - ${response.body}');
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      
-      // Leaderboard returns a list directly
-      if (data is List) {
-        return data
-            .map((m) => GroupMember.fromJson(m as Map<String, dynamic>))
-            .toList();
-      }
-    }
-  } catch (e) {
-    print('Leaderboard fetch error: $e');
-    // Fall back to members sorted by streak
-    return ref.read(membersByStreakProvider);
+  LeaderboardNotifier(this._ref) : super([]) {
+    _fetchLeaderboard();
+    _connectWebSocket();
   }
 
-  return [];
-});
+  Future<void> _fetchLeaderboard() async {
+    final auth = _ref.read(authProvider);
+    if (auth.groupId == null) return;
+    try {
+      final token = await AuthService.getToken(auth.groupId!);
+      if (token == null) return;
+      final api = _ref.read(apiClientProvider);
+      final response = await api.get(
+        '/api/groups/${auth.groupId}/leaderboard',
+        sessionToken: token,
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data is List) {
+          state = data
+              .map((m) => GroupMember.fromJson(m as Map<String, dynamic>))
+              .toList();
+        }
+      }
+    } catch (e) {
+      // Fall back to members sorted by streak
+      state = _ref.read(membersByStreakProvider);
+    }
+  }
+
+  void _connectWebSocket() {
+    final auth = _ref.read(authProvider);
+    if (auth.groupId == null) return;
+    _wsService?.dispose();
+    _wsService = WebSocketService(
+      groupId: auth.groupId!,
+      questionId: '', // Not needed for leaderboard
+      onVoteUpdate: null,
+      onConnected: () {},
+      onError: (error) {},
+      onDisconnected: () {},
+    );
+    _wsService!.connect();
+    _wsService!.stream.listen((message) {
+      final data = jsonDecode(message);
+      if (data is Map<String, dynamic> &&
+          data['type'] == 'leaderboard_update') {
+        final membersJson = data['leaderboard'] as List? ?? [];
+        final members = membersJson
+            .map((m) => GroupMember.fromJson(m as Map<String, dynamic>))
+            .toList();
+        state = members;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _wsService?.dispose();
+    super.dispose();
+  }
+}
 
 /// Provider for group question sets
 final groupQuestionSetsProvider =
     FutureProvider<List<QuestionSet>>((ref) async {
   final auth = ref.watch(authProvider);
   if (auth.groupId == null) return [];
-
   try {
     final api = ref.read(apiClientProvider);
     final response = await api.get('/api/groups/${auth.groupId}/question-sets');
-
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final setsJson = data['question_sets'] as List;
+      final setsJson = data['question_sets'] as List? ?? [];
       return setsJson
           .map((s) => QuestionSet.fromJson(s as Map<String, dynamic>))
           .toList();
     }
   } catch (_) {}
-
   return [];
 });
 
-/// Provider for public question sets
-final publicQuestionSetsProvider =
-    FutureProvider<List<QuestionSet>>((ref) async {
-  try {
-    final api = ref.read(apiClientProvider);
-    final response = await api.get('/api/question-sets');
+class GroupMembersWebSocket {
+  WebSocketService? _wsService;
+  final String groupId;
+  final void Function(List<GroupMember>) onMembersUpdate;
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final setsJson = data['sets'] as List;
-      return setsJson
-          .map((s) => QuestionSet.fromJson(s as Map<String, dynamic>))
-          .toList();
-    }
-  } catch (_) {}
+  GroupMembersWebSocket({required this.groupId, required this.onMembersUpdate});
 
-  return [];
-});
+  void connect() {
+    _wsService?.dispose();
+    _wsService = WebSocketService(
+      groupId: groupId,
+      questionId: '', // Not needed for members
+      onVoteUpdate: null,
+      onConnected: () {},
+      onError: (error) {},
+      onDisconnected: () {},
+    );
+    _wsService!.connect();
+    _wsService!.stream.listen((message) {
+      final data = jsonDecode(message);
+      if (data is Map<String, dynamic> && data['type'] == 'members_update') {
+        final membersJson = data['members'] as List? ?? [];
+        final members = membersJson
+            .map((m) => GroupMember.fromJson(m as Map<String, dynamic>))
+            .toList();
+        onMembersUpdate(members);
+      }
+    });
+  }
+
+  void disconnect() {
+    _wsService?.dispose();
+    _wsService = null;
+  }
+}

@@ -4,6 +4,7 @@ import '../models/models.dart';
 import '../services/services.dart';
 import 'api_provider.dart';
 import 'auth_provider.dart';
+import '../services/websocket_service.dart';
 
 /// State for today's question
 class QuestionState {
@@ -35,13 +36,15 @@ class QuestionState {
 }
 
 /// Provider for today's question state
-final questionProvider = StateNotifierProvider<QuestionNotifier, QuestionState>((ref) {
+final questionProvider =
+    StateNotifierProvider<QuestionNotifier, QuestionState>((ref) {
   return QuestionNotifier(ref);
 });
 
 /// Question state notifier
 class QuestionNotifier extends StateNotifier<QuestionState> {
   final Ref _ref;
+  WebSocketService? _wsService;
 
   QuestionNotifier(this._ref) : super(const QuestionState()) {
     // Watch auth state and fetch question when authenticated
@@ -50,7 +53,7 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
         fetchTodaysQuestion();
       }
     });
-    
+
     // Initial fetch if already authenticated
     final auth = _ref.read(authProvider);
     if (auth.isAuthenticated) {
@@ -62,9 +65,9 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
   Future<void> fetchTodaysQuestion({bool forceRefresh = false}) async {
     final auth = _ref.read(authProvider);
     if (!auth.isAuthenticated) return;
-    
+
     state = state.copyWith(isLoading: true);
-    
+
     // Try cache first (unless force refresh)
     if (!forceRefresh) {
       final cached = await CacheService.getCachedQuestion(auth.groupId!);
@@ -82,14 +85,14 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
         }
       }
     }
-    
+
     await _fetchFromApi();
   }
 
   Future<void> _fetchFromApi() async {
     final auth = _ref.read(authProvider);
     if (!auth.isAuthenticated) return;
-    
+
     try {
       final token = await AuthService.getToken(auth.groupId!);
       if (token == null) {
@@ -99,20 +102,20 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
         );
         return;
       }
-      
+
       final api = _ref.read(apiClientProvider);
       final response = await api.get(
         '/api/groups/${auth.groupId}/questions/today',
         sessionToken: token,
       );
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final question = DailyQuestion.fromJson(data);
-        
+
         // Cache the question
         await CacheService.cacheQuestion(auth.groupId!, question);
-        
+
         state = state.copyWith(question: question, isLoading: false);
       } else if (response.statusCode == 404) {
         // No question for today
@@ -128,7 +131,7 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
       // Try to use cached question
       final auth = _ref.read(authProvider);
       final cached = await CacheService.getCachedQuestion(auth.groupId!);
-      
+
       state = state.copyWith(
         question: cached,
         isLoading: false,
@@ -141,11 +144,11 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
   Future<bool> submitAnswer(dynamic answer, {String? textAnswer}) async {
     final auth = _ref.read(authProvider);
     final question = state.question;
-    
+
     if (!auth.isAuthenticated || question == null) return false;
-    
+
     state = state.copyWith(isSubmitting: true);
-    
+
     try {
       final token = await AuthService.getToken(auth.groupId!);
       if (token == null) {
@@ -155,26 +158,26 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
         );
         return false;
       }
-      
+
       final api = _ref.read(apiClientProvider);
       final body = <String, dynamic>{};
-      
+
       if (textAnswer != null) {
         body['text_answer'] = textAnswer;
       } else {
         body['answer'] = answer;
       }
-      
+
       final response = await api.post(
         '/api/groups/${auth.groupId}/questions/${question.questionId}/answer',
         body,
         sessionToken: token,
       );
-      
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final answerResponse = AnswerResponse.fromJson(data);
-        
+
         // Update question with new vote counts
         final updatedQuestion = question.copyWith(
           optionCounts: answerResponse.optionCounts,
@@ -184,23 +187,23 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
           userStreak: answerResponse.currentStreak,
           longestStreak: answerResponse.longestStreak,
         );
-        
+
         // Update cache
         await CacheService.cacheQuestion(auth.groupId!, updatedQuestion);
-        
+
         // Update auth provider streak
         _ref.read(authProvider.notifier).updateStreak(
-          answerResponse.currentStreak,
-          answerResponse.longestStreak,
-        );
-        
+              answerResponse.currentStreak,
+              answerResponse.longestStreak,
+            );
+
         state = state.copyWith(
           question: updatedQuestion,
           isSubmitting: false,
         );
         return true;
       }
-      
+
       final exception = ApiException.fromResponse(response);
       state = state.copyWith(
         isSubmitting: false,
@@ -216,10 +219,47 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
     }
   }
 
+  /// Connect to WebSocket for live updates
+  void connectWebSocket() {
+    final question = state.question;
+    final auth = _ref.read(authProvider);
+    if (question == null || auth.groupId == null) return;
+    _wsService?.dispose();
+    _wsService = WebSocketService(
+      groupId: auth.groupId!,
+      questionId: question.questionId,
+      onVoteUpdate: (optionCounts, totalVotes) {
+        updateVoteCounts(optionCounts, totalVotes);
+      },
+      onError: (error) {
+        // Optionally handle error
+      },
+      onConnected: () {
+        // Optionally handle connection
+      },
+      onDisconnected: () {
+        // Optionally handle disconnect
+      },
+    );
+    _wsService!.connect();
+  }
+
+  /// Disconnect WebSocket
+  void disconnectWebSocket() {
+    _wsService?.dispose();
+    _wsService = null;
+  }
+
+  @override
+  void dispose() {
+    disconnectWebSocket();
+    super.dispose();
+  }
+
   /// Update vote counts from WebSocket
   void updateVoteCounts(Map<String, int> optionCounts, int totalVotes) {
     if (state.question == null) return;
-    
+
     state = state.copyWith(
       question: state.question!.copyWith(
         optionCounts: optionCounts,
@@ -244,8 +284,8 @@ final hasVotedTodayProvider = Provider<bool>((ref) {
 final userStreakProvider = Provider<int>((ref) {
   final questionState = ref.watch(questionProvider);
   final authState = ref.watch(authProvider);
-  
-  return questionState.question?.userStreak ?? 
-         authState.user?.answerStreak ?? 
-         0;
+
+  return questionState.question?.userStreak ??
+      authState.user?.answerStreak ??
+      0;
 });

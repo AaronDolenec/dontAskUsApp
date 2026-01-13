@@ -20,7 +20,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _textAnswerController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(questionProvider.notifier).connectWebSocket();
+    });
+  }
+
+  @override
   void dispose() {
+    ref.read(questionProvider.notifier).disconnectWebSocket();
     _textAnswerController.dispose();
     super.dispose();
   }

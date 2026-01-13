@@ -10,12 +10,12 @@ Group Endpoints,,,,
 POST /api/groups,Create group,CreateGroupScreen, groupProvider,✅,
 GET /api/groups/{invite_code},Get group by invite code,groupPreviewProvider,✅,
 GET /api/groups/{group_id}/info,Get group info,groupInfoProvider,✅,
-GET /api/groups/{group_id}/members,List group members,groupMembersProvider,⚠️,Expects list, API returns object with 'members' key. Needs fix.
-GET /api/groups/{group_id}/leaderboard,Group leaderboard,leaderboardProvider,✅,
+GET /api/groups/{group_id}/members,List group members,groupMembersProvider + WebSocket live updates,✅,Live updates for members implemented
+GET /api/groups/{group_id}/leaderboard,Group leaderboard,leaderboardProvider + WebSocket live updates,✅,Live updates for leaderboard implemented
 Daily Questions & Voting,,,,
 GET /api/groups/{group_id}/questions/today,Get today's question,questionProvider,✅,
 POST /api/groups/{group_id}/questions/{question_id}/answer,Submit answer/vote,questionProvider.submitAnswer,✅,
-GET /api/groups/{group_id}/questions/history,Get question history,historyProvider, paginatedHistoryProvider,✅,
+GET /api/groups/{group_id}/questions/history,Get question history,historyProvider, paginatedHistoryProvider + WebSocket live updates,✅,Live updates for history implemented
 Question Sets,,,,
 POST /api/question-sets,Create question set,Not implemented,❌,Only private sets partially supported
 GET /api/question-sets,List public sets,Not implemented,❌,
@@ -35,9 +35,9 @@ POST /api/admin/login,Admin login,adminProvider,✅,
 GET /api/admin/dashboard/stats,Dashboard stats,adminProvider,✅,
 GET /api/admin/audit-logs,Audit logs,adminProvider,✅,
 Other,,,,
-WebSocket,Live updates,Not implemented,❌,No real-time updates for votes, questions, etc.
+WebSocket,Live updates,Implemented for answers, members, leaderboard, history,✅,All major endpoints now support live updates
 Push Notifications,FCM support,Not implemented,❌,
 Health Check,/health endpoint,Not implemented,❌,
 Rate Limiting,Error handling,Not implemented,❌,
 Legend: ✅ Fully implemented | ⚠️ Partially implemented or needs correction | ❌ Not implemented
-Key Gaps & Incorrect Usages:,groupMembersProvider expects a list, but API returns { members: [...] }. Needs fix.; Question set endpoints (public sets, assign to group, etc.) are not implemented.; No WebSocket or push notification support.; No explicit session refresh endpoint usage.; No health check or rate limiting handling in app.
+Key Gaps & Incorrect Usages:,Question set endpoints (public sets, assign to group, etc.) are not implemented.; No push notification support.; No explicit session refresh endpoint usage.; No health check or rate limiting handling in app.

@@ -15,6 +15,31 @@ class MembersScreen extends ConsumerStatefulWidget {
 
 class _MembersScreenState extends ConsumerState<MembersScreen> {
   bool _sortByStreak = true;
+  GroupMembersWebSocket? _membersWs;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = ref.read(authProvider);
+      if (auth.groupId != null) {
+        _membersWs = GroupMembersWebSocket(
+          groupId: auth.groupId!,
+          onMembersUpdate: (members) {
+            // Optionally trigger provider update or setState
+            setState(() {});
+          },
+        );
+        _membersWs!.connect();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _membersWs?.disconnect();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -107,15 +132,16 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                 if (index == 0) {
                   // Header with group info
                   return groupInfoAsync.when(
-                    data: (group) => group != null ? _buildHeader(group) : const SizedBox(),
+                    data: (group) =>
+                        group != null ? _buildHeader(group) : const SizedBox(),
                     loading: () => const SizedBox(),
                     error: (_, __) => const SizedBox(),
                   );
                 }
-                
+
                 final member = sortedMembers[index - 1];
                 final rank = _sortByStreak ? index : null;
-                
+
                 return _MemberListItem(
                   member: member,
                   rank: rank,
@@ -155,14 +181,14 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
                 Text(
                   group.name,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
                 Text(
                   '${group.memberCount} member${group.memberCount != 1 ? 's' : ''}',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                        color: AppColors.textSecondary,
+                      ),
                 ),
               ],
             ),

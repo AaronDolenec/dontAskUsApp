@@ -42,9 +42,26 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     }
   }
 
+  bool _showLongLoading = false;
+
   @override
   Widget build(BuildContext context) {
     final historyState = ref.watch(paginatedHistoryProvider);
+
+    // Show a message if loading takes longer than 3 seconds
+    if (historyState.isLoading &&
+        historyState.questions.isEmpty &&
+        !_showLongLoading) {
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted &&
+            historyState.isLoading &&
+            historyState.questions.isEmpty) {
+          setState(() {
+            _showLongLoading = true;
+          });
+        }
+      });
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -56,6 +73,20 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
   Widget _buildBody(HistoryState state) {
     if (state.isLoading && state.questions.isEmpty) {
+      if (_showLongLoading) {
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const HistoryListSkeleton(),
+            const SizedBox(height: 32),
+            const Text(
+              'Still loading... Please check your connection or try again later.',
+              style: TextStyle(color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        );
+      }
       return const HistoryListSkeleton();
     }
 
