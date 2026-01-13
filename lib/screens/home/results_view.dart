@@ -185,9 +185,9 @@ class ResultsView extends StatelessWidget {
     if (question.questionType == QuestionType.memberChoice ||
         question.questionType == QuestionType.duoChoice) {
       final member = members.firstWhere(
-        (m) => m.oderId == option,
+        (m) => m.userId == option,
         orElse: () => GroupMember(
-          oderId: option,
+          userId: option,
           displayName: option,
           colorAvatar: '#666666',
         ),

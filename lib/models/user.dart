@@ -4,6 +4,7 @@ class User {
   final String oderId;
   final String displayName;
   final String colorAvatar;
+  final String? avatarUrl;
   final String sessionToken;
   final DateTime createdAt;
   final int answerStreak;
@@ -14,6 +15,7 @@ class User {
     required this.oderId,
     required this.displayName,
     required this.colorAvatar,
+    this.avatarUrl,
     required this.sessionToken,
     required this.createdAt,
     this.answerStreak = 0,
@@ -26,6 +28,7 @@ class User {
       oderId: json['user_id'] as String,
       displayName: json['display_name'] as String,
       colorAvatar: json['color_avatar'] as String? ?? '#3B82F6',
+      avatarUrl: json['avatar_url'] as String?,
       sessionToken: json['session_token'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
       answerStreak: json['answer_streak'] as int? ?? 0,
@@ -39,6 +42,7 @@ class User {
       'user_id': oderId,
       'display_name': displayName,
       'color_avatar': colorAvatar,
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
       'session_token': sessionToken,
       'created_at': createdAt.toIso8601String(),
       'answer_streak': answerStreak,
@@ -51,6 +55,7 @@ class User {
     String? oderId,
     String? displayName,
     String? colorAvatar,
+    String? avatarUrl,
     String? sessionToken,
     DateTime? createdAt,
     int? answerStreak,
@@ -61,6 +66,7 @@ class User {
       oderId: oderId ?? this.oderId,
       displayName: displayName ?? this.displayName,
       colorAvatar: colorAvatar ?? this.colorAvatar,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
       sessionToken: sessionToken ?? this.sessionToken,
       createdAt: createdAt ?? this.createdAt,
       answerStreak: answerStreak ?? this.answerStreak,

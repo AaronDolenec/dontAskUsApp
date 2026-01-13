@@ -1,15 +1,17 @@
 /// GroupMember model for displaying members in a group
 class GroupMember {
-  final String oderId;
+  final String userId;
   final String displayName;
   final String colorAvatar;
+  final String? avatarUrl;
   final int answerStreak;
   final int longestAnswerStreak;
 
   GroupMember({
-    required this.oderId,
+    required this.userId,
     required this.displayName,
     required this.colorAvatar,
+    this.avatarUrl,
     this.answerStreak = 0,
     this.longestAnswerStreak = 0,
   });
@@ -20,14 +22,17 @@ class GroupMember {
     if (parts.length >= 2) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
-    return displayName.substring(0, displayName.length >= 2 ? 2 : 1).toUpperCase();
+    return displayName
+        .substring(0, displayName.length >= 2 ? 2 : 1)
+        .toUpperCase();
   }
 
   factory GroupMember.fromJson(Map<String, dynamic> json) {
     return GroupMember(
-      oderId: json['user_id'] as String,
+      userId: json['user_id'] as String,
       displayName: json['display_name'] as String,
       colorAvatar: json['color_avatar'] as String? ?? '#3B82F6',
+      avatarUrl: json['avatar_url'] as String?,
       answerStreak: json['answer_streak'] as int? ?? 0,
       longestAnswerStreak: json['longest_answer_streak'] as int? ?? 0,
     );
@@ -35,25 +40,28 @@ class GroupMember {
 
   Map<String, dynamic> toJson() {
     return {
-      'user_id': oderId,
+      'user_id': userId,
       'display_name': displayName,
       'color_avatar': colorAvatar,
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
       'answer_streak': answerStreak,
       'longest_answer_streak': longestAnswerStreak,
     };
   }
 
   GroupMember copyWith({
-    String? oderId,
+    String? userId,
     String? displayName,
     String? colorAvatar,
+    String? avatarUrl,
     int? answerStreak,
     int? longestAnswerStreak,
   }) {
     return GroupMember(
-      oderId: oderId ?? this.oderId,
+      userId: userId ?? this.userId,
       displayName: displayName ?? this.displayName,
       colorAvatar: colorAvatar ?? this.colorAvatar,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
       answerStreak: answerStreak ?? this.answerStreak,
       longestAnswerStreak: longestAnswerStreak ?? this.longestAnswerStreak,
     );
@@ -61,15 +69,15 @@ class GroupMember {
 
   @override
   String toString() {
-    return 'GroupMember(displayName: $displayName, streak: $answerStreak)';
+    return 'GroupMember(displayName: $displayName, userId: $userId, streak: $answerStreak)';
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is GroupMember && other.oderId == oderId;
+    return other is GroupMember && other.userId == userId;
   }
 
   @override
-  int get hashCode => oderId.hashCode;
+  int get hashCode => userId.hashCode;
 }

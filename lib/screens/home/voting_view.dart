@@ -135,13 +135,13 @@ class _VotingViewState extends State<VotingView> {
       itemCount: widget.members.length,
       itemBuilder: (context, index) {
         final member = widget.members[index];
-        final isSelected = _selectedMember == member.oderId;
+        final isSelected = _selectedMember == member.userId;
         return _MemberOptionCard(
           member: member,
           isSelected: isSelected,
           onTap: () {
             setState(() {
-              _selectedMember = member.oderId;
+              _selectedMember = member.userId;
             });
           },
         );
@@ -184,7 +184,7 @@ class _VotingViewState extends State<VotingView> {
     String? excludeId,
   }) {
     final availableMembers =
-        widget.members.where((m) => m.oderId != excludeId).toList();
+        widget.members.where((m) => m.userId != excludeId).toList();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -199,7 +199,7 @@ class _VotingViewState extends State<VotingView> {
           hint: const Text('Select a member'),
           items: availableMembers.map((member) {
             return DropdownMenuItem<String>(
-              value: member.oderId,
+              value: member.userId,
               child: Row(
                 children: [
                   AvatarCircle(
