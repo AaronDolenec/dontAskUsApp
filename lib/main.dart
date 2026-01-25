@@ -70,7 +70,7 @@ class DontAskUsApp extends ConsumerWidget {
       initialRoute: '/',
       routes: {
         '/': (context) => const SplashScreen(),
-        '/onboarding': (context) => const OnboardingScreen(),
+        '/onboarding': (context) => const GetStartedScreen(),
         '/join': (context) => const JoinGroupScreen(),
         '/create': (context) => const CreateGroupScreen(),
         '/main': (context) => const MainScreen(),

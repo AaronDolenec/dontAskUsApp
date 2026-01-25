@@ -1,6 +1,7 @@
 // Barrel export for all screens
 export 'splash/splash_screen.dart';
 export 'onboarding/onboarding_screen.dart';
+export 'onboarding/get_started_screen.dart';
 export 'onboarding/join_group_screen.dart';
 export 'onboarding/create_group_screen.dart';
 export 'main/main_screen.dart';

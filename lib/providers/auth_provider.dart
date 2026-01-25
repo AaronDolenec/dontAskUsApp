@@ -57,20 +57,33 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true);
 
     try {
-      final sessionInfo = await AuthService.getCurrentSessionInfo();
-      final groupId = sessionInfo['groupId'];
-      final token = sessionInfo['token'];
-
-      // Refresh session token for all groups on app start
+      // Get all stored groups
       final allGroups = await AuthService.getGroupsList();
-      for (final gid in allGroups) {
-        final t = await AuthService.getToken(gid);
-        if (t != null) {
-          await AuthService.refreshSession();
-        }
+
+      if (allGroups.isEmpty) {
+        // No groups stored, user needs to join/create a group
+        state = state.copyWith(isLoading: false);
+        return;
       }
 
-      if (groupId == null || token == null) {
+      // Check if we have a current group set
+      final currentGroupId = await AuthService.getCurrentGroupId();
+
+      // If no current group is set but we have groups, set the first one as current
+      String? groupId = currentGroupId;
+      if (groupId == null && allGroups.isNotEmpty) {
+        groupId = allGroups.first;
+        await AuthService.setCurrentGroup(groupId);
+      }
+
+      if (groupId == null) {
+        state = state.copyWith(isLoading: false);
+        return;
+      }
+
+      // Get token for the current group
+      final token = await AuthService.getToken(groupId);
+      if (token == null) {
         state = state.copyWith(isLoading: false);
         return;
       }
@@ -106,8 +119,51 @@ class AuthNotifier extends StateNotifier<AuthState> {
         }
       }
 
-      // Invalid session - clear it
+      // Invalid session - clear it and try next group if available
       await AuthService.clearSession(groupId);
+
+      // Try other groups
+      for (final nextGroupId in allGroups.where((g) => g != groupId)) {
+        final nextToken = await AuthService.getToken(nextGroupId);
+        if (nextToken != null) {
+          // Validate session for this group
+          final api = _ref.read(apiClientProvider);
+          final response =
+              await api.get('/api/users/validate-session/$nextToken');
+
+          if (response.statusCode == 200) {
+            final data = jsonDecode(response.body) as Map<String, dynamic>;
+            final validation = SessionValidation.fromJson(data);
+
+            if (validation.valid) {
+              final isAdmin = await AuthService.isAdmin(nextGroupId);
+              await AuthService.setCurrentGroup(nextGroupId);
+
+              // Create a minimal user from validation data
+              state = state.copyWith(
+                user: User(
+                  id: 0,
+                  oderId: validation.oderId!,
+                  displayName: validation.displayName!,
+                  colorAvatar: '#3B82F6',
+                  sessionToken: nextToken,
+                  createdAt: DateTime.now(),
+                  answerStreak: validation.answerStreak ?? 0,
+                  longestAnswerStreak: validation.longestAnswerStreak ?? 0,
+                ),
+                groupId: nextGroupId,
+                isLoading: false,
+                isAdmin: isAdmin,
+              );
+              return;
+            }
+          }
+          // Clear invalid session for this group too
+          await AuthService.clearSession(nextGroupId);
+        }
+      }
+
+      // No valid sessions found
       state = state.copyWith(isLoading: false);
     } catch (e) {
       state = state.copyWith(
