@@ -81,7 +81,7 @@ class _SessionInfoScreenState extends ConsumerState<SessionInfoScreen> {
               children: [
                 // Warning Card
                 Card(
-                  color: AppColors.warning.withOpacity(0.1),
+                  color: AppColors.warning.withValues(alpha: 0.1),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Row(
@@ -197,7 +197,7 @@ class _SessionInfoScreenState extends ConsumerState<SessionInfoScreen> {
                   ),
                   const SizedBox(height: 8),
                   Card(
-                    color: AppColors.error.withOpacity(0.1),
+                    color: AppColors.error.withValues(alpha: 0.1),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Row(

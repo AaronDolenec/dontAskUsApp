@@ -375,7 +375,7 @@ class _MemberOptionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: isSelected
-          ? AppColors.primary.withOpacity(0.1)
+          ? AppColors.primary.withValues(alpha: 0.1)
           : Theme.of(context).cardColor,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(

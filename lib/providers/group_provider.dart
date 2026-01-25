@@ -4,7 +4,6 @@ import '../models/models.dart';
 import '../services/services.dart';
 import 'api_provider.dart';
 import 'auth_provider.dart';
-import '../services/websocket_service.dart';
 
 /// Provider for current group info
 final groupInfoProvider = FutureProvider<Group?>((ref) async {
@@ -88,9 +87,6 @@ final groupMembersProvider = FutureProvider<List<GroupMember>>((ref) async {
     final api = ref.read(apiClientProvider);
     final response = await api.get('/api/groups/${auth.groupId}/members');
 
-    print(
-        'Members API response: [33m${response.statusCode} - ${response.body}[0m');
-
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       List membersJson;
@@ -105,17 +101,14 @@ final groupMembersProvider = FutureProvider<List<GroupMember>>((ref) async {
           .map((m) => GroupMember.fromJson(m as Map<String, dynamic>))
           .toList();
 
-      print('Parsed ${members.length} members');
-
       // Cache the result
       await CacheService.cacheMembers(auth.groupId!, members);
 
       return members;
     } else {
-      print('Members API error: ${response.statusCode}');
+      // API error
     }
   } catch (e) {
-    print('Members fetch error: $e');
     // Return cached if available
     if (cached != null) return cached;
   }
@@ -200,7 +193,6 @@ class LeaderboardNotifier extends StateNotifier<List<GroupMember>> {
     _wsService = WebSocketService(
       groupId: auth.groupId!,
       questionId: '', // Not needed for leaderboard
-      onVoteUpdate: null,
       onConnected: () {},
       onError: (error) {},
       onDisconnected: () {},
@@ -257,7 +249,6 @@ class GroupMembersWebSocket {
     _wsService = WebSocketService(
       groupId: groupId,
       questionId: '', // Not needed for members
-      onVoteUpdate: null,
       onConnected: () {},
       onError: (error) {},
       onDisconnected: () {},

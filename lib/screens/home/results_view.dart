@@ -46,7 +46,7 @@ class ResultsView extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
@@ -113,7 +113,7 @@ class ResultsView extends StatelessWidget {
             Icons.how_to_vote_outlined,
             size: 48,
             color:
-                Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.5),
+                Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5),
           ),
           const SizedBox(height: 12),
           Text(
@@ -136,9 +136,9 @@ class ResultsView extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.success.withOpacity(0.1),
+        color: AppColors.success.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.success.withOpacity(0.3)),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -243,7 +243,7 @@ class _ResultBar extends StatelessWidget {
               child: Container(
                 height: 56,
                 decoration: BoxDecoration(
-                  color: barColor.withOpacity(0.2),
+                  color: barColor.withValues(alpha: 0.2),
                 ),
               ),
             ),
@@ -287,7 +287,7 @@ class _ResultBar extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: barColor.withOpacity(0.1),
+                      color: barColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(

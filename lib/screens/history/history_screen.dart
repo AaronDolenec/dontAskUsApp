@@ -74,12 +74,12 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   Widget _buildBody(HistoryState state) {
     if (state.isLoading && state.questions.isEmpty) {
       if (_showLongLoading) {
-        return Column(
+        return const Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const HistoryListSkeleton(),
-            const SizedBox(height: 32),
-            const Text(
+            HistoryListSkeleton(),
+            SizedBox(height: 32),
+            Text(
               'Still loading... Please check your connection or try again later.',
               style: TextStyle(color: Colors.grey),
               textAlign: TextAlign.center,

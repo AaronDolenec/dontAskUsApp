@@ -46,7 +46,7 @@ class QuestionView extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.1),
+            color: AppColors.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
@@ -72,7 +72,7 @@ class QuestionView extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.success.withOpacity(0.1),
+              color: AppColors.success.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -116,7 +116,7 @@ class QuestionView extends StatelessWidget {
         Icon(
           typeInfo.icon,
           size: 16,
-          color: Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.6),
+          color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.6),
         ),
         const SizedBox(width: 6),
         Text(
@@ -126,7 +126,7 @@ class QuestionView extends StatelessWidget {
                     .textTheme
                     .bodySmall
                     ?.color
-                    ?.withOpacity(0.6),
+                    ?.withValues(alpha: 0.6),
               ),
         ),
         if (question.allowMultiple) ...[
@@ -134,7 +134,7 @@ class QuestionView extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: AppColors.secondary.withOpacity(0.1),
+              color: AppColors.secondary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(

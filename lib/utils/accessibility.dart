@@ -167,9 +167,9 @@ class ContrastUtils {
 
   /// Calculate relative luminance of a color
   static double relativeLuminance(Color color) {
-    double r = color.red / 255;
-    double g = color.green / 255;
-    double b = color.blue / 255;
+    double r = (color.r * 255.0).round().clamp(0, 255) / 255;
+    double g = (color.g * 255.0).round().clamp(0, 255) / 255;
+    double b = (color.b * 255.0).round().clamp(0, 255) / 255;
 
     r = r <= 0.03928 ? r / 12.92 : ((r + 0.055) / 1.055).pow(2.4);
     g = g <= 0.03928 ? g / 12.92 : ((g + 0.055) / 1.055).pow(2.4);

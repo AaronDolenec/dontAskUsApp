@@ -4,7 +4,6 @@ import '../models/models.dart';
 import '../services/services.dart';
 import 'api_provider.dart';
 import 'auth_provider.dart';
-import '../services/websocket_service.dart';
 
 /// State for today's question
 class QuestionState {

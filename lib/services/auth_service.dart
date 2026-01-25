@@ -86,9 +86,6 @@ class AuthService {
       // Use secure storage on mobile
       _backend = _SecureStorageBackend(
         const FlutterSecureStorage(
-          aOptions: AndroidOptions(
-            encryptedSharedPreferences: true,
-          ),
           iOptions: IOSOptions(
             accessibility: KeychainAccessibility.first_unlock_this_device,
           ),

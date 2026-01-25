@@ -50,7 +50,7 @@ class HistoryItem extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.1),
+            color: AppColors.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -83,7 +83,7 @@ class HistoryItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Theme.of(context).dividerColor.withOpacity(0.3),
+        color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -145,7 +145,7 @@ class HistoryItem extends StatelessWidget {
             Icons.cancel_outlined,
             size: 16,
             color:
-                Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.5),
+                Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5),
           ),
           const SizedBox(width: 6),
           Text(
@@ -155,7 +155,7 @@ class HistoryItem extends StatelessWidget {
                       .textTheme
                       .bodySmall
                       ?.color
-                      ?.withOpacity(0.5),
+                      ?.withValues(alpha: 0.5),
                 ),
           ),
           const Spacer(),
@@ -164,7 +164,7 @@ class HistoryItem extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: AppColors.secondary.withOpacity(0.1),
+            color: AppColors.secondary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(

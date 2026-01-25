@@ -148,20 +148,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
         if (colorAvatar != null) 'color_avatar': colorAvatar,
       });
 
-      // Debug: print response status
-      print('Join API response: ${response.statusCode} - ${response.body}');
-
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final user = User.fromJson(data);
+
+        // Wait a bit for server to process the join
+        await Future.delayed(const Duration(seconds: 2));
 
         // Get group ID from validating the new token
         final validateResponse = await api.get(
           '/api/users/validate-session/${user.sessionToken}',
         );
-
-        print(
-            'Validate response: ${validateResponse.statusCode} - ${validateResponse.body}');
 
         if (validateResponse.statusCode == 200) {
           final validateData =
@@ -210,7 +207,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       return false;
     } catch (e) {
-      print('Join group error: $e');
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),

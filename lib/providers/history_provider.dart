@@ -4,7 +4,6 @@ import '../models/models.dart';
 import '../services/services.dart';
 import 'api_provider.dart';
 import 'auth_provider.dart';
-import '../services/websocket_service.dart';
 
 /// Provider for question history
 final questionHistoryProvider =
@@ -49,7 +48,7 @@ final questionHistoryProvider =
     }
   } catch (e) {
     // Just throw the error, let the caller handle it
-    throw e;
+    rethrow;
   }
 
   return [];
@@ -202,7 +201,6 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
     _wsService = WebSocketService(
       groupId: auth.groupId!,
       questionId: '', // Not needed for history
-      onVoteUpdate: null,
       onConnected: () {},
       onError: (error) {},
       onDisconnected: () {},
