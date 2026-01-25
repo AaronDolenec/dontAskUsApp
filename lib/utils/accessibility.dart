@@ -29,8 +29,10 @@ class AccessibilityUtils {
   }
 
   /// Announce a message to screen readers
-  static void announce(String message, {TextDirection? textDirection}) {
-    SemanticsService.announce(message, textDirection ?? TextDirection.ltr);
+  static void announce(BuildContext context, String message,
+      {TextDirection? textDirection}) {
+    SemanticsService.sendAnnouncement(
+        View.of(context), message, textDirection ?? TextDirection.ltr);
   }
 
   /// Get animation duration based on accessibility settings

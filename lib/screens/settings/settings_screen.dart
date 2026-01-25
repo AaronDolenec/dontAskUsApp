@@ -195,6 +195,26 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
 
+            const SizedBox(height: 24),
+
+            // Account Section
+            Text(
+              'Account',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.logout),
+                title: const Text('Clear All Data'),
+                subtitle: const Text('Logout and clear all stored data'),
+                onTap: () => _showClearDataDialog(context, ref),
+              ),
+            ),
+
             const SizedBox(height: 32),
           ],
         ),
@@ -230,6 +250,40 @@ class SettingsScreen extends ConsumerWidget {
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showClearDataDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear All Data?'),
+        content: const Text(
+          'This will log you out and clear all stored data from this device. '
+          'You will need to join a group again to continue using the app.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              await ref.read(authProvider.notifier).logout();
+
+              if (context.mounted) {
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/onboarding',
+                  (route) => false,
+                );
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Clear Data'),
           ),
         ],
       ),
