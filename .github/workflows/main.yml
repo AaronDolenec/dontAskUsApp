@@ -27,6 +27,11 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Print pubspec.lock
+        run: |
+          echo "pubspec.lock contents:";
+          cat pubspec.lock || true
+
       - name: Print outdated dependencies summary
         run: |
           echo "Running 'flutter pub outdated' summary (non-fatal)";
