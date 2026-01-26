@@ -62,7 +62,8 @@ post_install do |installer|
     # triggers non-modular header errors (FLTFirebaseMessagingPlugin). Broadly
     # applying DEFINES_MODULE = NO to all Firebase pods can break module
     # resolution (e.g. "Module 'FirebaseCoreInternal' not found").
-    if target.name.end_with?('FLTFirebaseMessagingPlugin')
+    # Target common plugin target name patterns for Firebase Messaging so wen+    # we don't accidentally change core Firebase pods (which must remain modular).
+    if target.name.end_with?('FLTFirebaseMessagingPlugin') || target.name.downcase.include?('firebase_messaging') || target.name.downcase.include?('fltfirebase')
       target.build_configurations.each do |config|
         config.build_settings['DEFINES_MODULE'] = 'NO'
         config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'

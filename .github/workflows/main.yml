@@ -52,6 +52,8 @@ jobs:
           echo "pod version:"; pod --version || true
           echo "xcodebuild version:"; xcodebuild -version || true
           echo "Listing ios/ directory:"; ls -la .. || true
+          echo "Listing Pods headers for debugging:"; ls -la Pods/Headers/Public || true
+          echo "Show Firebase header snippet if present:"; head -n 40 Pods/Headers/Public/Firebase/Firebase.h || true
           if [ -f Podfile ]; then
             echo "Podfile.lock contents:"; cat Podfile.lock || true
             echo "Updating pod repo and installing pods (may take a while)";
