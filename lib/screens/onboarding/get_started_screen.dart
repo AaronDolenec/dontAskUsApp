@@ -84,6 +84,27 @@ class GetStartedScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+              // Debug button (development only)
+              TextButton(
+                onPressed: () async {
+                  await AuthService.debugPrintStorage();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content:
+                              Text('Check console for storage debug info')),
+                    );
+                  }
+                },
+                child: const Text(
+                  'Debug Storage',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
             ],
           ),
         ),

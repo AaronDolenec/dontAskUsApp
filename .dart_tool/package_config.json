@@ -9,7 +9,7 @@
     },
     {
       "name": "_flutterfire_internals",
-      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/_flutterfire_internals-1.3.35",
+      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/_flutterfire_internals-1.3.22",
       "packageUri": "lib/",
       "languageVersion": "3.2"
     },
@@ -201,7 +201,7 @@
     },
     {
       "name": "firebase_core",
-      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/firebase_core-2.32.0",
+      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/firebase_core-2.25.4",
       "packageUri": "lib/",
       "languageVersion": "2.18"
     },
@@ -219,21 +219,21 @@
     },
     {
       "name": "firebase_messaging",
-      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/firebase_messaging-14.9.4",
+      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/firebase_messaging-14.7.10",
       "packageUri": "lib/",
       "languageVersion": "2.18"
     },
     {
       "name": "firebase_messaging_platform_interface",
-      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/firebase_messaging_platform_interface-4.5.37",
+      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/firebase_messaging_platform_interface-4.5.24",
       "packageUri": "lib/",
       "languageVersion": "2.18"
     },
     {
       "name": "firebase_messaging_web",
-      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/firebase_messaging_web-3.8.7",
+      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/firebase_messaging_web-3.5.18",
       "packageUri": "lib/",
-      "languageVersion": "3.2"
+      "languageVersion": "2.18"
     },
     {
       "name": "fixnum",
@@ -408,6 +408,12 @@
       "rootUri": "file:///root/.pub-cache/hosted/pub.dev/io-1.0.5",
       "packageUri": "lib/",
       "languageVersion": "3.4"
+    },
+    {
+      "name": "js",
+      "rootUri": "file:///root/.pub-cache/hosted/pub.dev/js-0.6.7",
+      "packageUri": "lib/",
+      "languageVersion": "2.19"
     },
     {
       "name": "json_annotation",

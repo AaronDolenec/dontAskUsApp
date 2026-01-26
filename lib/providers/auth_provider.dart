@@ -1,12 +1,9 @@
 import 'dart:convert';
-import 'dart:async';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../services/services.dart';
 import 'api_provider.dart';
-import 'device_token_provider.dart';
-import 'package:flutter/foundation.dart'
-    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 
 /// Auth state containing user info and session data
 class AuthState {
@@ -56,42 +53,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _loadSession();
   }
 
-  /// Best-effort: register current device token with backend for push notifications
-  Future<void> _registerDeviceTokenForCurrentUser() async {
-    try {
-      final groupId = state.groupId;
-      if (groupId == null) return;
-
-      final userId = await AuthService.getUserId(groupId);
-      final token = await AuthService.getToken(groupId);
-      if (userId == null || token == null) return;
-
-      String platform;
-      if (kIsWeb) {
-        platform = 'web';
-      } else {
-        switch (defaultTargetPlatform) {
-          case TargetPlatform.iOS:
-            platform = 'ios';
-            break;
-          case TargetPlatform.android:
-            platform = 'android';
-            break;
-          default:
-            platform = 'android';
-        }
-      }
-
-      // Ensure we have an up-to-date FCM token
-      await _ref.read(deviceTokenProvider.notifier).fetchDeviceToken();
-      await _ref.read(deviceTokenProvider.notifier).registerDeviceToken(
-            userId: userId,
-            sessionToken: token,
-            platform: platform,
-          );
-    } catch (_) {
-      // Best-effort registration; ignore failures
-    }
+  /// Debug method to print all stored auth data
+  Future<void> _debugPrintStorage() async {
+    await AuthService.debugPrintStorage();
   }
 
   /// Load existing session from secure storage
@@ -99,48 +63,67 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true);
 
     try {
+      // Debug: Print all stored keys
+      await _debugPrintStorage();
+
       // Get all stored groups
       final allGroups = await AuthService.getGroupsList();
+      debugPrint('DEBUG: Found stored groups: $allGroups');
 
       if (allGroups.isEmpty) {
         // No groups stored, user needs to join/create a group
+        debugPrint('DEBUG: No stored groups found');
         state = state.copyWith(isLoading: false);
         return;
       }
 
       // Check if we have a current group set
       final currentGroupId = await AuthService.getCurrentGroupId();
+      debugPrint('DEBUG: Current group ID: $currentGroupId');
 
       // If no current group is set but we have groups, set the first one as current
       String? groupId = currentGroupId;
       if (groupId == null && allGroups.isNotEmpty) {
         groupId = allGroups.first;
         await AuthService.setCurrentGroup(groupId);
+        debugPrint('DEBUG: Set current group to: $groupId');
       }
 
       if (groupId == null) {
+        debugPrint('DEBUG: No group ID available');
         state = state.copyWith(isLoading: false);
         return;
       }
 
       // Get token for the current group
       final token = await AuthService.getToken(groupId);
+      debugPrint(
+          'DEBUG: Token for group $groupId: ${token != null ? "exists" : "null"}');
 
       if (token == null) {
+        debugPrint('DEBUG: No token found for group $groupId');
         state = state.copyWith(isLoading: false);
         return;
       }
 
       // Validate session with API
+      debugPrint(
+          'DEBUG: Validating session with API for token: ${token.substring(0, 10)}...');
       final api = _ref.read(apiClientProvider);
       final response = await api.get('/api/users/validate-session/$token');
+      debugPrint('DEBUG: API response status: ${response.statusCode}');
+      debugPrint('DEBUG: API response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final validation = SessionValidation.fromJson(data);
+        debugPrint('DEBUG: Session validation result: ${validation.valid}');
+        debugPrint(
+            'DEBUG: Validation data: user_id=${validation.oderId}, display_name=${validation.displayName}, group_id=${validation.groupId}');
 
         if (validation.valid) {
           final isAdmin = await AuthService.isAdmin(groupId);
+          debugPrint('DEBUG: User is admin: $isAdmin');
 
           // Create a minimal user from validation data
           state = state.copyWith(
@@ -158,27 +141,38 @@ class AuthNotifier extends StateNotifier<AuthState> {
             isLoading: false,
             isAdmin: isAdmin,
           );
-          // Try to register device token for push notifications (best-effort)
-          unawaited(_registerDeviceTokenForCurrentUser());
           return;
         }
       } else {
+        debugPrint(
+            'DEBUG: API validation failed with status ${response.statusCode}');
+        debugPrint('DEBUG: Response body: ${response.body}');
+        debugPrint('DEBUG: Response headers: ${response.headers}');
+
         // If 401, try to refresh the token
         if (response.statusCode == 401) {
+          debugPrint('DEBUG: Token expired (401), attempting to refresh...');
           final refreshResult = await AuthService.refreshSession();
           if (refreshResult != null) {
+            debugPrint(
+                'DEBUG: Token refreshed successfully, retrying validation...');
             // Retry validation with refreshed token
             final newToken = await AuthService.getToken(groupId);
             if (newToken != null && newToken != token) {
               final retryResponse =
                   await api.get('/api/users/validate-session/$newToken');
+              debugPrint(
+                  'DEBUG: Retry validation status: ${retryResponse.statusCode}');
               if (retryResponse.statusCode == 200) {
                 final retryData =
                     jsonDecode(retryResponse.body) as Map<String, dynamic>;
                 final retryValidation = SessionValidation.fromJson(retryData);
+                debugPrint(
+                    'DEBUG: Retry validation result: ${retryValidation.valid}');
 
                 if (retryValidation.valid) {
                   final isAdmin = await AuthService.isAdmin(groupId);
+                  debugPrint('DEBUG: User is admin: $isAdmin');
 
                   // Create a minimal user from validation data
                   state = state.copyWith(
@@ -197,27 +191,33 @@ class AuthNotifier extends StateNotifier<AuthState> {
                     isLoading: false,
                     isAdmin: isAdmin,
                   );
-                  // Try to register device token for push notifications (best-effort)
-                  unawaited(_registerDeviceTokenForCurrentUser());
                   return;
                 }
               }
             }
           }
+          debugPrint('DEBUG: Token refresh failed or retry validation failed');
         }
       }
 
       // Invalid session - clear it and try next group if available
+      debugPrint(
+          'DEBUG: Session invalid for group $groupId, clearing and trying other groups');
       await AuthService.clearSession(groupId);
 
       // Try other groups
       for (final nextGroupId in allGroups.where((g) => g != groupId)) {
+        debugPrint('DEBUG: Trying group $nextGroupId');
         final nextToken = await AuthService.getToken(nextGroupId);
+        debugPrint(
+            'DEBUG: Token for group $nextGroupId: ${nextToken != null ? "exists" : "null"}');
         if (nextToken != null) {
           // Validate session for this group
           final api = _ref.read(apiClientProvider);
           final response =
               await api.get('/api/users/validate-session/$nextToken');
+          debugPrint(
+              'DEBUG: Validation for group $nextGroupId status: ${response.statusCode}');
 
           if (response.statusCode == 200) {
             final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -247,10 +247,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
             }
           } else if (response.statusCode == 401) {
             // Try to refresh token for this group
+            debugPrint(
+                'DEBUG: Token expired for group $nextGroupId, attempting refresh...');
             await AuthService.setCurrentGroup(
                 nextGroupId); // Temporarily set as current for refresh
             final refreshResult = await AuthService.refreshSession();
             if (refreshResult != null) {
+              debugPrint(
+                  'DEBUG: Token refreshed for group $nextGroupId, retrying validation...');
               final refreshedToken = await AuthService.getToken(nextGroupId);
               if (refreshedToken != null) {
                 final retryResponse = await api
@@ -280,8 +284,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
                       isLoading: false,
                       isAdmin: isAdmin,
                     );
-                    // Try to register device token for push notifications (best-effort)
-                    unawaited(_registerDeviceTokenForCurrentUser());
                     return;
                   }
                 }
@@ -294,8 +296,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
 
       // No valid sessions found
+      debugPrint('DEBUG: No valid sessions found for any group');
       state = state.copyWith(isLoading: false);
     } catch (e) {
+      debugPrint('DEBUG: Error during session loading: $e');
       state = state.copyWith(
         isLoading: false,
         error: 'Failed to restore session',
@@ -367,8 +371,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
               isLoading: false,
               isAdmin: false,
             );
-            // Try to register device token for push notifications (best-effort)
-            unawaited(_registerDeviceTokenForCurrentUser());
             return true;
           } else {
             state = state.copyWith(
@@ -480,8 +482,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
             isLoading: false,
             isAdmin: isAdmin,
           );
-          // Try to register device token for push notifications (best-effort)
-          unawaited(_registerDeviceTokenForCurrentUser());
           return true;
         }
       }

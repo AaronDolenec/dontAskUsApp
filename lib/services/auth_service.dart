@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -103,6 +103,54 @@ class AuthService {
   static const _displayNameKeyPrefix = 'display_name_';
   static const _groupNameKeyPrefix = 'group_name_';
   static const _groupsListKey = 'groups_list';
+
+  /// Debug method to inspect storage (for development only)
+  static Future<void> debugPrintStorage() async {
+    debugPrint('DEBUG: === STORAGE INSPECTION ===');
+    final storage = _storage;
+
+    // Check specific keys
+    final currentGroup = await storage.read('current_group_id');
+    final groupsList = await storage.read('groups_list');
+
+    debugPrint('DEBUG: current_group_id: $currentGroup');
+    debugPrint('DEBUG: groups_list: $groupsList');
+
+    if (groupsList != null && groupsList.isNotEmpty) {
+      final groupIds = groupsList.split(',');
+      for (final groupId in groupIds) {
+        final token = await storage.read('session_token_$groupId');
+        final userId = await storage.read('user_id_$groupId');
+        final displayName = await storage.read('display_name_$groupId');
+        debugPrint(
+            'DEBUG: Group $groupId - token: ${token != null ? "present (${token.length} chars)" : "null"}, userId: $userId, displayName: $displayName');
+      }
+    }
+
+    // Also show all auth keys in localStorage
+    if (kIsWeb) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final allKeys = prefs.getKeys();
+        final authKeys = allKeys.where((key) => key.startsWith('auth_'));
+        if (authKeys.isNotEmpty) {
+          debugPrint('DEBUG: === ALL LOCALSTORAGE AUTH KEYS ===');
+          for (final key in authKeys) {
+            final value = prefs.get(key);
+            final valueStr = value?.toString() ?? 'null';
+            final truncated = valueStr.length > 50
+                ? '${valueStr.substring(0, 50)}...'
+                : valueStr;
+            debugPrint('DEBUG: $key: $truncated');
+          }
+          debugPrint('DEBUG: === END ALL LOCALSTORAGE AUTH KEYS ===');
+        }
+      } catch (e) {
+        debugPrint('DEBUG: Could not inspect localStorage: $e');
+      }
+    }
+    debugPrint('DEBUG: === END STORAGE INSPECTION ===');
+  }
 
   // ============= Session Token Management =============
 
