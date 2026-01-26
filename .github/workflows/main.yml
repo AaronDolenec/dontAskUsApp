@@ -79,6 +79,24 @@ jobs:
           echo "IPA files in build/ios/ipa:"
           ls -la build/ios/ipa || true
 
+      - name: Find iOS build artifacts
+        run: |
+          echo "Searching for .ipa files in build/...";
+          find build -type f -name "*.ipa" -print || true;
+          echo "Searching for .xcarchive directories in build/...";
+          find build -type d -name "*.xcarchive" -print || true;
+          echo "Listing build/ios:"; ls -la build/ios || true;
+          echo "Disk usage of build/ios:"; du -sh build/ios || true;
+
+      - name: Upload full iOS build output (for diagnostics)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-output
+          path: |
+            build/ios/**
+            build/**/*.ipa
+          retention-days: 30
+
       - name: Upload IPA as artifact
         uses: actions/upload-artifact@v4
         with:
