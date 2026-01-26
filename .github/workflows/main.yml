@@ -27,6 +27,29 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Print outdated dependencies summary
+        run: |
+          echo "Running 'flutter pub outdated' summary (non-fatal)";
+          flutter pub outdated --no-dev || true
+
+      - name: Ensure iOS project exists
+        run: |
+          if [ ! -d ios ] || [ ! -f ios/Runner.xcodeproj/project.pbxproj ]; then
+            echo "iOS project not found; generating with 'flutter create --platforms=ios .'";
+            flutter create --platforms=ios .;
+          else
+            echo "iOS project present";
+          fi
+
+      - name: Install CocoaPods dependencies
+        working-directory: ios
+        run: |
+          if [ -f Podfile ]; then
+            pod install || true
+          else
+            echo "No Podfile found; skipping pod install";
+          fi
+
       # Keep workflow minimal: we only build an unsigned IPA and upload it as an artifact.
       # Removed analysis/tests to avoid unrelated failures — this workflow's sole purpose is to produce an IPA.
 
