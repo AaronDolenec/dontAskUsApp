@@ -41,8 +41,8 @@ jobs:
             echo "iOS project present";
           fi
 
-      - name: CocoaPods: print versions and repo update
-        working-directory: ios
+      - name: "CocoaPods: print versions and repo update"
+        working-directory: ./ios
         run: |
           echo "pod version:"; pod --version || true
           echo "xcodebuild version:"; xcodebuild -version || true
