@@ -48,4 +48,17 @@ post_install do |installer|
       config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
     end
   end
+
+  # Additional workaround: some plugin targets (notably firebase_messaging)
+  # include headers that Apple's Clang considers "non-modular". Setting
+  # DEFINES_MODULE = NO for those plugin targets prevents them from being
+  # treated as Swift/Obj-C modules which avoids the non-modular header error.
+  installer.pods_project.targets.each do |target|
+    if target.name.downcase.include?('firebase') || target.name.end_with?('FLTFirebaseMessagingPlugin') || target.name.downcase.include?('firebase_messaging')
+      target.build_configurations.each do |config|
+        config.build_settings['DEFINES_MODULE'] = 'NO'
+        config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      end
+    end
+  end
 end
