@@ -34,7 +34,8 @@ class ApiClient {
 
     if (params.isNotEmpty) {
       final queryString = params.entries
-          .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+          .map((e) =>
+              '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
           .join('&');
       final separator = url.contains('?') ? '&' : '?';
       url = '$url$separator$queryString';
@@ -83,6 +84,9 @@ class ApiClient {
 
     if (adminToken != null) {
       headers['X-Admin-Token'] = adminToken;
+    }
+    if (sessionToken != null) {
+      headers['X-Session-Token'] = sessionToken;
     }
 
     try {

@@ -83,6 +83,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       // Get token for the current group
       final token = await AuthService.getToken(groupId);
+
       if (token == null) {
         state = state.copyWith(isLoading: false);
         return;
@@ -116,6 +117,46 @@ class AuthNotifier extends StateNotifier<AuthState> {
             isAdmin: isAdmin,
           );
           return;
+        }
+      } else {
+        // If 401, try to refresh the token
+        if (response.statusCode == 401) {
+          final refreshResult = await AuthService.refreshSession();
+          if (refreshResult != null) {
+            // Retry validation with refreshed token
+            final newToken = await AuthService.getToken(groupId);
+            if (newToken != null && newToken != token) {
+              final retryResponse = await api.get('/api/users/validate-session/$newToken');
+              if (retryResponse.statusCode == 200) {
+                final retryData =
+                    jsonDecode(retryResponse.body) as Map<String, dynamic>;
+                final retryValidation = SessionValidation.fromJson(retryData);
+
+                if (retryValidation.valid) {
+                  final isAdmin = await AuthService.isAdmin(groupId);
+
+                  // Create a minimal user from validation data
+                  state = state.copyWith(
+                    user: User(
+                      id: 0,
+                      oderId: retryValidation.oderId!,
+                      displayName: retryValidation.displayName!,
+                      colorAvatar: '#3B82F6',
+                      sessionToken: newToken,
+                      createdAt: DateTime.now(),
+                      answerStreak: retryValidation.answerStreak ?? 0,
+                      longestAnswerStreak:
+                          retryValidation.longestAnswerStreak ?? 0,
+                    ),
+                    groupId: groupId,
+                    isLoading: false,
+                    isAdmin: isAdmin,
+                  );
+                  return;
+                }
+              }
+            }
+          }
         }
       }
 
@@ -156,6 +197,44 @@ class AuthNotifier extends StateNotifier<AuthState> {
                 isAdmin: isAdmin,
               );
               return;
+            }
+          } else if (response.statusCode == 401) {
+            // Try to refresh token for this group
+            await AuthService.setCurrentGroup(nextGroupId); // Temporarily set as current for refresh
+            final refreshResult = await AuthService.refreshSession();
+            if (refreshResult != null) {
+              final refreshedToken = await AuthService.getToken(nextGroupId);
+              if (refreshedToken != null) {
+                final retryResponse = await api.get('/api/users/validate-session/$refreshedToken');
+                if (retryResponse.statusCode == 200) {
+                  final retryData =
+                      jsonDecode(retryResponse.body) as Map<String, dynamic>;
+                  final retryValidation = SessionValidation.fromJson(retryData);
+
+                  if (retryValidation.valid) {
+                    final isAdmin = await AuthService.isAdmin(nextGroupId);
+
+                    // Create a minimal user from validation data
+                    state = state.copyWith(
+                      user: User(
+                        id: 0,
+                        oderId: retryValidation.oderId!,
+                        displayName: retryValidation.displayName!,
+                        colorAvatar: '#3B82F6',
+                        sessionToken: refreshedToken,
+                        createdAt: DateTime.now(),
+                        answerStreak: retryValidation.answerStreak ?? 0,
+                        longestAnswerStreak:
+                            retryValidation.longestAnswerStreak ?? 0,
+                      ),
+                      groupId: nextGroupId,
+                      isLoading: false,
+                      isAdmin: isAdmin,
+                    );
+                    return;
+                  }
+                }
+              }
             }
           }
           // Clear invalid session for this group too
