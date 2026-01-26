@@ -2,6 +2,22 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/question_set.dart';
 import 'api_provider.dart';
+import 'auth_provider.dart';
+
+/// Create a new public question set (admin)
+final createQuestionSetProvider =
+    FutureProvider.family<QuestionSet?, Map<String, dynamic>>(
+        (ref, body) async {
+  final api = ref.read(apiClientProvider);
+  final adminToken = await ref.read(adminTokenProvider.future);
+  final response =
+      await api.post('/api/question-sets', body, adminToken: adminToken);
+  if (response.statusCode == 200) {
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    return QuestionSet.fromJson(data);
+  }
+  return null;
+});
 // ...existing code...
 
 /// Provider for listing public question sets

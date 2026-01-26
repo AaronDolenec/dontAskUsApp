@@ -1,8 +1,12 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../services/services.dart';
 import 'api_provider.dart';
+import 'device_token_provider.dart';
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 
 /// Auth state containing user info and session data
 class AuthState {
@@ -50,6 +54,45 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   AuthNotifier(this._ref) : super(const AuthState()) {
     _loadSession();
+  }
+
+  /// Best-effort: register current device token with backend for push notifications
+  Future<void> _registerDeviceTokenForCurrentUser() async {
+    try {
+      final groupId = state.groupId;
+      if (groupId == null) return;
+
+      final userId = await AuthService.getUserId(groupId);
+      final token = await AuthService.getToken(groupId);
+      if (userId == null || token == null) return;
+
+      String platform;
+      if (kIsWeb) {
+        platform = 'web';
+      } else {
+        switch (defaultTargetPlatform) {
+          case TargetPlatform.iOS:
+            platform = 'ios';
+            break;
+          case TargetPlatform.android:
+            platform = 'android';
+            break;
+          default:
+            platform = 'android';
+        }
+      }
+
+      // Ensure we have an up-to-date FCM token
+      await _ref.read(deviceTokenProvider.notifier).fetchDeviceToken();
+      await _ref.read(deviceTokenProvider.notifier).registerDeviceToken(
+            userId: userId,
+            sessionToken: token,
+            platform: platform,
+            deviceName: null,
+          );
+    } catch (_) {
+      // Best-effort registration; ignore failures
+    }
   }
 
   /// Load existing session from secure storage
@@ -116,6 +159,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
             isLoading: false,
             isAdmin: isAdmin,
           );
+          // Try to register device token for push notifications (best-effort)
+          unawaited(_registerDeviceTokenForCurrentUser());
           return;
         }
       } else {
@@ -126,7 +171,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
             // Retry validation with refreshed token
             final newToken = await AuthService.getToken(groupId);
             if (newToken != null && newToken != token) {
-              final retryResponse = await api.get('/api/users/validate-session/$newToken');
+              final retryResponse =
+                  await api.get('/api/users/validate-session/$newToken');
               if (retryResponse.statusCode == 200) {
                 final retryData =
                     jsonDecode(retryResponse.body) as Map<String, dynamic>;
@@ -152,6 +198,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
                     isLoading: false,
                     isAdmin: isAdmin,
                   );
+                  // Try to register device token for push notifications (best-effort)
+                  unawaited(_registerDeviceTokenForCurrentUser());
                   return;
                 }
               }
@@ -200,12 +248,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
             }
           } else if (response.statusCode == 401) {
             // Try to refresh token for this group
-            await AuthService.setCurrentGroup(nextGroupId); // Temporarily set as current for refresh
+            await AuthService.setCurrentGroup(
+                nextGroupId); // Temporarily set as current for refresh
             final refreshResult = await AuthService.refreshSession();
             if (refreshResult != null) {
               final refreshedToken = await AuthService.getToken(nextGroupId);
               if (refreshedToken != null) {
-                final retryResponse = await api.get('/api/users/validate-session/$refreshedToken');
+                final retryResponse = await api
+                    .get('/api/users/validate-session/$refreshedToken');
                 if (retryResponse.statusCode == 200) {
                   final retryData =
                       jsonDecode(retryResponse.body) as Map<String, dynamic>;
@@ -231,6 +281,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
                       isLoading: false,
                       isAdmin: isAdmin,
                     );
+                    // Try to register device token for push notifications (best-effort)
+                    unawaited(_registerDeviceTokenForCurrentUser());
                     return;
                   }
                 }
@@ -316,6 +368,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
               isLoading: false,
               isAdmin: false,
             );
+            // Try to register device token for push notifications (best-effort)
+            unawaited(_registerDeviceTokenForCurrentUser());
             return true;
           } else {
             state = state.copyWith(
@@ -427,6 +481,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
             isLoading: false,
             isAdmin: isAdmin,
           );
+          // Try to register device token for push notifications (best-effort)
+          unawaited(_registerDeviceTokenForCurrentUser());
           return true;
         }
       }

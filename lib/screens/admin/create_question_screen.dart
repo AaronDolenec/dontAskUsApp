@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 
 import '../../models/models.dart';
 import '../../providers/providers.dart';
@@ -130,6 +132,10 @@ class _CreateQuestionScreenState extends ConsumerState<CreateQuestionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final allowSingleQuestionCreation =
+        (dotenv.env['ENABLE_SINGLE_QUESTION_CREATION']?.toLowerCase() ==
+                'true') ||
+            kDebugMode;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create Question'),
@@ -360,11 +366,33 @@ class _CreateQuestionScreenState extends ConsumerState<CreateQuestionScreen> {
               const SizedBox(height: 16),
             ],
 
-            // Submit Button
+            if (!allowSingleQuestionCreation)
+              Card(
+                color: Colors.yellow[50],
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        'Deprecated: Single question creation is deprecated. Create a question set instead and add it to your group.',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                          'To enable single-question creation for testing, set ENABLE_SINGLE_QUESTION_CREATION=true in your .env or run in debug mode.'),
+                    ],
+                  ),
+                ),
+              ),
+
+            // Submit Button (disabled when feature is not allowed)
             SizedBox(
               height: 56,
               child: ElevatedButton(
-                onPressed: _isLoading ? null : _submitQuestion,
+                onPressed: (_isLoading || !allowSingleQuestionCreation)
+                    ? null
+                    : _submitQuestion,
                 child: _isLoading
                     ? const SizedBox(
                         width: 24,

@@ -37,6 +37,7 @@ GET /api/admin/audit-logs,Audit logs,adminProvider,✅,
 Other,,,,
 WebSocket,Live updates,Implemented for answers, members, leaderboard, history,✅,All major endpoints now support live updates
 Push Notifications,FCM support,Not implemented,❌,
+Push Notifications,FCM support,Partially implemented,⚠️,Client-side registration implemented; server must have push support enabled and backend endpoints used
 Health Check,/health endpoint,Not implemented,❌,
 Rate Limiting,Error handling,Not implemented,❌,
 Legend: ✅ Fully implemented | ⚠️ Partially implemented or needs correction | ❌ Not implemented
