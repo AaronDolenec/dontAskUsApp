@@ -23,29 +23,32 @@ class FakeApiClient implements ApiClient {
       {String? sessionToken,
       String? adminToken,
       Map<String, String>? queryParams}) {
-    if (onGet != null)
+    if (onGet != null) {
       return onGet!(endpoint,
           sessionToken: sessionToken,
           adminToken: adminToken,
           queryParams: queryParams);
+    }
     throw UnimplementedError();
   }
 
   @override
   Future<http.Response> post(String endpoint, Map<String, dynamic> body,
       {String? sessionToken, String? adminToken}) {
-    if (onPost != null)
+    if (onPost != null) {
       return onPost!(endpoint, body,
           sessionToken: sessionToken, adminToken: adminToken);
+    }
     throw UnimplementedError();
   }
 
   @override
   Future<http.Response> delete(String endpoint,
       {String? sessionToken, String? adminToken}) {
-    if (onDelete != null)
+    if (onDelete != null) {
       return onDelete!(endpoint,
           sessionToken: sessionToken, adminToken: adminToken);
+    }
     throw UnimplementedError();
   }
 
