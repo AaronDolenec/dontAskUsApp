@@ -22,11 +22,20 @@ class PushNotificationService {
     required String sessionToken,
     required String platform,
     String? deviceName,
+
+    /// Optional override of the device token (used in tests). If provided,
+    /// the real Firebase token will not be fetched.
+    String? deviceTokenOverride,
+
+    /// Optional ApiClient to use (useful for tests). If not provided a new
+    /// ApiClient is created and disposed.
+    ApiClient? apiClient,
   }) async {
-    final token = await getDeviceToken();
+    final token = deviceTokenOverride ?? await getDeviceToken();
     if (token == null) return null;
 
-    final api = ApiClient();
+    final api = apiClient ?? ApiClient();
+    final shouldDispose = apiClient == null;
     try {
       final response = await api.post(
         '/api/users/$userId/device-token',
@@ -44,7 +53,7 @@ class PushNotificationService {
         throw ApiException.fromResponse(response);
       }
     } finally {
-      api.dispose();
+      if (shouldDispose) api.dispose();
     }
   }
 
@@ -52,8 +61,10 @@ class PushNotificationService {
     required String userId,
     required String sessionToken,
     required String deviceToken,
+    ApiClient? apiClient,
   }) async {
-    final api = ApiClient();
+    final api = apiClient ?? ApiClient();
+    final shouldDispose = apiClient == null;
     try {
       final endpoint =
           '/api/users/$userId/device-token?token=${Uri.encodeComponent(deviceToken)}';
@@ -62,15 +73,17 @@ class PushNotificationService {
         throw ApiException.fromResponse(response);
       }
     } finally {
-      api.dispose();
+      if (shouldDispose) api.dispose();
     }
   }
 
   static Future<List<Map<String, dynamic>>> listDeviceTokens({
     required String userId,
     required String sessionToken,
+    ApiClient? apiClient,
   }) async {
-    final api = ApiClient();
+    final api = apiClient ?? ApiClient();
+    final shouldDispose = apiClient == null;
     try {
       final response = await api.get('/api/users/$userId/device-tokens',
           sessionToken: sessionToken);
@@ -84,7 +97,7 @@ class PushNotificationService {
         throw ApiException.fromResponse(response);
       }
     } finally {
-      api.dispose();
+      if (shouldDispose) api.dispose();
     }
   }
 }
