@@ -41,14 +41,24 @@ jobs:
             echo "iOS project present";
           fi
 
-      - name: Install CocoaPods dependencies
+      - name: CocoaPods: print versions and repo update
         working-directory: ios
         run: |
+          echo "pod version:"; pod --version || true
+          echo "xcodebuild version:"; xcodebuild -version || true
+          echo "Listing ios/ directory:"; ls -la .. || true
           if [ -f Podfile ]; then
-            pod install || true
+            echo "Updating pod repo and installing pods (may take a while)";
+            pod repo update || true
+            pod install --repo-update || true
           else
             echo "No Podfile found; skipping pod install";
           fi
+
+      - name: Pre-build cleanup
+        run: |
+          echo "Running flutter clean to remove stale build artifacts";
+          flutter clean || true
 
       # Keep workflow minimal: we only build an unsigned IPA and upload it as an artifact.
       # Removed analysis/tests to avoid unrelated failures — this workflow's sole purpose is to produce an IPA.
