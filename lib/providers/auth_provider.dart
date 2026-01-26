@@ -88,7 +88,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
             userId: userId,
             sessionToken: token,
             platform: platform,
-            deviceName: null,
           );
     } catch (_) {
       // Best-effort registration; ignore failures

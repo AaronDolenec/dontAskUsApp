@@ -369,11 +369,11 @@ class _CreateQuestionScreenState extends ConsumerState<CreateQuestionScreen> {
             if (!allowSingleQuestionCreation)
               Card(
                 color: Colors.yellow[50],
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
+                child: const Padding(
+                  padding: EdgeInsets.all(12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
                         'Deprecated: Single question creation is deprecated. Create a question set instead and add it to your group.',
                         style: TextStyle(fontWeight: FontWeight.w600),
