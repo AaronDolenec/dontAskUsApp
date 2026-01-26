@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../utils/utils.dart';
 import '../../services/auth_service.dart';
+import '../settings/recover_session_screen.dart';
 import 'join_group_screen.dart';
 import 'create_group_screen.dart';
 
@@ -102,6 +103,22 @@ class GetStartedScreen extends StatelessWidget {
                   style: TextStyle(
                     color: Colors.grey,
                     fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const RecoverSessionScreen()),
+                  );
+                },
+                child: const Text(
+                  'Recover Account',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),

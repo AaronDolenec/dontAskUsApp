@@ -6,8 +6,8 @@ import 'api_config.dart';
 /// WebSocket service for real-time vote updates
 class WebSocketService {
   /// Public stream getter for listening to WebSocket messages (broadcast)
-  Stream<dynamic> get stream =>
-      _channel?.stream.asBroadcastStream() ?? const Stream.empty();
+  Stream<dynamic> get stream => _broadcast ?? const Stream.empty();
+  Stream<dynamic>? _broadcast;
   WebSocketChannel? _channel;
   StreamSubscription? _subscription;
   Timer? _reconnectTimer;
@@ -46,7 +46,11 @@ class WebSocketService {
           '${ApiConfig.wsBaseUrl}/ws/groups/$groupId/questions/$questionId';
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
 
-      _subscription = _channel!.stream.listen(
+      // Create a single broadcast stream instance and listen to it. This
+      // avoids "Stream has already been listened to" errors when multiple
+      // parts of the app subscribe to updates.
+      _broadcast = _channel!.stream.asBroadcastStream();
+      _subscription = _broadcast!.listen(
         _handleMessage,
         onError: _handleError,
         onDone: _handleDone,
@@ -133,6 +137,7 @@ class WebSocketService {
     _shouldReconnect = false;
     _reconnectTimer?.cancel();
     _subscription?.cancel();
+    _broadcast = null;
     _channel?.sink.close();
     _isConnected = false;
   }

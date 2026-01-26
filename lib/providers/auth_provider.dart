@@ -312,6 +312,58 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _loadSession();
   }
 
+  /// Recover account using a raw session token (admin-provided)
+  Future<bool> recoverWithToken(String token) async {
+    state = state.copyWith(isLoading: true);
+
+    try {
+      final api = _ref.read(apiClientProvider);
+      final response = await api.get('/api/users/validate-session/$token');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final validation = SessionValidation.fromJson(data);
+
+        if (validation.valid && validation.groupId != null) {
+          final groupId = validation.groupId!;
+          final oderId = validation.oderId ?? '';
+          final displayName = validation.displayName ?? 'User';
+
+          // Persist the session
+          await AuthService.saveSession(
+            groupId: groupId,
+            token: token,
+            oderId: oderId,
+            displayName: displayName,
+          );
+
+          final isAdmin = await AuthService.isAdmin(groupId);
+
+          state = state.copyWith(
+            user: User(
+              id: 0,
+              oderId: oderId,
+              displayName: displayName,
+              colorAvatar: '#3B82F6',
+              sessionToken: token,
+              createdAt: DateTime.now(),
+            ),
+            groupId: groupId,
+            isLoading: false,
+            isAdmin: isAdmin,
+          );
+          return true;
+        }
+      }
+
+      state = state.copyWith(isLoading: false, error: 'Invalid session token');
+      return false;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+      return false;
+    }
+  }
+
   /// Join a group with invite code
   Future<bool> joinGroup({
     required String inviteCode,

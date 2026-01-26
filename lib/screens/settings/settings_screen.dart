@@ -13,6 +13,7 @@ import '../admin/question_sets_screen.dart';
 import '../onboarding/join_group_screen.dart';
 import 'help_screen.dart';
 import 'session_info_screen.dart';
+import 'recover_session_screen.dart';
 
 /// Settings screen
 class SettingsScreen extends ConsumerWidget {
@@ -212,6 +213,19 @@ class SettingsScreen extends ConsumerWidget {
                 title: const Text('Clear All Data'),
                 subtitle: const Text('Logout and clear all stored data'),
                 onTap: () => _showClearDataDialog(context, ref),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.vpn_key),
+                title: const Text('Recover Account'),
+                subtitle: const Text('Enter a session token provided by an admin'),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const RecoverSessionScreen()),
+                  );
+                },
               ),
             ),
 

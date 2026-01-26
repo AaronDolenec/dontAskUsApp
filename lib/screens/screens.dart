@@ -17,5 +17,6 @@ export 'history/history_item.dart';
 export 'settings/settings_screen.dart';
 export 'settings/help_screen.dart';
 export 'settings/session_info_screen.dart';
+export 'settings/recover_session_screen.dart';
 export 'admin/create_question_screen.dart';
 export 'admin/question_sets_screen.dart';
