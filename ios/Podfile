@@ -58,7 +58,11 @@ post_install do |installer|
   # DEFINES_MODULE = NO for those plugin targets prevents them from being
   # treated as Swift/Obj-C modules which avoids the non-modular header error.
   installer.pods_project.targets.each do |target|
-    if target.name.downcase.include?('firebase') || target.name.end_with?('FLTFirebaseMessagingPlugin') || target.name.downcase.include?('firebase_messaging')
+    # Only apply DEFINES_MODULE workaround to the Flutter plugin target that
+    # triggers non-modular header errors (FLTFirebaseMessagingPlugin). Broadly
+    # applying DEFINES_MODULE = NO to all Firebase pods can break module
+    # resolution (e.g. "Module 'FirebaseCoreInternal' not found").
+    if target.name.end_with?('FLTFirebaseMessagingPlugin')
       target.build_configurations.each do |config|
         config.build_settings['DEFINES_MODULE'] = 'NO'
         config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'

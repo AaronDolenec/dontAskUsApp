@@ -48,6 +48,7 @@ jobs:
           echo "xcodebuild version:"; xcodebuild -version || true
           echo "Listing ios/ directory:"; ls -la .. || true
           if [ -f Podfile ]; then
+            echo "Podfile.lock contents:"; cat Podfile.lock || true
             echo "Updating pod repo and installing pods (may take a while)";
             pod repo update || true
             pod install --repo-update || true
