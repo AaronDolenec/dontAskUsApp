@@ -5,7 +5,6 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/services.dart';
-import '../../services/share_service.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/widgets.dart';
 import '../admin/create_question_screen.dart';
@@ -143,6 +142,21 @@ class SettingsScreen extends ConsumerWidget {
                         );
                       },
                     ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.api),
+                      title: const Text('API Diagnostics'),
+                      subtitle: const Text('Check API reachability and CORS'),
+                      onTap: () => _showApiDiagnostics(context),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.bug_report),
+                      title: const Text('Run Test Create Question'),
+                      subtitle:
+                          const Text('Post a sample question (admins only)'),
+                      onTap: () => _runTestCreateQuestion(context, ref),
+                    ),
                   ],
                 ),
               ),
@@ -220,10 +234,12 @@ class SettingsScreen extends ConsumerWidget {
               child: ListTile(
                 leading: const Icon(Icons.vpn_key),
                 title: const Text('Recover Account'),
-                subtitle: const Text('Enter a session token provided by an admin'),
+                subtitle:
+                    const Text('Enter a session token provided by an admin'),
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const RecoverSessionScreen()),
+                    MaterialPageRoute(
+                        builder: (_) => const RecoverSessionScreen()),
                   );
                 },
               ),
@@ -376,6 +392,79 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _showApiDiagnostics(BuildContext context) async {
+    final api = ApiClient();
+    String title = 'API Diagnostics';
+    String content;
+
+    try {
+      final response = await api.get('/api/');
+      content =
+          'Status: ${response.statusCode}\nBody: ${response.body}\nHeaders: ${response.headers}';
+    } catch (e) {
+      content =
+          'Network error: ${e.toString()}\nAPI URL: ${ApiConfig.currentBaseUrl}';
+    }
+
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(title),
+        content: SingleChildScrollView(child: Text(content)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _runTestCreateQuestion(
+      BuildContext context, WidgetRef ref) async {
+    final authState = ref.read(authProvider);
+    if (!authState.isAdmin || authState.groupId == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Only admins can run this test')),
+        );
+      }
+      return;
+    }
+
+    final adminToken = await ref.read(adminTokenProvider.future);
+    final api = ref.read(apiClientProvider);
+    final groupId = authState.groupId!;
+
+    final body = {
+      'question_text': 'Test question from client',
+      'question_type': 'binary_vote',
+    };
+
+    try {
+      final response = await api.post('/api/groups/$groupId/questions', body,
+          adminToken: adminToken);
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Test question created successfully')));
+        }
+      } else {
+        final exception = ApiException.fromResponse(response);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Test failed: ${exception.userFriendlyMessage}')));
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Network error: ${e.toString()}')));
+      }
+    }
   }
 }
 

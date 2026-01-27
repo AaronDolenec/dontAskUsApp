@@ -319,6 +319,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final api = _ref.read(apiClientProvider);
       final response = await api.get('/api/users/validate-session/$token');
+      debugPrint(
+          'DEBUG: recoverWithToken response status: ${response.statusCode}');
+      debugPrint('DEBUG: recoverWithToken response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;

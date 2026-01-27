@@ -7,6 +7,7 @@ import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../utils/utils.dart';
 import '../../widgets/widgets.dart';
+import '../../services/services.dart';
 
 class CreateQuestionScreen extends ConsumerStatefulWidget {
   const CreateQuestionScreen({super.key});
@@ -102,11 +103,20 @@ class _CreateQuestionScreenState extends ConsumerState<CreateQuestionScreen> {
           'question_set_id': _selectedQuestionSetId,
       };
 
-      await apiClient.post(
+      debugPrint(
+          'DEBUG: Creating question for group $groupId at ${ApiConfig.currentBaseUrl}');
+      debugPrint('DEBUG: Admin token present: ${adminToken != null}');
+      final response = await apiClient.post(
         '/api/groups/$groupId/questions',
         body,
         adminToken: adminToken,
       );
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        // Convert to ApiException for consistent handling
+        final exception = ApiException.fromResponse(response);
+        throw exception;
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -118,8 +128,19 @@ class _CreateQuestionScreenState extends ConsumerState<CreateQuestionScreen> {
         Navigator.of(context).pop(true);
       }
     } catch (e) {
+      debugPrint('DEBUG: Error creating question: $e');
+      String message;
+      if (e is ApiException && e.statusCode == 0) {
+        message =
+            'Network error while creating question. This may be due to the server being unreachable or CORS blocking the request. Check the API URL (${ApiConfig.currentBaseUrl}) and server CORS settings.';
+      } else if (e is ApiException) {
+        message = e.userFriendlyMessage;
+      } else {
+        message = e.toString().replaceFirst('Exception: ', '');
+      }
+
       setState(() {
-        _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        _errorMessage = message;
       });
     } finally {
       if (mounted) {

@@ -111,7 +111,8 @@ class GetStartedScreen extends StatelessWidget {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const RecoverSessionScreen()),
+                    MaterialPageRoute(
+                        builder: (_) => const RecoverSessionScreen()),
                   );
                 },
                 child: const Text(

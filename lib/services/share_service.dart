@@ -5,6 +5,10 @@ import 'package:share_plus/share_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../utils/utils.dart';
+// Conditional import: web implementation uses `dart:html` APIs; non-web stub
+// provides a no-op implementation to keep imports safe on non-web targets.
+import 'web_clipboard_stub.dart'
+    if (dart.library.html) 'web_clipboard_html.dart' as web_clipboard;
 
 /// Service for sharing invite codes and deep links
 class ShareService {
@@ -24,17 +28,36 @@ class ShareService {
   /// Copy invite code to clipboard with web fallback
   /// Returns true if successful, false otherwise
   static Future<bool> copyInviteCode(String inviteCode) async {
+    // Try Flutter's Clipboard first (works on mobile and secure web origins)
     try {
       await Clipboard.setData(ClipboardData(text: inviteCode));
       return true;
-    } catch (e) {
-      // Clipboard API requires secure context (HTTPS) on web
+    } catch (_) {
+      // If we're on web, try the JS DOM clipboard APIs as a fallback.
       if (kIsWeb) {
-        // Try using the web clipboard API directly as fallback
         try {
-          // This might work in some browsers even without HTTPS
-          await Clipboard.setData(ClipboardData(text: inviteCode));
-          return true;
+          return await web_clipboard.writeTextToClipboard(inviteCode);
+        } catch (_) {
+          return false;
+        }
+      }
+
+      return false;
+    }
+  }
+
+  /// Generic copy helper for arbitrary text values. Uses the same web
+  /// fallback as `copyInviteCode` so that copy works on non-HTTPS web
+  /// contexts and on mobile/desktop platforms.
+  static Future<bool> copyText(String text) async {
+    if (text.isEmpty) return false;
+    try {
+      await Clipboard.setData(ClipboardData(text: text));
+      return true;
+    } catch (_) {
+      if (kIsWeb) {
+        try {
+          return await web_clipboard.writeTextToClipboard(text);
         } catch (_) {
           return false;
         }
@@ -206,13 +229,14 @@ class ShareInviteBottomSheet extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () async {
-                        await ShareService.copyInviteCode(inviteCode);
+                        final success = await ShareService.copyInviteCode(
+                          inviteCode,
+                        );
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Invite code copied!'),
-                              behavior: SnackBarBehavior.floating,
-                            ),
+                          ShareService.showCopyResult(
+                            context,
+                            success,
+                            inviteCode,
                           );
                         }
                       },

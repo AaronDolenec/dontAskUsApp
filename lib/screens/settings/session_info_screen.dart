@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/providers.dart';
 import '../../services/services.dart';
@@ -58,11 +57,9 @@ class _SessionInfoScreenState extends ConsumerState<SessionInfoScreen> {
   Future<void> _copyToClipboard(String label, String? value) async {
     if (value == null) return;
 
-    await Clipboard.setData(ClipboardData(text: value));
+    final success = await ShareService.copyText(value);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$label copied to clipboard')),
-      );
+      ShareService.showCopyResult(context, success, value);
     }
   }
 

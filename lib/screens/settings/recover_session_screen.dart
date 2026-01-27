@@ -7,7 +7,8 @@ class RecoverSessionScreen extends ConsumerStatefulWidget {
   const RecoverSessionScreen({super.key});
 
   @override
-  ConsumerState<RecoverSessionScreen> createState() => _RecoverSessionScreenState();
+  ConsumerState<RecoverSessionScreen> createState() =>
+      _RecoverSessionScreenState();
 }
 
 class _RecoverSessionScreenState extends ConsumerState<RecoverSessionScreen> {
@@ -26,7 +27,8 @@ class _RecoverSessionScreenState extends ConsumerState<RecoverSessionScreen> {
     setState(() => _isProcessing = true);
 
     final token = _tokenController.text.trim();
-    final success = await ref.read(authProvider.notifier).recoverWithToken(token);
+    final success =
+        await ref.read(authProvider.notifier).recoverWithToken(token);
 
     setState(() => _isProcessing = false);
 
@@ -39,8 +41,11 @@ class _RecoverSessionScreenState extends ConsumerState<RecoverSessionScreen> {
       Navigator.of(context).popUntil((route) => route.isFirst);
       Navigator.of(context).pushReplacementNamed('/main');
     } else {
+      final authState = ref.read(authProvider);
+      final err =
+          authState.error ?? 'Failed to recover account. Check the token.';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to recover account. Check the token.')),
+        SnackBar(content: Text(err)),
       );
     }
   }
@@ -65,7 +70,9 @@ class _RecoverSessionScreenState extends ConsumerState<RecoverSessionScreen> {
                   labelText: 'Session Token',
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter a token' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Please enter a token'
+                    : null,
                 minLines: 1,
                 maxLines: 3,
               ),
@@ -77,7 +84,9 @@ class _RecoverSessionScreenState extends ConsumerState<RecoverSessionScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                   ),
-                  child: _isProcessing ? const CircularProgressIndicator() : const Text('Recover'),
+                  child: _isProcessing
+                      ? const CircularProgressIndicator()
+                      : const Text('Recover'),
                 ),
               ),
             ],
