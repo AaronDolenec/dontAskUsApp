@@ -73,4 +73,67 @@ platform :ios do
       export_method: "development"
     )
   end
+
+  desc "CI: Build IPA with flutter and commit into repo (requires signing)"
+  lane :ci_build_and_commit_ipa do
+    # Optionally use match if MATCH_GIT_URL is provided
+    if ENV['MATCH_GIT_URL'] && !ENV['MATCH_GIT_URL'].empty?
+      match(type: "appstore", readonly: true)
+    end
+
+    sh("flutter pub get")
+
+    begin
+      sh("flutter build ipa --export-options-plist=ios/exportOptions.plist")
+    rescue => e
+      UI.message("flutter build ipa failed: #{e}")
+      UI.user_error!("IPA build failed. Ensure signing is configured on the runner or provide match config.")
+    end
+
+    ipa = Dir.glob("build/ios/ipa/*.ipa").first
+    if ipa.nil?
+      UI.user_error!("No .ipa found after build")
+    end
+
+    FileUtils.mkdir_p("ios/ci-artifacts")
+    dest = File.join("ios/ci-artifacts", File.basename(ipa))
+    FileUtils.cp(ipa, dest)
+
+    sh("git config user.email 'github-actions[bot]@users.noreply.github.com'")
+    sh("git config user.name 'github-actions[bot]'")
+    sh("git add #{dest}")
+    sh("git commit -m 'Add built .ipa (CI) [skip ci]' || echo 'Nothing to commit'")
+    sh("git push")
+  end
+
+  desc "CI: Build IPA with flutter and leave artifacts for CI"
+  lane :ci_build_ipa do
+    # Optionally use match if MATCH_GIT_URL is provided
+    if ENV['MATCH_GIT_URL'] && !ENV['MATCH_GIT_URL'].empty?
+      match(type: "appstore", readonly: true)
+    end
+
+    sh("mkdir -p build/ci-logs")
+
+    # Install pods (best-effort, capture output)
+    begin
+      sh("cd ios && pod install --repo-update 2>&1 | tee ../build/ci-logs/pod.log")
+    rescue => e
+      UI.message("pod install had errors: #{e}")
+    end
+
+    sh("flutter pub get")
+
+    begin
+      sh("flutter build ipa --export-options-plist=ios/exportOptions.plist 2>&1 | tee build/ci-logs/fastlane.log")
+    rescue => e
+      UI.message("flutter build ipa failed: #{e}")
+      UI.user_error!("IPA build failed. Ensure signing is configured on the runner or provide match config.")
+    end
+
+    ipa = Dir.glob("build/ios/ipa/*.ipa").first
+    if ipa.nil?
+      UI.user_error!("No .ipa found after build")
+    end
+  end
 end

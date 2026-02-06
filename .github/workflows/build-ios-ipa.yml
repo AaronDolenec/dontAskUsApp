@@ -1,0 +1,80 @@
+name: Build and commit iOS IPA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.1'
+
+      - name: Install Fastlane and CocoaPods
+        run: |
+          sudo gem install fastlane -v 2.204.0 || true
+          sudo gem install cocoapods || true
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Install CocoaPods (gem)
+        run: |
+          sudo gem install cocoapods || true
+
+      - name: Install iOS pods
+        run: |
+          set -e
+          mkdir -p build/ci-logs
+          cd ios
+          pod install --repo-update 2>&1 | tee ../build/ci-logs/pod.log
+        continue-on-error: true
+
+      - name: Run Fastlane CI build (captures logs)
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          mkdir -p build/ci-logs
+          fastlane ci_build_ipa 2>&1 | tee build/ci-logs/fastlane.log
+
+      - name: Show IPA directory
+        if: always()
+        run: |
+          echo "Contents of build/ios/ipa:"
+          ls -la build/ios/ipa || true
+
+      - name: Upload IPA artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-ipa
+          path: build/ios/ipa/*.ipa
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-logs
+          path: build/ci-logs/**
+
+      - name: Fail if no IPA
+        if: always()
+        run: |
+          IPA=$(ls build/ios/ipa/*.ipa | head -n1 || true)
+          if [ -z "$IPA" ]; then
+            echo "No .ipa produced. Check the uploaded logs for details."
+            exit 1
+          fi

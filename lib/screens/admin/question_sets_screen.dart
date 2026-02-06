@@ -7,6 +7,26 @@ import '../../providers/providers.dart';
 import '../../utils/utils.dart';
 import '../../widgets/widgets.dart';
 
+List<QuestionSet> _parseQuestionSetsResponse(
+  String body, {
+  String? listKey,
+}) {
+  final data = jsonDecode(body);
+
+  if (data is Map && listKey != null && data[listKey] is List) {
+    final setsList = data[listKey] as List;
+    return setsList
+        .map((json) => QuestionSet.fromJson(json as Map<String, dynamic>))
+        .toList();
+  } else if (data is List) {
+    return data
+        .map((json) => QuestionSet.fromJson(json as Map<String, dynamic>))
+        .toList();
+  }
+
+  return [];
+}
+
 // Provider for fetching question sets
 final questionSetsProvider =
     FutureProvider.autoDispose<List<QuestionSet>>((ref) async {
@@ -14,17 +34,10 @@ final questionSetsProvider =
   final response = await apiClient.get('/api/question-sets');
 
   if (response.statusCode == 200) {
-    final data = jsonDecode(response.body);
-    if (data is Map && data.containsKey('sets')) {
-      final setsList = data['sets'] as List;
-      return setsList
-          .map((json) => QuestionSet.fromJson(json as Map<String, dynamic>))
-          .toList();
-    } else if (data is List) {
-      return data
-          .map((json) => QuestionSet.fromJson(json as Map<String, dynamic>))
-          .toList();
-    }
+    return _parseQuestionSetsResponse(
+      response.body,
+      listKey: 'sets',
+    );
   }
   return [];
 });
@@ -40,17 +53,10 @@ final groupQuestionSetsProvider =
       await apiClient.get('/api/groups/${authState.groupId}/question-sets');
 
   if (response.statusCode == 200) {
-    final data = jsonDecode(response.body);
-    if (data is Map && data.containsKey('question_sets')) {
-      final setsList = data['question_sets'] as List;
-      return setsList
-          .map((json) => QuestionSet.fromJson(json as Map<String, dynamic>))
-          .toList();
-    } else if (data is List) {
-      return data
-          .map((json) => QuestionSet.fromJson(json as Map<String, dynamic>))
-          .toList();
-    }
+    return _parseQuestionSetsResponse(
+      response.body,
+      listKey: 'question_sets',
+    );
   }
   return [];
 });
@@ -78,22 +84,34 @@ class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
     super.dispose();
   }
 
+  /// Helper to ensure we have both groupId and adminToken
+  Future<_GroupAndAdmin?> _requireGroupAndAdmin() async {
+    final authState = ref.read(authProvider);
+    if (!authState.isAuthenticated || authState.groupId == null) return null;
+
+    final adminToken = await ref.read(adminTokenProvider.future);
+    if (adminToken == null) return null;
+
+    return _GroupAndAdmin(
+      groupId: authState.groupId!,
+      adminToken: adminToken,
+    );
+  }
+
   Future<void> _assignSet(QuestionSet set) async {
     try {
-      final authState = ref.read(authProvider);
-      if (!authState.isAuthenticated || authState.groupId == null) return;
-
-      final adminToken = await ref.read(adminTokenProvider.future);
+      final params = await _requireGroupAndAdmin();
+      if (params == null) return;
 
       final apiClient = ref.read(apiClientProvider);
       // API uses POST with question_set_ids array
       await apiClient.post(
-        '/api/groups/${authState.groupId}/question-sets',
+        '/api/groups/${params.groupId}/question-sets',
         {
           'question_set_ids': [set.setId],
           'replace': false,
         },
-        adminToken: adminToken,
+        adminToken: params.adminToken,
       );
 
       ref.invalidate(groupQuestionSetsProvider);
@@ -141,15 +159,13 @@ class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
     if (confirm != true) return;
 
     try {
-      final authState = ref.read(authProvider);
-      if (!authState.isAuthenticated || authState.groupId == null) return;
-
-      final adminToken = await ref.read(adminTokenProvider.future);
+      final params = await _requireGroupAndAdmin();
+      if (params == null) return;
 
       final apiClient = ref.read(apiClientProvider);
       await apiClient.delete(
-        '/api/groups/${authState.groupId}/question-sets/${set.setId}',
-        adminToken: adminToken,
+        '/api/groups/${params.groupId}/question-sets/${set.setId}',
+        adminToken: params.adminToken,
       );
 
       ref.invalidate(groupQuestionSetsProvider);
@@ -211,18 +227,9 @@ class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
         final assignedIds = groupSets.map((s) => s.setId).toSet();
 
         if (sets.isEmpty) {
-          return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.quiz_outlined, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text(
-                  'No question sets available',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ],
-            ),
+          return const _QuestionSetEmptyState(
+            title: 'No question sets available',
+            showBrowseButton: false,
           );
         }
 
@@ -262,23 +269,10 @@ class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
       ),
       data: (sets) {
         if (sets.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.quiz_outlined, size: 64, color: Colors.grey),
-                const SizedBox(height: 16),
-                const Text(
-                  'No question sets assigned',
-                  style: TextStyle(color: Colors.grey),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => _tabController.animateTo(0),
-                  child: const Text('Browse Available Sets'),
-                ),
-              ],
-            ),
+          return _QuestionSetEmptyState(
+            title: 'No question sets assigned',
+            showBrowseButton: true,
+            onBrowsePressed: () => _tabController.animateTo(0),
           );
         }
 
@@ -306,6 +300,16 @@ class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
       },
     );
   }
+}
+
+class _GroupAndAdmin {
+  final String groupId;
+  final String adminToken;
+
+  const _GroupAndAdmin({
+    required this.groupId,
+    required this.adminToken,
+  });
 }
 
 class _QuestionSetCard extends StatelessWidget {
@@ -340,7 +344,7 @@ class _QuestionSetCard extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
+                    color: AppColors.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
@@ -385,8 +389,8 @@ class _QuestionSetCard extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: set.isPublic
-                        ? Colors.green.withValues(alpha: 0.1)
-                        : Colors.orange.withValues(alpha: 0.1),
+                        ? Colors.green.withOpacity(0.1)
+                        : Colors.orange.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -435,6 +439,42 @@ class _QuestionSetListLoading extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _QuestionSetEmptyState extends StatelessWidget {
+  final String title;
+  final bool showBrowseButton;
+  final VoidCallback? onBrowsePressed;
+
+  const _QuestionSetEmptyState({
+    required this.title,
+    this.showBrowseButton = false,
+    this.onBrowsePressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.quiz_outlined, size: 64, color: Colors.grey),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: const TextStyle(color: Colors.grey),
+          ),
+          if (showBrowseButton) ...[
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: onBrowsePressed,
+              child: const Text('Browse Available Sets'),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
