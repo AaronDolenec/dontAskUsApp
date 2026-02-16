@@ -9,7 +9,9 @@ import '../../utils/app_colors.dart';
 import '../../widgets/widgets.dart';
 import '../admin/create_question_screen.dart';
 import '../admin/question_sets_screen.dart';
+import '../onboarding/auth_screen.dart';
 import '../onboarding/join_group_screen.dart';
+import '../groups/groups_screen.dart';
 import 'help_screen.dart';
 import 'session_info_screen.dart';
 import 'recover_session_screen.dart';
@@ -244,6 +246,35 @@ class SettingsScreen extends ConsumerWidget {
                 },
               ),
             ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.refresh),
+              title: const Text('Retry Session Restore'),
+              subtitle: const Text('Retry loading stored sessions from disk'),
+              onTap: () async {
+                final notifier = ref.read(authProvider.notifier);
+                await notifier.reloadSession();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Session restore retried')),
+                  );
+                }
+              },
+            ),
+            const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.storage),
+              title: const Text('Debug Storage'),
+              subtitle: const Text('Print local storage to debug console'),
+              onTap: () async {
+                await AuthService.debugPrintStorage();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Storage printed to console')),
+                  );
+                }
+              },
+            ),
 
             const SizedBox(height: 32),
           ],
@@ -273,7 +304,7 @@ class SettingsScreen extends ConsumerWidget {
 
               if (context.mounted) {
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const JoinGroupScreen()),
+                  MaterialPageRoute(builder: (_) => const GroupsScreen()),
                   (route) => false,
                 );
               }
@@ -306,8 +337,8 @@ class SettingsScreen extends ConsumerWidget {
               await ref.read(authProvider.notifier).logout();
 
               if (context.mounted) {
-                Navigator.of(context).pushNamedAndRemoveUntil(
-                  '/onboarding',
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const AuthScreen()),
                   (route) => false,
                 );
               }

@@ -1,7 +1,7 @@
 /// AnswerResponse model for vote/answer submission results
 class AnswerResponse {
-  final String message;
-  final String questionId;
+  final bool success;
+  final String? questionType;
   final List<String>? options;
   final Map<String, int>? optionCounts;
   final int totalVotes;
@@ -10,8 +10,8 @@ class AnswerResponse {
   final int longestStreak;
 
   AnswerResponse({
-    required this.message,
-    required this.questionId,
+    required this.success,
+    this.questionType,
     this.options,
     this.optionCounts,
     required this.totalVotes,
@@ -21,13 +21,12 @@ class AnswerResponse {
   });
 
   /// Check if the submission was successful
-  bool get isSuccess => message.toLowerCase().contains('recorded') || 
-                        message.toLowerCase().contains('success');
+  bool get isSuccess => success;
 
   factory AnswerResponse.fromJson(Map<String, dynamic> json) {
     return AnswerResponse(
-      message: json['message'] as String,
-      questionId: json['question_id'] as String,
+      success: json['success'] as bool? ?? true,
+      questionType: json['question_type'] as String?,
       options: json['options'] != null
           ? List<String>.from(json['options'] as List)
           : null,
@@ -43,8 +42,8 @@ class AnswerResponse {
 
   Map<String, dynamic> toJson() {
     return {
-      'message': message,
-      'question_id': questionId,
+      'success': success,
+      'question_type': questionType,
       'options': options,
       'option_counts': optionCounts,
       'total_votes': totalVotes,
@@ -56,6 +55,6 @@ class AnswerResponse {
 
   @override
   String toString() {
-    return 'AnswerResponse(message: $message, streak: $currentStreak)';
+    return 'AnswerResponse(success: $success, streak: $currentStreak)';
   }
 }

@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import '../../utils/utils.dart';
 import '../../services/auth_service.dart';
 import '../settings/recover_session_screen.dart';
-import 'join_group_screen.dart';
-import 'create_group_screen.dart';
+import 'auth_screen.dart';
 
 /// Get started screen with join/create options
 class GetStartedScreen extends StatelessWidget {
@@ -46,12 +45,12 @@ class GetStartedScreen extends StatelessWidget {
               _OptionButton(
                 icon: Icons.login_rounded,
                 title: 'Join a Group',
-                subtitle: 'Enter an invite code from a friend',
+                subtitle: 'Sign in or create an account first',
                 color: AppColors.primary,
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const JoinGroupScreen()),
+                    MaterialPageRoute(builder: (_) => const AuthScreen()),
                   );
                 },
               ),
@@ -61,13 +60,12 @@ class GetStartedScreen extends StatelessWidget {
               _OptionButton(
                 icon: Icons.add_circle_outline_rounded,
                 title: 'Create a Group',
-                subtitle: 'Start a new group and invite friends',
+                subtitle: 'Sign in or create an account first',
                 color: AppColors.secondary,
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                        builder: (_) => const CreateGroupScreen()),
+                    MaterialPageRoute(builder: (_) => const AuthScreen()),
                   );
                 },
               ),

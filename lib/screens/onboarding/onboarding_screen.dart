@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../utils/utils.dart';
-import 'join_group_screen.dart';
-import 'create_group_screen.dart';
+import 'auth_screen.dart';
 
 /// Welcome screen with app introduction slides
 class OnboardingScreen extends StatefulWidget {
@@ -282,13 +281,13 @@ class GetStartedSheet extends StatelessWidget {
           _OptionButton(
             icon: Icons.login_rounded,
             title: 'Join a Group',
-            subtitle: 'Enter an invite code from a friend',
+            subtitle: 'Sign in or create an account first',
             color: AppColors.primary,
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
                 context,
-                SlideUpPageRoute(page: const JoinGroupScreen()),
+                SlideUpPageRoute(page: const AuthScreen()),
               );
             },
           ),
@@ -298,13 +297,13 @@ class GetStartedSheet extends StatelessWidget {
           _OptionButton(
             icon: Icons.add_circle_outline_rounded,
             title: 'Create a Group',
-            subtitle: 'Start a new group and invite friends',
+            subtitle: 'Sign in or create an account first',
             color: AppColors.secondary,
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
                 context,
-                SlideUpPageRoute(page: const CreateGroupScreen()),
+                SlideUpPageRoute(page: const AuthScreen()),
               );
             },
           ),

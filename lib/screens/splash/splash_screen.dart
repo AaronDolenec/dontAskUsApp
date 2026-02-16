@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/providers.dart';
 import '../../utils/app_colors.dart';
-import '../onboarding/onboarding_screen.dart';
-import '../main/main_screen.dart';
+import '../onboarding/auth_screen.dart';
+import '../groups/groups_screen.dart';
 
 /// Splash screen with token validation
 class SplashScreen extends ConsumerStatefulWidget {
@@ -74,10 +74,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     final finalAuthState = ref.read(authProvider);
 
     // Navigate based on auth state
-    if (finalAuthState.isAuthenticated) {
+    if (finalAuthState.user != null) {
       _navigateToMain();
     } else {
-      _navigateToOnboarding();
+      _navigateToAuth();
     }
   }
 
@@ -85,7 +85,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            const MainScreen(),
+            const GroupsScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },
@@ -93,11 +93,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     );
   }
 
-  void _navigateToOnboarding() {
+  void _navigateToAuth() {
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            const OnboardingScreen(),
+            const AuthScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },

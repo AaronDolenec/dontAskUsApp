@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/providers.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/widgets.dart';
-import '../main/main_screen.dart';
+import '../groups/groups_screen.dart';
 import 'create_group_screen.dart';
 
 /// Screen for joining a group with invite code
@@ -102,9 +102,9 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
               SnackBar(content: Text('Joined "$_previewGroupName"!')),
             );
           } else {
-            // Navigate to main screen for initial onboarding
+            // Navigate to groups screen
             Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const MainScreen()),
+              MaterialPageRoute(builder: (_) => const GroupsScreen()),
             );
           }
         } else {

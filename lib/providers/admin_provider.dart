@@ -55,7 +55,7 @@ class AdminNotifier extends StateNotifier<AdminState> {
     if (state.token == null) return;
     final api = ref.read(apiClientProvider);
     final response =
-        await api.get('/api/admin/dashboard/stats', adminToken: state.token);
+        await api.get('/api/admin/dashboard/stats', accessToken: state.token);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       state = state.copyWith(dashboardStats: data);
@@ -67,7 +67,7 @@ class AdminNotifier extends StateNotifier<AdminState> {
     final api = ref.read(apiClientProvider);
     final response = await api.get(
         '/api/admin/audit-logs?limit=$limit&offset=$offset',
-        adminToken: state.token);
+        accessToken: state.token);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       state = state.copyWith(auditLogs: data['logs']);

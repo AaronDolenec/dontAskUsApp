@@ -114,7 +114,7 @@ class WebSocketService {
   }
 
   /// Send a vote via WebSocket
-  void sendVote(String sessionToken, dynamic answer) {
+  void sendVote(String token, dynamic answer) {
     if (!_isConnected || _channel == null) {
       onError?.call('Not connected to WebSocket');
       return;
@@ -123,7 +123,7 @@ class WebSocketService {
     try {
       final message = jsonEncode({
         'type': 'vote',
-        'session_token': sessionToken,
+        'token': token,
         'answer': answer,
       });
       _channel!.sink.add(message);

@@ -24,8 +24,10 @@ final groupInfoProvider = FutureProvider<Group?>((ref) async {
 
   // Fetch from API
   try {
+    final token = await AuthService.getToken(auth.groupId!);
     final api = ref.read(apiClientProvider);
-    final response = await api.get('/api/groups/${auth.groupId}/info');
+    final response =
+        await api.get('/api/groups/${auth.groupId}/info', accessToken: token);
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -53,8 +55,10 @@ final groupPreviewProvider =
   if (inviteCode.isEmpty) return null;
 
   try {
+    final token = await AuthService.getAccessToken();
     final api = ref.read(apiClientProvider);
-    final response = await api.get('/api/groups/$inviteCode');
+    final response =
+        await api.get('/api/groups/$inviteCode', accessToken: token);
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -84,8 +88,10 @@ final groupMembersProvider = FutureProvider<List<GroupMember>>((ref) async {
 
   // Fetch from API
   try {
+    final token = await AuthService.getToken(auth.groupId!);
     final api = ref.read(apiClientProvider);
-    final response = await api.get('/api/groups/${auth.groupId}/members');
+    final response = await api.get('/api/groups/${auth.groupId}/members',
+        accessToken: token);
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
@@ -170,7 +176,7 @@ class LeaderboardNotifier extends StateNotifier<List<GroupMember>> {
       final api = _ref.read(apiClientProvider);
       final response = await api.get(
         '/api/groups/${auth.groupId}/leaderboard',
-        sessionToken: token,
+        accessToken: token,
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -224,8 +230,10 @@ final groupQuestionSetsProvider =
   final auth = ref.watch(authProvider);
   if (auth.groupId == null) return [];
   try {
+    final token = await AuthService.getToken(auth.groupId!);
     final api = ref.read(apiClientProvider);
-    final response = await api.get('/api/groups/${auth.groupId}/question-sets');
+    final response = await api.get('/api/groups/${auth.groupId}/question-sets',
+        accessToken: token);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final setsJson = data['question_sets'] as List? ?? [];

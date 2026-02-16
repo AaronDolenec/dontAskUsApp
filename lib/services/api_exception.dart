@@ -17,9 +17,25 @@ class ApiException implements Exception {
   factory ApiException.fromResponse(http.Response response) {
     try {
       final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final detail = body['detail'];
+      String message;
+
+      if (detail is String) {
+        message = detail;
+      } else if (detail is List) {
+        // FastAPI 422 validation errors: [{"msg": "...", "loc": [...], ...}]
+        message = detail
+            .map((e) => e is Map
+                ? (e['msg'] as String? ?? 'Validation error')
+                : e.toString())
+            .join('; ');
+      } else {
+        message = body['message'] as String? ?? 'Unknown error';
+      }
+
       return ApiException(
         statusCode: response.statusCode,
-        message: body['detail'] as String? ?? 'Unknown error',
+        message: message,
         details: body,
       );
     } catch (_) {
@@ -51,7 +67,11 @@ class ApiException implements Exception {
       case 400:
         return message;
       case 401:
-        return 'Your session has expired. Please join the group again.';
+        return message.isNotEmpty && message != 'Unknown error'
+            ? message
+            : 'Your session has expired. Please log in again.';
+      case 422:
+        return message;
       case 403:
         return 'You don\'t have permission to perform this action.';
       case 404:

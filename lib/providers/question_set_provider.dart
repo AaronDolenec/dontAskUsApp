@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/question_set.dart';
+import '../services/services.dart';
 import 'api_provider.dart';
 import 'auth_provider.dart';
 
@@ -23,8 +24,9 @@ final createQuestionSetProvider =
 /// Provider for listing public question sets
 final publicQuestionSetsProvider =
     FutureProvider<List<QuestionSet>>((ref) async {
+  final token = await AuthService.getAccessToken();
   final api = ref.read(apiClientProvider);
-  final response = await api.get('/api/question-sets');
+  final response = await api.get('/api/question-sets', accessToken: token);
   if (response.statusCode == 200) {
     final data = jsonDecode(response.body);
     final setsJson = data['sets'] as List? ?? [];
@@ -38,8 +40,10 @@ final publicQuestionSetsProvider =
 /// Provider for question set details
 final questionSetDetailsProvider =
     FutureProvider.family<QuestionSet?, String>((ref, setId) async {
+  final token = await AuthService.getAccessToken();
   final api = ref.read(apiClientProvider);
-  final response = await api.get('/api/question-sets/$setId');
+  final response =
+      await api.get('/api/question-sets/$setId', accessToken: token);
   if (response.statusCode == 200) {
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     return QuestionSet.fromJson(data);
@@ -66,8 +70,10 @@ final assignQuestionSetsProvider =
 /// Provider for listing group question sets
 final groupQuestionSetsProvider =
     FutureProvider.family<List<QuestionSet>, String>((ref, groupId) async {
+  final token = await AuthService.getAccessToken();
   final api = ref.read(apiClientProvider);
-  final response = await api.get('/api/groups/$groupId/question-sets');
+  final response =
+      await api.get('/api/groups/$groupId/question-sets', accessToken: token);
   if (response.statusCode == 200) {
     final data = jsonDecode(response.body);
     final setsJson = data['question_sets'] as List? ?? [];

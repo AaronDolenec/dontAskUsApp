@@ -48,14 +48,14 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
   QuestionNotifier(this._ref) : super(const QuestionState()) {
     // Watch auth state and fetch question when authenticated
     _ref.listen(authProvider, (previous, next) {
-      if (next.isAuthenticated && !next.isLoading) {
+      if (next.hasGroup && !next.isLoading) {
         fetchTodaysQuestion();
       }
     });
 
-    // Initial fetch if already authenticated
+    // Initial fetch if already in a group
     final auth = _ref.read(authProvider);
-    if (auth.isAuthenticated) {
+    if (auth.hasGroup) {
       fetchTodaysQuestion();
     }
   }
@@ -63,9 +63,7 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
   /// Fetch today's question
   Future<void> fetchTodaysQuestion({bool forceRefresh = false}) async {
     final auth = _ref.read(authProvider);
-    if (!auth.isAuthenticated) return;
-
-    state = state.copyWith(isLoading: true);
+    if (!auth.hasGroup) return;
 
     // Try cache first (unless force refresh)
     if (!forceRefresh) {
@@ -90,7 +88,7 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
 
   Future<void> _fetchFromApi() async {
     final auth = _ref.read(authProvider);
-    if (!auth.isAuthenticated) return;
+    if (!auth.hasGroup) return;
 
     try {
       final token = await AuthService.getToken(auth.groupId!);
@@ -105,7 +103,7 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
       final api = _ref.read(apiClientProvider);
       final response = await api.get(
         '/api/groups/${auth.groupId}/questions/today',
-        sessionToken: token,
+        accessToken: token,
       );
 
       if (response.statusCode == 200) {
@@ -144,7 +142,7 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
     final auth = _ref.read(authProvider);
     final question = state.question;
 
-    if (!auth.isAuthenticated || question == null) return false;
+    if (!auth.hasGroup || question == null) return false;
 
     state = state.copyWith(isSubmitting: true);
 
@@ -170,7 +168,7 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
       final response = await api.post(
         '/api/groups/${auth.groupId}/questions/${question.questionId}/answer',
         body,
-        sessionToken: token,
+        accessToken: token,
       );
 
       if (response.statusCode == 200) {

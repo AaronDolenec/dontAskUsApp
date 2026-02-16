@@ -14,26 +14,38 @@ class ApiClient {
   })  : baseUrl = baseUrl ?? ApiConfig.currentBaseUrl,
         _client = client ?? http.Client();
 
+  /// Build common headers
+  Map<String, String> _buildHeaders({
+    String? accessToken,
+    String? adminToken,
+  }) {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    };
+
+    if (accessToken != null) {
+      headers['Authorization'] = 'Bearer $accessToken';
+    }
+
+    if (adminToken != null) {
+      headers['X-Admin-Token'] = adminToken;
+    }
+
+    return headers;
+  }
+
   /// Perform a GET request
   Future<http.Response> get(
     String endpoint, {
-    String? sessionToken,
+    String? accessToken,
     String? adminToken,
     Map<String, String>? queryParams,
   }) async {
     String url = '$baseUrl$endpoint';
 
-    // Build query parameters
-    final params = <String, String>{};
-    if (sessionToken != null) {
-      params['session_token'] = sessionToken;
-    }
-    if (queryParams != null) {
-      params.addAll(queryParams);
-    }
-
-    if (params.isNotEmpty) {
-      final queryString = params.entries
+    if (queryParams != null && queryParams.isNotEmpty) {
+      final queryString = queryParams.entries
           .map((e) =>
               '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
           .join('&');
@@ -41,14 +53,10 @@ class ApiClient {
       url = '$url$separator$queryString';
     }
 
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-
-    if (adminToken != null) {
-      headers['X-Admin-Token'] = adminToken;
-    }
+    final headers = _buildHeaders(
+      accessToken: accessToken,
+      adminToken: adminToken,
+    );
 
     try {
       final response = await _client
@@ -67,27 +75,15 @@ class ApiClient {
   Future<http.Response> post(
     String endpoint,
     Map<String, dynamic> body, {
-    String? sessionToken,
+    String? accessToken,
     String? adminToken,
   }) async {
-    String url = '$baseUrl$endpoint';
+    final url = '$baseUrl$endpoint';
 
-    if (sessionToken != null) {
-      final separator = url.contains('?') ? '&' : '?';
-      url = '$url${separator}session_token=$sessionToken';
-    }
-
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-
-    if (adminToken != null) {
-      headers['X-Admin-Token'] = adminToken;
-    }
-    if (sessionToken != null) {
-      headers['X-Session-Token'] = sessionToken;
-    }
+    final headers = _buildHeaders(
+      accessToken: accessToken,
+      adminToken: adminToken,
+    );
 
     try {
       final response = await _client
@@ -106,28 +102,52 @@ class ApiClient {
     }
   }
 
+  /// Perform a multipart POST request (for file uploads like avatars)
+  Future<http.Response> postMultipart(
+    String endpoint, {
+    required String filePath,
+    required String fileField,
+    String? accessToken,
+    Map<String, String>? fields,
+  }) async {
+    final url = '$baseUrl$endpoint';
+
+    try {
+      final request = http.MultipartRequest('POST', Uri.parse(url));
+
+      if (accessToken != null) {
+        request.headers['Authorization'] = 'Bearer $accessToken';
+      }
+
+      request.files.add(await http.MultipartFile.fromPath(fileField, filePath));
+
+      if (fields != null) {
+        request.fields.addAll(fields);
+      }
+
+      final streamedResponse = await request.send().timeout(ApiConfig.timeout);
+      return await http.Response.fromStream(streamedResponse);
+    } catch (e) {
+      throw ApiException(
+        statusCode: 0,
+        message: 'Network error: ${e.toString()}',
+      );
+    }
+  }
+
   /// Perform a PUT request
   Future<http.Response> put(
     String endpoint,
     Map<String, dynamic> body, {
-    String? sessionToken,
+    String? accessToken,
     String? adminToken,
   }) async {
-    String url = '$baseUrl$endpoint';
+    final url = '$baseUrl$endpoint';
 
-    if (sessionToken != null) {
-      final separator = url.contains('?') ? '&' : '?';
-      url = '$url${separator}session_token=$sessionToken';
-    }
-
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-
-    if (adminToken != null) {
-      headers['X-Admin-Token'] = adminToken;
-    }
+    final headers = _buildHeaders(
+      accessToken: accessToken,
+      adminToken: adminToken,
+    );
 
     try {
       final response = await _client
@@ -149,24 +169,15 @@ class ApiClient {
   /// Perform a DELETE request
   Future<http.Response> delete(
     String endpoint, {
-    String? sessionToken,
+    String? accessToken,
     String? adminToken,
   }) async {
-    String url = '$baseUrl$endpoint';
+    final url = '$baseUrl$endpoint';
 
-    if (sessionToken != null) {
-      final separator = url.contains('?') ? '&' : '?';
-      url = '$url${separator}session_token=$sessionToken';
-    }
-
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
-
-    if (adminToken != null) {
-      headers['X-Admin-Token'] = adminToken;
-    }
+    final headers = _buildHeaders(
+      accessToken: accessToken,
+      adminToken: adminToken,
+    );
 
     try {
       final response = await _client

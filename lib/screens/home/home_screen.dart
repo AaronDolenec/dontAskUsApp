@@ -23,7 +23,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(questionProvider.notifier).connectWebSocket();
+      final authState = ref.read(authProvider);
+      if (authState.hasGroup) {
+        ref.read(questionProvider.notifier).connectWebSocket();
+      }
     });
   }
 

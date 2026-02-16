@@ -33,17 +33,17 @@ class DeviceTokenNotifier extends StateNotifier<DeviceTokenState> {
 
   Future<void> registerDeviceToken(
       {required String userId,
-      required String sessionToken,
+      required String accessToken,
       required String platform,
       String? deviceName}) async {
     final result = await PushNotificationService.registerDeviceToken(
       userId: userId,
-      sessionToken: sessionToken,
+      accessToken: accessToken,
       platform: platform,
       deviceName: deviceName,
     );
     // Refresh token list after successful registration
-    await listDeviceTokens(userId: userId, sessionToken: sessionToken);
+    await listDeviceTokens(userId: userId, accessToken: accessToken);
     state = state.copyWith(
         message:
             result != null ? 'Device token registered' : 'No token available');
@@ -51,23 +51,23 @@ class DeviceTokenNotifier extends StateNotifier<DeviceTokenState> {
 
   Future<void> unregisterDeviceToken(
       {required String userId,
-      required String sessionToken,
+      required String accessToken,
       required String deviceToken}) async {
     await PushNotificationService.unregisterDeviceToken(
       userId: userId,
-      sessionToken: sessionToken,
+      accessToken: accessToken,
       deviceToken: deviceToken,
     );
     // Refresh token list after removal
-    await listDeviceTokens(userId: userId, sessionToken: sessionToken);
+    await listDeviceTokens(userId: userId, accessToken: accessToken);
     state = state.copyWith(message: 'Device token unregistered');
   }
 
   Future<void> listDeviceTokens(
-      {required String userId, required String sessionToken}) async {
+      {required String userId, required String accessToken}) async {
     final tokens = await PushNotificationService.listDeviceTokens(
       userId: userId,
-      sessionToken: sessionToken,
+      accessToken: accessToken,
     );
     state = state.copyWith(tokensList: tokens);
   }

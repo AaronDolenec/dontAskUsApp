@@ -46,7 +46,7 @@ final questionSetsProvider =
 final groupQuestionSetsProvider =
     FutureProvider.autoDispose<List<QuestionSet>>((ref) async {
   final authState = ref.read(authProvider);
-  if (!authState.isAuthenticated || authState.groupId == null) return [];
+  if (!authState.hasGroup || authState.groupId == null) return [];
 
   final apiClient = ref.read(apiClientProvider);
   final response =
@@ -87,7 +87,7 @@ class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
   /// Helper to ensure we have both groupId and adminToken
   Future<_GroupAndAdmin?> _requireGroupAndAdmin() async {
     final authState = ref.read(authProvider);
-    if (!authState.isAuthenticated || authState.groupId == null) return null;
+    if (!authState.hasGroup || authState.groupId == null) return null;
 
     final adminToken = await ref.read(adminTokenProvider.future);
     if (adminToken == null) return null;
@@ -229,7 +229,6 @@ class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
         if (sets.isEmpty) {
           return const _QuestionSetEmptyState(
             title: 'No question sets available',
-            showBrowseButton: false,
           );
         }
 
@@ -344,7 +343,7 @@ class _QuestionSetCard extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.1),
+                    color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
@@ -389,8 +388,8 @@ class _QuestionSetCard extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: set.isPublic
-                        ? Colors.green.withOpacity(0.1)
-                        : Colors.orange.withOpacity(0.1),
+                        ? Colors.green.withValues(alpha: 0.1)
+                        : Colors.orange.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(

@@ -37,7 +37,8 @@ class AuthState {
     );
   }
 
-  bool get isAuthenticated => user != null && groupId != null;
+  bool get isAuthenticated => user != null;
+  bool get hasGroup => user != null && groupId != null;
 }
 
 /// Provider for auth state
@@ -48,14 +49,11 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
 /// Auth state notifier
 class AuthNotifier extends StateNotifier<AuthState> {
   final Ref _ref;
+  int _loadSessionRetries = 0;
+  static const _maxLoadSessionRetries = 3;
 
   AuthNotifier(this._ref) : super(const AuthState()) {
     _loadSession();
-  }
-
-  /// Debug method to print all stored auth data
-  Future<void> _debugPrintStorage() async {
-    await AuthService.debugPrintStorage();
   }
 
   /// Load existing session from secure storage
@@ -63,243 +61,102 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true);
 
     try {
-      // Debug: Print all stored keys
-      await _debugPrintStorage();
-
-      // Get all stored groups
-      final allGroups = await AuthService.getGroupsList();
-      debugPrint('DEBUG: Found stored groups: $allGroups');
-
-      if (allGroups.isEmpty) {
-        // No groups stored, user needs to join/create a group
-        debugPrint('DEBUG: No stored groups found');
+      final accessToken = await AuthService.getAccessToken();
+      if (accessToken == null || accessToken.isEmpty) {
+        debugPrint('DEBUG: No access token found');
         state = state.copyWith(isLoading: false);
         return;
       }
 
-      // Check if we have a current group set
-      final currentGroupId = await AuthService.getCurrentGroupId();
-      debugPrint('DEBUG: Current group ID: $currentGroupId');
-
-      // If no current group is set but we have groups, set the first one as current
-      String? groupId = currentGroupId;
-      if (groupId == null && allGroups.isNotEmpty) {
-        groupId = allGroups.first;
-        await AuthService.setCurrentGroup(groupId);
-        debugPrint('DEBUG: Set current group to: $groupId');
-      }
-
-      if (groupId == null) {
-        debugPrint('DEBUG: No group ID available');
-        state = state.copyWith(isLoading: false);
-        return;
-      }
-
-      // Get token for the current group
-      final token = await AuthService.getToken(groupId);
-      debugPrint(
-          'DEBUG: Token for group $groupId: ${token != null ? "exists" : "null"}');
-
-      if (token == null) {
-        debugPrint('DEBUG: No token found for group $groupId');
-        state = state.copyWith(isLoading: false);
-        return;
-      }
-
-      // Validate session with API
-      debugPrint(
-          'DEBUG: Validating session with API for token: ${token.substring(0, 10)}...');
+      // Validate token by calling /api/auth/me
       final api = _ref.read(apiClientProvider);
-      final response = await api.get('/api/users/validate-session/$token');
-      debugPrint('DEBUG: API response status: ${response.statusCode}');
-      debugPrint('DEBUG: API response body: ${response.body}');
+      final response = await api.get(
+        '/api/auth/me',
+        accessToken: accessToken,
+      );
+      debugPrint('DEBUG: /api/auth/me response status: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final validation = SessionValidation.fromJson(data);
-        debugPrint('DEBUG: Session validation result: ${validation.valid}');
-        debugPrint(
-            'DEBUG: Validation data: user_id=${validation.oderId}, display_name=${validation.displayName}, group_id=${validation.groupId}');
+        final user = User.fromMeJson(data);
 
-        if (validation.valid) {
+        // Sync group memberships from server
+        for (final group in user.groups) {
+          await AuthService.saveGroupMembership(
+            groupId: group.groupId,
+            userId: group.userId,
+            displayName: group.displayName,
+            groupName: group.groupName,
+          );
+        }
+
+        // Determine current group
+        String? groupId = await AuthService.getCurrentGroupId();
+        final allGroups = await AuthService.getGroupsList();
+
+        if (groupId == null || !allGroups.contains(groupId)) {
+          if (user.groups.isNotEmpty) {
+            groupId = user.groups.first.groupId;
+            await AuthService.setCurrentGroup(groupId);
+          } else if (allGroups.isNotEmpty) {
+            groupId = allGroups.first;
+            await AuthService.setCurrentGroup(groupId);
+          }
+        }
+
+        if (groupId != null) {
           final isAdmin = await AuthService.isAdmin(groupId);
-          debugPrint('DEBUG: User is admin: $isAdmin');
-
-          // Create a minimal user from validation data
           state = state.copyWith(
-            user: User(
-              id: 0,
-              oderId: validation.oderId!,
-              displayName: validation.displayName!,
-              colorAvatar: '#3B82F6',
-              sessionToken: token,
-              createdAt: DateTime.now(),
-              answerStreak: validation.answerStreak ?? 0,
-              longestAnswerStreak: validation.longestAnswerStreak ?? 0,
-            ),
+            user: user,
             groupId: groupId,
             isLoading: false,
             isAdmin: isAdmin,
           );
           return;
         }
-      } else {
-        debugPrint(
-            'DEBUG: API validation failed with status ${response.statusCode}');
-        debugPrint('DEBUG: Response body: ${response.body}');
-        debugPrint('DEBUG: Response headers: ${response.headers}');
 
-        // If 401, try to refresh the token
-        if (response.statusCode == 401) {
-          debugPrint('DEBUG: Token expired (401), attempting to refresh...');
-          final refreshResult = await AuthService.refreshSession();
-          if (refreshResult != null) {
-            debugPrint(
-                'DEBUG: Token refreshed successfully, retrying validation...');
-            // Retry validation with refreshed token
-            final newToken = await AuthService.getToken(groupId);
-            if (newToken != null && newToken != token) {
-              final retryResponse =
-                  await api.get('/api/users/validate-session/$newToken');
-              debugPrint(
-                  'DEBUG: Retry validation status: ${retryResponse.statusCode}');
-              if (retryResponse.statusCode == 200) {
-                final retryData =
-                    jsonDecode(retryResponse.body) as Map<String, dynamic>;
-                final retryValidation = SessionValidation.fromJson(retryData);
-                debugPrint(
-                    'DEBUG: Retry validation result: ${retryValidation.valid}');
-
-                if (retryValidation.valid) {
-                  final isAdmin = await AuthService.isAdmin(groupId);
-                  debugPrint('DEBUG: User is admin: $isAdmin');
-
-                  // Create a minimal user from validation data
-                  state = state.copyWith(
-                    user: User(
-                      id: 0,
-                      oderId: retryValidation.oderId!,
-                      displayName: retryValidation.displayName!,
-                      colorAvatar: '#3B82F6',
-                      sessionToken: newToken,
-                      createdAt: DateTime.now(),
-                      answerStreak: retryValidation.answerStreak ?? 0,
-                      longestAnswerStreak:
-                          retryValidation.longestAnswerStreak ?? 0,
-                    ),
-                    groupId: groupId,
-                    isLoading: false,
-                    isAdmin: isAdmin,
-                  );
-                  return;
-                }
-              }
-            }
-          }
-          debugPrint('DEBUG: Token refresh failed or retry validation failed');
+        // User has no groups yet - still authenticated
+        state = state.copyWith(
+          user: user,
+          isLoading: false,
+        );
+        return;
+      } else if (response.statusCode == 401) {
+        debugPrint('DEBUG: Access token expired, attempting refresh...');
+        final refreshResult = await AuthService.refreshSession();
+        if (refreshResult != null) {
+          debugPrint('DEBUG: Token refreshed, retrying...');
+          _loadSessionRetries = 0;
+          await _loadSession();
+          return;
         }
+        debugPrint('DEBUG: Token refresh failed');
       }
 
-      // Invalid session - clear it and try next group if available
-      debugPrint(
-          'DEBUG: Session invalid for group $groupId, clearing and trying other groups');
-      await AuthService.clearSession(groupId);
-
-      // Try other groups
-      for (final nextGroupId in allGroups.where((g) => g != groupId)) {
-        debugPrint('DEBUG: Trying group $nextGroupId');
-        final nextToken = await AuthService.getToken(nextGroupId);
-        debugPrint(
-            'DEBUG: Token for group $nextGroupId: ${nextToken != null ? "exists" : "null"}');
-        if (nextToken != null) {
-          // Validate session for this group
-          final api = _ref.read(apiClientProvider);
-          final response =
-              await api.get('/api/users/validate-session/$nextToken');
-          debugPrint(
-              'DEBUG: Validation for group $nextGroupId status: ${response.statusCode}');
-
-          if (response.statusCode == 200) {
-            final data = jsonDecode(response.body) as Map<String, dynamic>;
-            final validation = SessionValidation.fromJson(data);
-
-            if (validation.valid) {
-              final isAdmin = await AuthService.isAdmin(nextGroupId);
-              await AuthService.setCurrentGroup(nextGroupId);
-
-              // Create a minimal user from validation data
-              state = state.copyWith(
-                user: User(
-                  id: 0,
-                  oderId: validation.oderId!,
-                  displayName: validation.displayName!,
-                  colorAvatar: '#3B82F6',
-                  sessionToken: nextToken,
-                  createdAt: DateTime.now(),
-                  answerStreak: validation.answerStreak ?? 0,
-                  longestAnswerStreak: validation.longestAnswerStreak ?? 0,
-                ),
-                groupId: nextGroupId,
-                isLoading: false,
-                isAdmin: isAdmin,
-              );
-              return;
-            }
-          } else if (response.statusCode == 401) {
-            // Try to refresh token for this group
-            debugPrint(
-                'DEBUG: Token expired for group $nextGroupId, attempting refresh...');
-            await AuthService.setCurrentGroup(
-                nextGroupId); // Temporarily set as current for refresh
-            final refreshResult = await AuthService.refreshSession();
-            if (refreshResult != null) {
-              debugPrint(
-                  'DEBUG: Token refreshed for group $nextGroupId, retrying validation...');
-              final refreshedToken = await AuthService.getToken(nextGroupId);
-              if (refreshedToken != null) {
-                final retryResponse = await api
-                    .get('/api/users/validate-session/$refreshedToken');
-                if (retryResponse.statusCode == 200) {
-                  final retryData =
-                      jsonDecode(retryResponse.body) as Map<String, dynamic>;
-                  final retryValidation = SessionValidation.fromJson(retryData);
-
-                  if (retryValidation.valid) {
-                    final isAdmin = await AuthService.isAdmin(nextGroupId);
-
-                    // Create a minimal user from validation data
-                    state = state.copyWith(
-                      user: User(
-                        id: 0,
-                        oderId: retryValidation.oderId!,
-                        displayName: retryValidation.displayName!,
-                        colorAvatar: '#3B82F6',
-                        sessionToken: refreshedToken,
-                        createdAt: DateTime.now(),
-                        answerStreak: retryValidation.answerStreak ?? 0,
-                        longestAnswerStreak:
-                            retryValidation.longestAnswerStreak ?? 0,
-                      ),
-                      groupId: nextGroupId,
-                      isLoading: false,
-                      isAdmin: isAdmin,
-                    );
-                    return;
-                  }
-                }
-              }
-            }
-          }
-          // Clear invalid session for this group too
-          await AuthService.clearSession(nextGroupId);
-        }
-      }
-
-      // No valid sessions found
-      debugPrint('DEBUG: No valid sessions found for any group');
+      // Token invalid or expired and refresh failed
+      debugPrint('DEBUG: No valid session found');
       state = state.copyWith(isLoading: false);
     } catch (e) {
       debugPrint('DEBUG: Error during session loading: $e');
+
+      final isNetworkError = e is ApiException && e.statusCode == 0 ||
+          e.toString().toLowerCase().contains('network error');
+
+      if (isNetworkError && _loadSessionRetries < _maxLoadSessionRetries) {
+        _loadSessionRetries += 1;
+        final retryDelay = Duration(seconds: 3 * _loadSessionRetries);
+        debugPrint(
+            'DEBUG: Network error, retry #$_loadSessionRetries in ${retryDelay.inSeconds}s');
+
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Network error. Retrying in ${retryDelay.inSeconds}s...',
+        );
+
+        Future.delayed(retryDelay, () => _loadSession());
+        return;
+      }
+
       state = state.copyWith(
         isLoading: false,
         error: 'Failed to restore session',
@@ -309,60 +166,153 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Reload session (used when switching groups)
   Future<void> reloadSession() async {
+    _loadSessionRetries = 0;
     await _loadSession();
   }
 
-  /// Recover account using a raw session token (admin-provided)
-  Future<bool> recoverWithToken(String token) async {
+  /// Register a new account
+  Future<bool> register({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
     state = state.copyWith(isLoading: true);
 
     try {
       final api = _ref.read(apiClientProvider);
-      final response = await api.get('/api/users/validate-session/$token');
-      debugPrint(
-          'DEBUG: recoverWithToken response status: ${response.statusCode}');
-      debugPrint('DEBUG: recoverWithToken response body: ${response.body}');
+      final response = await api.post('/api/auth/register', {
+        'email': email,
+        'password': password,
+        'display_name': displayName,
+      });
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final validation = SessionValidation.fromJson(data);
-
-        if (validation.valid && validation.groupId != null) {
-          final groupId = validation.groupId!;
-          final oderId = validation.oderId ?? '';
-          final displayName = validation.displayName ?? 'User';
-
-          // Persist the session
-          await AuthService.saveSession(
-            groupId: groupId,
-            token: token,
-            oderId: oderId,
-            displayName: displayName,
-          );
-
-          final isAdmin = await AuthService.isAdmin(groupId);
-
-          state = state.copyWith(
-            user: User(
-              id: 0,
-              oderId: oderId,
-              displayName: displayName,
-              colorAvatar: '#3B82F6',
-              sessionToken: token,
-              createdAt: DateTime.now(),
-            ),
-            groupId: groupId,
-            isLoading: false,
-            isAdmin: isAdmin,
-          );
-          return true;
-        }
+        await _handleAuthResponse(data);
+        return true;
       }
 
-      state = state.copyWith(isLoading: false, error: 'Invalid session token');
+      final exception = ApiException.fromResponse(response);
+      state = state.copyWith(
+        isLoading: false,
+        error: exception.userFriendlyMessage,
+      );
       return false;
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+      return false;
+    }
+  }
+
+  /// Login with email and password
+  Future<bool> login({
+    required String email,
+    required String password,
+  }) async {
+    state = state.copyWith(isLoading: true);
+
+    try {
+      final api = _ref.read(apiClientProvider);
+      final response = await api.post('/api/auth/login', {
+        'email': email,
+        'password': password,
+      });
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        await _handleAuthResponse(data);
+        return true;
+      }
+
+      final exception = ApiException.fromResponse(response);
+      state = state.copyWith(
+        isLoading: false,
+        error: exception.userFriendlyMessage,
+      );
+      return false;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: e.toString(),
+      );
+      return false;
+    }
+  }
+
+  /// Handle auth response (login/register)
+  Future<void> _handleAuthResponse(Map<String, dynamic> data) async {
+    final accessToken = data['access_token'] as String;
+    final refreshToken = data['refresh_token'] as String;
+
+    // Save tokens
+    await AuthService.saveTokens(
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+    );
+
+    // Parse user from top-level fields (register/login response is flat)
+    final user = User.fromAuthJson(data);
+
+    // Save account info
+    await AuthService.saveAccountInfo(
+      accountId: user.oderId,
+      email: user.email ?? '',
+      displayName: user.displayName,
+    );
+
+    // Save group memberships
+    for (final group in user.groups) {
+      await AuthService.saveGroupMembership(
+        groupId: group.groupId,
+        userId: group.userId,
+        displayName: group.displayName,
+        groupName: group.groupName,
+      );
+    }
+
+    // Set current group
+    String? currentGroupId;
+    if (user.groups.isNotEmpty) {
+      currentGroupId = user.groups.first.groupId;
+      await AuthService.setCurrentGroup(currentGroupId);
+    }
+
+    final isAdmin = currentGroupId != null
+        ? await AuthService.isAdmin(currentGroupId)
+        : false;
+
+    state = state.copyWith(
+      user: user,
+      groupId: currentGroupId,
+      isLoading: false,
+      isAdmin: isAdmin,
+    );
+  }
+
+  /// Change password
+  Future<bool> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final accessToken = await AuthService.getAccessToken();
+      if (accessToken == null) return false;
+
+      final api = _ref.read(apiClientProvider);
+      final response = await api.post(
+        '/api/auth/change-password',
+        {
+          'current_password': currentPassword,
+          'new_password': newPassword,
+        },
+        accessToken: accessToken,
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
       return false;
     }
   }
@@ -376,73 +326,69 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true);
 
     try {
-      final api = _ref.read(apiClientProvider);
-
-      // First, get the group info from the invite code
-      final groupPreviewResponse = await api.get('/api/groups/$inviteCode');
-      String? groupName;
-      if (groupPreviewResponse.statusCode == 200) {
-        final previewData =
-            jsonDecode(groupPreviewResponse.body) as Map<String, dynamic>;
-        groupName = previewData['name'] as String?;
+      final accessToken = await AuthService.getAccessToken();
+      if (accessToken == null) {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Not logged in. Please login first.',
+        );
+        return false;
       }
 
-      final response = await api.post('/api/users/join', {
-        'display_name': displayName,
-        'group_invite_code': inviteCode.toUpperCase(),
-        if (colorAvatar != null) 'color_avatar': colorAvatar,
-      });
+      final api = _ref.read(apiClientProvider);
+      final response = await api.post(
+        '/api/auth/groups/join',
+        {
+          'invite_code': inviteCode.toUpperCase(),
+          'display_name': displayName,
+          if (colorAvatar != null) 'color_avatar': colorAvatar,
+        },
+        accessToken: accessToken,
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final user = User.fromJson(data);
+        final groupId = (data['group_id'] ?? '').toString();
+        final userId = (data['user_id'] ?? '').toString();
+        final groupName = data['group_name'] as String? ?? '';
+        final memberDisplayName =
+            data['display_name'] as String? ?? displayName;
 
-        // Wait a bit for server to process the join
-        await Future.delayed(const Duration(seconds: 2));
-
-        // Get group ID from validating the new token
-        final validateResponse = await api.get(
-          '/api/users/validate-session/${user.sessionToken}',
+        await AuthService.saveGroupMembership(
+          groupId: groupId,
+          userId: userId,
+          displayName: memberDisplayName,
+          groupName: groupName,
         );
 
-        if (validateResponse.statusCode == 200) {
-          final validateData =
-              jsonDecode(validateResponse.body) as Map<String, dynamic>;
-          final validation = SessionValidation.fromJson(validateData);
+        final isAdmin = await AuthService.isAdmin(groupId);
 
-          if (validation.valid && validation.groupId != null) {
-            // Save session with group name
-            await AuthService.saveSession(
-              groupId: validation.groupId!,
-              token: user.sessionToken,
-              oderId: user.oderId,
-              displayName: user.displayName,
-              groupName: groupName,
+        // Refresh user info
+        final meResponse = await api.get(
+          '/api/auth/me',
+          accessToken: accessToken,
+        );
+        User user = state.user ??
+            User(
+              id: 0,
+              oderId: userId,
+              displayName: memberDisplayName,
+              colorAvatar: colorAvatar ?? '#3B82F6',
+              createdAt: DateTime.now(),
             );
 
-            state = state.copyWith(
-              user: user,
-              groupId: validation.groupId,
-              isLoading: false,
-              isAdmin: false,
-            );
-            return true;
-          } else {
-            state = state.copyWith(
-              isLoading: false,
-              error:
-                  'Session validation failed: ${validation.valid ? "missing group ID" : "invalid session"}',
-            );
-            return false;
-          }
-        } else {
-          state = state.copyWith(
-            isLoading: false,
-            error:
-                'Failed to validate session (${validateResponse.statusCode})',
-          );
-          return false;
+        if (meResponse.statusCode == 200) {
+          final meData = jsonDecode(meResponse.body) as Map<String, dynamic>;
+          user = User.fromMeJson(meData);
         }
+
+        state = state.copyWith(
+          user: user,
+          groupId: groupId,
+          isLoading: false,
+          isAdmin: isAdmin,
+        );
+        return true;
       }
 
       final exception = ApiException.fromResponse(response);
@@ -465,19 +411,62 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true);
 
     try {
+      final accessToken = await AuthService.getAccessToken();
+      if (accessToken == null) {
+        state = state.copyWith(
+          isLoading: false,
+          error: 'Not logged in. Please login first.',
+        );
+        return null;
+      }
+
       final api = _ref.read(apiClientProvider);
-      final response = await api.post('/api/groups', {'name': name});
+      final response = await api.post(
+        '/api/auth/groups/create',
+        {'name': name},
+        accessToken: accessToken,
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final group = Group.fromJson(data);
 
-        // Save admin token if provided
         if (group.adminToken != null) {
           await AuthService.saveAdminToken(group.groupId, group.adminToken!);
         }
 
-        state = state.copyWith(isLoading: false);
+        // Refresh user info to get updated groups list
+        final meResponse = await api.get(
+          '/api/auth/me',
+          accessToken: accessToken,
+        );
+        if (meResponse.statusCode == 200) {
+          final meData = jsonDecode(meResponse.body) as Map<String, dynamic>;
+          final user = User.fromMeJson(meData);
+
+          // Save group memberships
+          for (final g in user.groups) {
+            await AuthService.saveGroupMembership(
+              groupId: g.groupId,
+              userId: g.userId,
+              displayName: g.displayName,
+              groupName: g.groupName,
+            );
+          }
+
+          await AuthService.setCurrentGroup(group.groupId);
+          final isAdmin = await AuthService.isAdmin(group.groupId);
+
+          state = state.copyWith(
+            user: user,
+            groupId: group.groupId,
+            isLoading: false,
+            isAdmin: isAdmin,
+          );
+        } else {
+          state = state.copyWith(isLoading: false);
+        }
+
         return group;
       }
 
@@ -501,55 +490,97 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = state.copyWith(isLoading: true);
 
     try {
-      final token = await AuthService.getToken(groupId);
-      if (token == null) {
-        state = state.copyWith(
-          isLoading: false,
-          error: 'No session found for this group',
-        );
-        return false;
-      }
-
-      // Validate the token
-      final api = _ref.read(apiClientProvider);
-      final response = await api.get('/api/users/validate-session/$token');
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final validation = SessionValidation.fromJson(data);
-
-        if (validation.valid) {
-          await AuthService.setCurrentGroup(groupId);
-          final isAdmin = await AuthService.isAdmin(groupId);
-
-          state = state.copyWith(
-            user: User(
-              id: 0,
-              oderId: validation.oderId!,
-              displayName: validation.displayName!,
-              colorAvatar: '#3B82F6',
-              sessionToken: token,
-              createdAt: DateTime.now(),
-              answerStreak: validation.answerStreak ?? 0,
-              longestAnswerStreak: validation.longestAnswerStreak ?? 0,
-            ),
-            groupId: groupId,
-            isLoading: false,
-            isAdmin: isAdmin,
-          );
-          return true;
-        }
-      }
+      await AuthService.setCurrentGroup(groupId);
+      final isAdmin = await AuthService.isAdmin(groupId);
+      final displayName = await AuthService.getDisplayName(groupId);
+      final userId = await AuthService.getUserId(groupId);
 
       state = state.copyWith(
+        user: state.user?.copyWith(
+          oderId: userId ?? state.user!.oderId,
+          displayName: displayName ?? state.user!.displayName,
+        ),
+        groupId: groupId,
         isLoading: false,
-        error: 'Invalid session for this group',
+        isAdmin: isAdmin,
       );
-      return false;
+      return true;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
+      );
+      return false;
+    }
+  }
+
+  /// Recover account using a raw session token (legacy support)
+  Future<bool> recoverWithToken(String token) async {
+    state = state.copyWith(isLoading: true);
+
+    try {
+      // Try treating the token as an access token
+      final api = _ref.read(apiClientProvider);
+      final response = await api.get(
+        '/api/auth/me',
+        accessToken: token,
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final user = User.fromMeJson(data);
+
+        // Save the token
+        await AuthService.saveTokens(
+          accessToken: token,
+          refreshToken: '', // No refresh token available in recovery
+        );
+
+        await AuthService.saveAccountInfo(
+          accountId: user.oderId,
+          email: user.email ?? '',
+          displayName: user.displayName,
+        );
+
+        for (final group in user.groups) {
+          await AuthService.saveGroupMembership(
+            groupId: group.groupId,
+            userId: group.userId,
+            displayName: group.displayName,
+            groupName: group.groupName,
+          );
+        }
+
+        String? groupId;
+        if (user.groups.isNotEmpty) {
+          groupId = user.groups.first.groupId;
+          await AuthService.setCurrentGroup(groupId);
+        }
+
+        final isAdmin =
+            groupId != null ? await AuthService.isAdmin(groupId) : false;
+
+        state = state.copyWith(
+          user: user,
+          groupId: groupId,
+          isLoading: false,
+          isAdmin: isAdmin,
+        );
+        return true;
+      }
+
+      state = state.copyWith(isLoading: false, error: 'Invalid token');
+      return false;
+    } catch (e) {
+      debugPrint('DEBUG: recoverWithToken error: $e');
+
+      final isNetworkError = e is ApiException && e.statusCode == 0 ||
+          e.toString().toLowerCase().contains('network error');
+
+      state = state.copyWith(
+        isLoading: false,
+        error:
+            isNetworkError ? 'Network error. Please try again.' : e.toString(),
       );
       return false;
     }
@@ -563,12 +594,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await AuthService.clearSession(groupId);
     await CacheService.clearGroupCache(groupId);
 
-    // Check if there are other groups
     final groups = await AuthService.getGroupsList();
     if (groups.isNotEmpty) {
       await switchGroup(groups.first);
     } else {
-      state = const AuthState();
+      state = AuthState(
+        user: state.user,
+      );
     }
   }
 
@@ -601,11 +633,10 @@ final joinedGroupsProvider = FutureProvider<List<String>>((ref) async {
   return await AuthService.getGroupsList();
 });
 
-/// Provider for current session token
-final sessionTokenProvider = FutureProvider<String?>((ref) async {
-  final auth = ref.watch(authProvider);
-  if (auth.groupId == null) return null;
-  return await AuthService.getToken(auth.groupId!);
+/// Provider for current access token
+final accessTokenProvider = FutureProvider<String?>((ref) async {
+  ref.watch(authProvider); // Re-evaluate when auth changes
+  return await AuthService.getAccessToken();
 });
 
 /// Provider for current admin token
@@ -614,3 +645,6 @@ final adminTokenProvider = FutureProvider<String?>((ref) async {
   if (auth.groupId == null) return null;
   return await AuthService.getAdminToken(auth.groupId!);
 });
+
+/// Legacy alias
+final sessionTokenProvider = accessTokenProvider;

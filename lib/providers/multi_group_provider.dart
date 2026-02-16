@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,14 +21,47 @@ class MultiGroupNotifier extends StateNotifier<MultiGroupState> {
       final groupIds = await AuthService.getGroupsList();
       final currentGroupId = await AuthService.getCurrentGroupId();
 
+      final accessToken = await AuthService.getAccessToken();
+      final api = ApiClient();
+
       final groups = <GroupInfo>[];
       for (final groupId in groupIds) {
         // Try to get group name first, fall back to display name (user's name in that group)
         final groupName = await AuthService.getGroupName(groupId);
         final displayName = await AuthService.getDisplayName(groupId);
+
+        // Fetch the user's streak from the members endpoint
+        int streak = 0;
+        try {
+          final userId = await AuthService.getUserId(groupId);
+          if (accessToken != null && userId != null) {
+            final response = await api.get(
+              '/api/groups/$groupId/members',
+              accessToken: accessToken,
+            );
+            if (response.statusCode == 200) {
+              final data = jsonDecode(response.body);
+              final List members = data is List
+                  ? data
+                  : (data is Map && data.containsKey('members')
+                      ? data['members'] as List
+                      : []);
+              for (final m in members) {
+                if (m['user_id'] == userId) {
+                  streak = m['answer_streak'] as int? ?? 0;
+                  break;
+                }
+              }
+            }
+          }
+        } catch (_) {
+          // Streak fetch failed, default to 0
+        }
+
         groups.add(GroupInfo(
           groupId: groupId,
           groupName: groupName ?? displayName ?? 'Unknown Group',
+          answerStreak: streak,
         ));
       }
 
@@ -119,11 +154,13 @@ class GroupInfo {
   final String groupId;
   final String groupName;
   final String? inviteCode;
+  final int answerStreak;
 
   const GroupInfo({
     required this.groupId,
     required this.groupName,
     this.inviteCode,
+    this.answerStreak = 0,
   });
 
   factory GroupInfo.fromJson(Map<String, dynamic> json) {
@@ -131,6 +168,7 @@ class GroupInfo {
       groupId: json['group_id'] as String,
       groupName: json['group_name'] as String,
       inviteCode: json['invite_code'] as String?,
+      answerStreak: json['answer_streak'] as int? ?? 0,
     );
   }
 }

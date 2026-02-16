@@ -9,7 +9,7 @@ import 'auth_provider.dart';
 final questionHistoryProvider =
     FutureProvider.family<List<DailyQuestion>, int>((ref, page) async {
   final auth = ref.watch(authProvider);
-  if (!auth.isAuthenticated) return [];
+  if (!auth.hasGroup) return [];
 
   try {
     final token = await AuthService.getToken(auth.groupId!);
@@ -20,7 +20,7 @@ final questionHistoryProvider =
     final skip = page * 20;
     final response = await api.get(
       '/api/groups/${auth.groupId}/questions/history',
-      sessionToken: token,
+      accessToken: token,
       queryParams: {
         'skip': skip.toString(),
         'limit': '20',
@@ -131,7 +131,7 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
 
   Future<void> _loadPage(int page) async {
     final auth = _ref.read(authProvider);
-    if (!auth.isAuthenticated) {
+    if (!auth.hasGroup) {
       state = state.copyWith(isLoading: false);
       return;
     }
@@ -145,7 +145,7 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
       final skip = page * 20;
       final response = await api.get(
         '/api/groups/${auth.groupId}/questions/history',
-        sessionToken: token,
+        accessToken: token,
         queryParams: {
           'skip': skip.toString(),
           'limit': '20',
@@ -196,7 +196,7 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
 
   void _connectWebSocket() {
     final auth = _ref.read(authProvider);
-    if (!auth.isAuthenticated || auth.groupId == null) return;
+    if (!auth.hasGroup || auth.groupId == null) return;
     _wsService?.dispose();
     _wsService = WebSocketService(
       groupId: auth.groupId!,

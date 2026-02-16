@@ -6,7 +6,7 @@ import '../../providers/providers.dart';
 import '../../services/share_service.dart';
 import '../../utils/app_colors.dart';
 import '../../models/models.dart';
-import '../main/main_screen.dart';
+import '../groups/groups_screen.dart';
 
 /// Screen for creating a new group
 class CreateGroupScreen extends ConsumerStatefulWidget {
@@ -18,24 +18,14 @@ class CreateGroupScreen extends ConsumerStatefulWidget {
 
 class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   final _nameController = TextEditingController();
-  final _displayNameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   Group? _createdGroup;
   bool _showSuccess = false;
-  bool _isJoining = false;
-  String? _selectedColor;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedColor = AppColors.toHex(AppColors.avatarColors.first);
-  }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _displayNameController.dispose();
     super.dispose();
   }
 
@@ -71,57 +61,6 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
       'Join my group "${_createdGroup!.name}" on dontAskUs!\n\nInvite code: ${_createdGroup!.inviteCode}',
       subject: 'Join my dontAskUs group!',
     );
-  }
-
-  Future<void> _joinMyGroup() async {
-    if (_createdGroup == null || _displayNameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your display name')),
-      );
-      return;
-    }
-
-    setState(() => _isJoining = true);
-
-    try {
-      final success = await ref.read(authProvider.notifier).joinGroup(
-            inviteCode: _createdGroup!.inviteCode,
-            displayName: _displayNameController.text.trim(),
-            colorAvatar: _selectedColor,
-          );
-
-      if (mounted) {
-        setState(() => _isJoining = false);
-
-        if (success) {
-          // Navigate to main screen
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const MainScreen()),
-            (route) => false,
-          );
-        } else {
-          // Show error if joining failed
-          final authState = ref.read(authProvider);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  authState.error ?? 'Failed to join group. Please try again.'),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isJoining = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
   }
 
   @override
@@ -282,8 +221,6 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   }
 
   Widget _buildSuccessView(BuildContext context) {
-    final authState = ref.watch(authProvider);
-
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -328,15 +265,21 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
 
               const SizedBox(height: 32),
 
-              // Join your group section
+              // You're already a member
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      const Icon(
+                        Icons.check_circle,
+                        color: AppColors.success,
+                        size: 40,
+                      ),
+                      const SizedBox(height: 12),
                       Text(
-                        'Join Your Group',
+                        'You\'re the admin!',
                         style:
                             Theme.of(context).textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.w600,
@@ -345,88 +288,22 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Enter your display name to join as the first member',
+                        'You\'ve been automatically added as the first member and admin of this group.',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: AppColors.textSecondary,
                             ),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _displayNameController,
-                        decoration: const InputDecoration(
-                          hintText: 'Your display name',
-                          prefixIcon: Icon(Icons.person_outline),
-                        ),
-                        textCapitalization: TextCapitalization.words,
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Color selection
-                      Text(
-                        'Choose your color',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: AppColors.avatarColors.map((color) {
-                          final hex = AppColors.toHex(color);
-                          final isSelected = _selectedColor == hex;
-                          return GestureDetector(
-                            onTap: () => setState(() => _selectedColor = hex),
-                            child: Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: color,
-                                shape: BoxShape.circle,
-                                border: isSelected
-                                    ? Border.all(color: Colors.white, width: 3)
-                                    : null,
-                                boxShadow: isSelected
-                                    ? [
-                                        BoxShadow(
-                                          color: color.withValues(alpha: 0.5),
-                                          blurRadius: 8,
-                                        ),
-                                      ]
-                                    : null,
-                              ),
-                              child: isSelected
-                                  ? const Icon(Icons.check,
-                                      color: Colors.white, size: 20)
-                                  : null,
-                            ),
-                          );
-                        }).toList(),
-                      ),
                       const SizedBox(height: 20),
-
-                      // Error message
-                      if (authState.error != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Text(
-                            authState.error!,
-                            style: const TextStyle(color: AppColors.error),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-
                       ElevatedButton(
-                        onPressed: _isJoining ? null : _joinMyGroup,
-                        child: _isJoining
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text('Join Group'),
+                        onPressed: () {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(
+                                builder: (_) => const GroupsScreen()),
+                            (route) => false,
+                          );
+                        },
+                        child: const Text('Go to Groups'),
                       ),
                     ],
                   ),

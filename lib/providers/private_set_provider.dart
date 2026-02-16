@@ -36,23 +36,23 @@ class PrivateSetNotifier extends StateNotifier<PrivateSetState> {
   PrivateSetNotifier(this.ref) : super(PrivateSetState());
 
   Future<void> createPrivateSet(
-      String groupId, String sessionToken, Map<String, dynamic> setData) async {
+      String groupId, String accessToken, Map<String, dynamic> setData) async {
     final api = ref.read(apiClientProvider);
     final response = await api.post(
         '/api/groups/$groupId/question-sets/private', setData,
-        sessionToken: sessionToken);
+        accessToken: accessToken);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       state = state.copyWith(message: data['message']);
     }
   }
 
-  Future<void> listMyPrivateSets(String groupId, String sessionToken,
+  Future<void> listMyPrivateSets(String groupId, String accessToken,
       {int limit = 50, int offset = 0}) async {
     final api = ref.read(apiClientProvider);
     final response = await api.get(
         '/api/groups/$groupId/question-sets/my?limit=$limit&offset=$offset',
-        sessionToken: sessionToken);
+        accessToken: accessToken);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       state = state.copyWith(sets: data['sets']);
@@ -60,10 +60,10 @@ class PrivateSetNotifier extends StateNotifier<PrivateSetState> {
   }
 
   Future<void> getSetDetails(
-      String groupId, String setId, String sessionToken) async {
+      String groupId, String setId, String accessToken) async {
     final api = ref.read(apiClientProvider);
     final response = await api.get('/api/groups/$groupId/question-sets/$setId',
-        sessionToken: sessionToken);
+        accessToken: accessToken);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       state = state.copyWith(currentSet: data);
@@ -71,11 +71,11 @@ class PrivateSetNotifier extends StateNotifier<PrivateSetState> {
   }
 
   Future<void> updatePrivateSet(String groupId, String setId,
-      String sessionToken, Map<String, dynamic> setData) async {
+      String accessToken, Map<String, dynamic> setData) async {
     final api = ref.read(apiClientProvider);
     final response = await api.put(
         '/api/groups/$groupId/question-sets/$setId', setData,
-        sessionToken: sessionToken);
+        accessToken: accessToken);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       state = state.copyWith(message: data['message']);
@@ -83,11 +83,11 @@ class PrivateSetNotifier extends StateNotifier<PrivateSetState> {
   }
 
   Future<void> deletePrivateSet(
-      String groupId, String setId, String sessionToken) async {
+      String groupId, String setId, String accessToken) async {
     final api = ref.read(apiClientProvider);
     final response = await api.delete(
         '/api/groups/$groupId/question-sets/$setId',
-        sessionToken: sessionToken);
+        accessToken: accessToken);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       state = state.copyWith(message: data['message']);
@@ -95,11 +95,11 @@ class PrivateSetNotifier extends StateNotifier<PrivateSetState> {
   }
 
   Future<void> getSetUsage(
-      String groupId, String setId, String sessionToken) async {
+      String groupId, String setId, String accessToken) async {
     final api = ref.read(apiClientProvider);
     final response = await api.get(
         '/api/groups/$groupId/question-sets/$setId/usage',
-        sessionToken: sessionToken);
+        accessToken: accessToken);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       state = state.copyWith(currentSet: data);

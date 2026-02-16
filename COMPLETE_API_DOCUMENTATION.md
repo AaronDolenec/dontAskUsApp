@@ -1,8 +1,12 @@
 # dontAskUs - Complete API Documentation
 
 **Base URL:** `http://localhost:8000` (development)  
-**Version:** 1.2.0  
-**Last Updated:** January 4, 2026
+**Version:** 1.3.0  
+**Last Updated:** February 9, 2026
+
+**IMPORTANT:** All API endpoints require authentication unless explicitly marked as "Public" or "No
+Auth". After registration or login, include the access token in the `Authorization: Bearer <token>`
+header for all requests.
 
 ---
 
@@ -10,35 +14,63 @@
 
 1. [Overview](#overview)
 2. [Authentication](#authentication)
-3. [User Endpoints](#user-endpoints)
-4. [Group Endpoints](#group-endpoints)
-5. [Daily Questions & Voting](#daily-questions--voting)
-6. [Question Sets](#question-sets)
-7. [Leaderboard](#leaderboard)
-8. [Admin Authentication](#admin-authentication)
-9. [Admin: Account Management](#admin-account-management)
-10. [Admin: Dashboard](#admin-dashboard)
-11. [Admin: User Management](#admin-user-management)
-12. [Admin: Group Management](#admin-group-management)
-13. [Admin: Question Set Management](#admin-question-set-management)
-14. [Admin: Audit Logs](#admin-audit-logs)
-15. [Group Creator: Private Question Sets](#group-creator-private-question-sets)
-16. [Push Notifications](#push-notifications)
-17. [WebSocket](#websocket)
-18. [Error Codes](#error-codes)
-19. [Rate Limiting](#rate-limiting)
-20. [Health Check](#health-check)
+3. [User Auth Endpoints](#user-auth-endpoints)
+4. [Account Recovery](#account-recovery)
+5. [Avatar Upload Endpoints](#avatar-upload-endpoints)
+6. [Group Endpoints](#group-endpoints)
+7. [Daily Questions & Voting](#daily-questions--voting)
+8. [Question Sets](#question-sets)
+9. [Leaderboard](#leaderboard)
+10. [Admin Authentication](#admin-authentication)
+11. [Admin: Account Management (Self)](#admin-account-management)
+12. [Admin: Dashboard](#admin-dashboard)
+13. [Admin: Account Management (Platform Users)](#admin-account-management-platform-users)
+14. [Admin: User Management (Group Memberships)](#admin-user-management-group-memberships)
+15. [Admin: Group Management](#admin-group-management)
+16. [Admin: Question Set Management](#admin-question-set-management)
+17. [Admin: Audit Logs](#admin-audit-logs)
+18. [Group Creator: Private Question Sets](#group-creator-private-question-sets)
+19. [Push Notifications](#push-notifications)
+20. [WebSocket](#websocket)
+21. [Error Codes](#error-codes)
+22. [Rate Limiting](#rate-limiting)
+23. [Health Check](#health-check)
 
 ---
 
 ## Overview
 
-dontAskUs is a group-based daily question and voting platform. It supports:
+dontAskUs is a group-based daily question and voting platform. **All features require user
+authentication** - users must register an account before they can join groups or participate.
 
-- **User Flow:** Join groups, answer daily questions, vote on members/duos/choices
-- **Group Admin Flow:** Create groups, manage question sets, view analytics
-- **Instance Admin Flow:** Manage users, groups, question sets, audit logs with 2FA
+**User Flow:**
+
+1. Register account with email/password (`POST /api/auth/register`)
+2. Login to receive JWT access and refresh tokens (`POST /api/auth/login`)
+3. Create or join groups using authenticated endpoints
+4. Answer daily questions, vote on members/duos/choices
+5. View group leaderboards and streaks
+
+**Additional Flows:**
+
+- **Group Admin Flow:** Create groups, manage question sets via admin token
+- **Instance Admin Flow:** Manage all users, groups, question sets, audit logs with 2FA
 - **Group Creator Flow:** Create private question sets (max 5 per group)
+
+### Authentication Required
+
+**All endpoints require authentication** except:
+
+- `/health` - Health check
+- `/docs` - API documentation
+- `/api/auth/register` - Account registration
+- `/api/auth/login` - Account login
+- `/api/auth/refresh` - Token refresh
+- `/api/admin/login` - Instance admin login
+- `/api/admin/2fa` - Instance admin 2FA verification
+- `/api/admin/refresh` - Instance admin token refresh
+
+Everything else requires a valid JWT access token or admin token.
 
 ### Automatic Daily Questions
 
@@ -53,22 +85,24 @@ The backend **automatically generates a new question for each group every day**:
 
 ### Authentication Types
 
-| Flow            | Method              | Storage      |
-| --------------- | ------------------- | ------------ |
-| Users           | Session Token       | Query param  |
-| Group Admins    | Admin Token         | Header       |
-| Instance Admins | JWT (TOTP required) | Bearer Token |
+| Flow            | Method               | Storage      |
+| --------------- | -------------------- | ------------ |
+| Users           | JWT (Email/Password) | Bearer Token |
+| Group Admins    | Admin Token          | Header       |
+| Instance Admins | JWT (TOTP optional)  | Bearer Token |
 
 ---
 
 ## Authentication
 
-### Session Tokens (Users)
+### JWT Tokens (Users)
 
-- Generated on group join
-- Hashed and stored server-side
-- Passed as `?session_token=<token>` in query params
-- Expires after `SESSION_TOKEN_EXPIRY_DAYS` (default: 7 days)
+- Users register with email/password via `/api/auth/register`
+- Login via `/api/auth/login` returns access + refresh tokens
+- Access Token: `USER_JWT_ACCESS_EXPIRE_MINUTES` (default: 30 minutes)
+- Refresh Token: `USER_JWT_REFRESH_EXPIRE_DAYS` (default: 30 days)
+- Passed as `Authorization: Bearer <token>` header
+- Password requirements: min 8 chars, uppercase, lowercase, digit
 
 ### Admin Tokens (Group Creators)
 
@@ -81,24 +115,26 @@ The backend **automatically generates a new question for each group every day**:
 - Access Token: 60 minutes
 - Refresh Token: 7 days
 - Passed as `Authorization: Bearer <token>` header
-- Requires TOTP 2FA
+- TOTP 2FA optional (can be enabled in account settings)
 
 ---
 
-## User Endpoints
+## User Auth Endpoints
 
-### Join Group
+### Register
 
-Create a user account within a group.
+**Authentication:** None (public endpoint)
+
+Create a new account with email and password.
 
 ```http
-POST /api/users/join
+POST /api/auth/register
 Content-Type: application/json
 
 {
-  "display_name": "Alice",
-  "group_invite_code": "ABC123",
-  "color_avatar": "#3B82F6"  // optional
+  "email": "alice@example.com",
+  "password": "SecurePass1",
+  "display_name": "Alice"
 }
 ```
 
@@ -106,16 +142,194 @@ Content-Type: application/json
 
 ```json
 {
-  "id": 10,
-  "user_id": "uuid-here",
-  "group_id": "group-uuid-here",
+  "access_token": "eyJ...",
+  "refresh_token": "eyJ...",
+  "token_type": "bearer",
+  "user": {
+    "account_id": 1,
+    "email": "alice@example.com",
+    "display_name": "Alice",
+    "groups": []
+  }
+}
+```
+
+**Errors:**
+
+- `400` Password too weak (min 8 chars, uppercase, lowercase, digit)
+- `409` Email already registered
+
+---
+
+### Login
+
+**Authentication:** None (public endpoint)
+
+Authenticate with email and password.
+
+```http
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "email": "alice@example.com",
+  "password": "SecurePass1"
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "access_token": "eyJ...",
+  "refresh_token": "eyJ...",
+  "token_type": "bearer",
+  "user": {
+    "account_id": 1,
+    "email": "alice@example.com",
+    "display_name": "Alice",
+    "groups": [
+      {
+        "user_id": 10,
+        "group_id": "group-uuid",
+        "group_name": "My Group",
+        "display_name": "Alice"
+      }
+    ]
+  }
+}
+```
+
+**Errors:**
+
+- `401` Invalid email or password
+- `403` Account locked (too many failed attempts)
+
+---
+
+### Refresh Token
+
+**Authentication:** Requires valid refresh_token
+
+Get a new access token using a refresh token.
+
+```http
+POST /api/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "eyJ..."
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "access_token": "eyJ...",
+  "refresh_token": "eyJ...",
+  "token_type": "bearer",
+  "user": { ... }
+}
+```
+
+**Errors:**
+
+- `401`: Invalid or expired refresh token
+
+---
+
+### Get Current User
+
+**Authentication:** Required (JWT Bearer token)
+
+Get the authenticated user's account info.
+
+```http
+GET /api/auth/me
+Authorization: Bearer <access_token>
+```
+
+**Response (200):**
+
+```json
+{
+  "account_id": 1,
+  "email": "alice@example.com",
   "display_name": "Alice",
-  "color_avatar": "#3B82F6",
-  "avatar_url": null,
-  "session_token": "plaintext-token-save-this",
-  "created_at": "2025-12-17T10:00:00Z",
-  "answer_streak": 0,
-  "longest_answer_streak": 0
+  "groups": [
+    {
+      "user_id": 10,
+      "group_id": "group-uuid",
+      "group_name": "My Group",
+      "display_name": "Alice"
+    }
+  ]
+}
+```
+
+**Errors:**
+
+- `401`: Authorization header required / Invalid token
+
+---
+
+### Change Password
+
+**Authentication:** Required (JWT Bearer token)
+
+Change the authenticated user's password.
+
+```http
+POST /api/auth/change-password
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "current_password": "OldPass1",
+  "new_password": "NewPass1"
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "message": "Password changed successfully"
+}
+```
+
+**Errors:**
+
+- `401`: Authorization header required / Invalid token / Incorrect current password
+- `400`: New password doesn't meet requirements (min 8 chars, uppercase, lowercase, digit)
+
+---
+
+### Join Group
+
+Join an existing group using an invite code.
+
+```http
+POST /api/auth/groups/join
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "invite_code": "ABC123",
+  "display_name": "Alice",
+  "color_avatar": "#3B82F6"
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "user_id": 10,
+  "group_id": "group-uuid",
+  "group_name": "My Group",
+  "display_name": "Alice"
 }
 ```
 
@@ -130,92 +344,62 @@ Content-Type: application/json
 
 - `400` Invalid invite code or color format
 - `404` Group not found
-- `409` Display name already taken in group
+- `409` Display name already taken in group or already a member
 
 ---
 
-### Validate Session
+### Create Group
 
-Check if a session token is valid. Also auto-refreshes the session expiry.
+**Authentication:** Required (JWT Bearer token)
+
+Create a new group and automatically join as the first member. Returns an admin token for group
+management.
 
 ```http
-GET /api/users/validate-session/{session_token}
+POST /api/auth/groups/create
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "name": "My New Group"
+}
 ```
 
 **Response (200):**
 
 ```json
 {
-  "valid": true,
-  "user_id": "uuid",
-  "display_name": "Alice",
+  "id": 1,
   "group_id": "group-uuid",
-  "avatar_url": "https://api.example.com/uploads/avatars/abc123.webp",
-  "answer_streak": 2,
-  "longest_answer_streak": 5,
-  "session_expires_at": "2026-01-20T10:00:00Z"
+  "name": "My New Group",
+  "invite_code": "XYZ789",
+  "admin_token": "plaintext-admin-token-save-this",
+  "created_at": "2026-02-09T10:00:00Z",
+  "member_count": 1
 }
 ```
 
----
+**Notes:**
 
-### Refresh Session
-
-Explicitly extend the session token expiry. Useful for keeping sessions alive during periods of low
-activity or for "keep me logged in" functionality.
-
-> **Note:** Sessions are automatically refreshed on any authenticated API call, so this endpoint is
-> only needed for explicit refresh requests when no other API calls are being made.
-
-```http
-POST /api/users/refresh-session
-X-Session-Token: <session_token>
-```
-
-**Headers:**
-
-- `X-Session-Token` (required): User's current session token
-
-**Response (200):**
-
-```json
-{
-  "message": "Session refreshed successfully",
-  "user_id": "uuid",
-  "display_name": "Alice",
-  "group_id": "group-uuid",
-  "avatar_url": "https://api.example.com/uploads/avatars/abc123.webp",
-  "session_expires_at": "2026-01-20T10:00:00Z",
-  "expires_in_days": 7
-}
-```
+- Creator is automatically joined with their account's `display_name`
+- Creator gets a random color avatar
+- Default question set is automatically assigned
+- **Save the admin_token immediately** - it's only returned once
+- The admin token is required for group management (assigning question sets, etc.)
 
 **Errors:**
 
-- `401` Invalid or expired session token
+- `401` Authorization header required / Invalid token
 
 ---
 
-## Session Management
+## Account Recovery
 
-### Auto-Refresh Behavior
+If a user forgets their password:
 
-Session tokens are **automatically extended** whenever a user makes any authenticated API call. This
-means:
-
-- Users who regularly use the app will never have their session expire
-- The session expiry is reset to `SESSION_TOKEN_EXPIRY_DAYS` (default: 7 days) from the current time
-- Only inactive users (no API calls for the full expiry period) will need to re-authenticate
-
-### Session Expiry
-
-If a session expires:
-
-1. The user's **data is preserved** (streaks, votes, display name, avatar, etc.)
-2. The user cannot make authenticated API calls until their session is recovered
-3. **Recovery options:**
-   - Admin can generate a new token via `POST /api/admin/users/{user_id}/recover-token`
-   - User must rejoin the group (creates a new account, loses streak history)
+1. **Admin can reset password** via `POST /api/admin/users/{user_id}/reset-password`
+2. The user's **data is preserved** (streaks, votes, display name, avatar, etc.)
+3. Account lockout is cleared on password reset
 
 ### Streak Reset
 
@@ -234,19 +418,17 @@ to WebP format for optimal storage and delivery.
 
 ### Upload Avatar
 
+**Authentication:** Required (JWT Bearer token - must match user_id in URL)
+
 Upload or replace a user's profile avatar image.
 
 ```http
 POST /api/users/{user_id}/avatar
+Authorization: Bearer <access_token>
 Content-Type: multipart/form-data
-X-Session-Token: <session_token>
 
 file: <image file>
 ```
-
-**Headers:**
-
-- `X-Session-Token` (required): User's session token
 
 **Request:**
 
@@ -257,15 +439,16 @@ file: <image file>
   - Resized to max 256x256 pixels (maintains aspect ratio)
   - Converted to WebP format
   - Transparency converted to white background
+- The `user_id` in the URL must match the authenticated user's ID
 
 **Response (200):**
 
 ```json
 {
   "message": "Avatar uploaded successfully",
-  "avatar_url": "https://api.example.com/uploads/avatars/abc123def456.webp",
-  "avatar_filename": "abc123def456.webp",
-  "uploaded_at": "2025-12-17T10:00:00Z"
+  "avatar_url": "https://api.example.com/uploads/avatars/user123_abc456.webp",
+  "avatar_filename": "user123_abc456.webp",
+  "uploaded_at": "2026-02-09T10:00:00Z"
 }
 ```
 
@@ -275,15 +458,14 @@ file: <image file>
 - `400` File too large (max 2MB)
 - `400` Invalid file type (only JPEG, PNG, GIF, WebP allowed)
 - `400` Invalid or corrupted image file
-- `401` Session token required / Invalid session
-- `403` Cannot modify another user's avatar
-- `404` User not found
+- `401` Authorization header required / Invalid token / User ID mismatch
+- `500` Failed to save avatar file
 
 **Example (curl):**
 
 ```bash
 curl -X POST "https://api.example.com/api/users/{user_id}/avatar" \
-  -H "X-Session-Token: YOUR_TOKEN" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
   -F "file=@/path/to/avatar.jpg"
 ```
 
@@ -296,7 +478,7 @@ formData.append("file", imageFile);
 const response = await fetch(`${API_URL}/api/users/${userId}/avatar`, {
   method: "POST",
   headers: {
-    "X-Session-Token": token
+    Authorization: `Bearer ${token}`
   },
   body: formData
 });
@@ -306,16 +488,19 @@ const response = await fetch(`${API_URL}/api/users/${userId}/avatar`, {
 
 ### Delete Avatar
 
+**Authentication:** Required (JWT Bearer token - must match user_id in URL)
+
 Remove a user's profile avatar, reverting to the color avatar.
 
 ```http
 DELETE /api/users/{user_id}/avatar
-X-Session-Token: <session_token>
+Authorization: Bearer <access_token>
 ```
 
-**Headers:**
+**Notes:**
 
-- `X-Session-Token` (required): User's session token
+- The `user_id` in the URL must match the authenticated user's ID
+- After deletion, client should use the returned `color_avatar` for display
 
 **Response (200):**
 
@@ -328,9 +513,8 @@ X-Session-Token: <session_token>
 
 **Errors:**
 
-- `401` Session token required / Invalid session
-- `403` Cannot modify another user's avatar
-- `404` User not found / No avatar to delete
+- `401` Authorization header required / Invalid token / User ID mismatch
+- `404` No avatar to delete
 
 ---
 
@@ -364,8 +548,14 @@ function getAvatarDisplay(user) {
 
 ### Create Group
 
+**Authentication:** Required (JWT Bearer token)
+
+Create a new group. The creator is automatically added as the first member. Returns an admin token
+for group management.
+
 ```http
-POST /api/groups
+POST /api/auth/groups/create
+Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
@@ -382,18 +572,34 @@ Content-Type: application/json
   "name": "My Awesome Group",
   "invite_code": "ABC123",
   "admin_token": "plaintext-admin-token-save-this",
-  "creator_id": null,
-  "created_at": "2025-12-17T10:00:00Z",
-  "member_count": 0
+  "created_at": "2026-02-09T10:00:00Z",
+  "member_count": 1
 }
 ```
 
+**Notes:**
+
+- The `admin_token` is returned only once - save it immediately
+- Default question set is automatically assigned to new groups
+- Creator is auto-joined as first member
+
+**Errors:**
+
+- `401` Authorization header required / Invalid token
+- `400` Invalid group name
+
 ---
 
-### Get Group by Invite Code (Public)
+### Get Group by Invite Code
+
+**Authentication:** Required (JWT Bearer token)
+
+Get basic group information using an invite code. Used when a user wants to preview a group before
+joining.
 
 ```http
 GET /api/groups/{invite_code}
+Authorization: Bearer <access_token>
 ```
 
 **Response (200):**
@@ -404,17 +610,27 @@ GET /api/groups/{invite_code}
   "group_id": "uuid",
   "name": "My Awesome Group",
   "invite_code": "ABC123",
-  "created_at": "2025-12-17T10:00:00Z",
+  "created_at": "2026-02-09T10:00:00Z",
   "member_count": 5
 }
 ```
+
+**Errors:**
+
+- `401` Authorization header required / Invalid token
+- `404` Group not found
 
 ---
 
 ### Get Group Info
 
+**Authentication:** Required (JWT Bearer token + Group Membership)
+
+Get complete group information. Requires the authenticated user to be a member of the group.
+
 ```http
 GET /api/groups/{group_id}/info
+Authorization: Bearer <access_token>
 ```
 
 **Response (200):**
@@ -426,16 +642,27 @@ GET /api/groups/{group_id}/info
   "name": "My Awesome Group",
   "invite_code": "ABC123",
   "member_count": 5,
-  "created_at": "2025-12-17T10:00:00Z"
+  "created_at": "2026-02-09T10:00:00Z"
 }
 ```
+
+**Errors:**
+
+- `401` Authorization header required / Invalid token
+- `403` You are not a member of this group
+- `404` Group not found
 
 ---
 
 ### List Group Members
 
+**Authentication:** Required (JWT Bearer token + Group Membership)
+
+Get all members in a group including their streaks. User must be a member of the group.
+
 ```http
 GET /api/groups/{group_id}/members
+Authorization: Bearer <access_token>
 ```
 
 **Response (200):**
@@ -447,12 +674,18 @@ GET /api/groups/{group_id}/members
     "display_name": "Alice",
     "color_avatar": "#3B82F6",
     "avatar_url": "https://api.example.com/uploads/avatars/abc123.webp",
-    "created_at": "2025-12-17T10:00:00Z",
+    "created_at": "2026-02-09T10:00:00Z",
     "answer_streak": 2,
     "longest_answer_streak": 5
   }
 ]
 ```
+
+**Errors:**
+
+- `401` Authorization header required / Invalid token
+- `403` You are not a member of this group
+- `404` Group not found
 
 ---
 
@@ -460,10 +693,13 @@ GET /api/groups/{group_id}/members
 
 ### Get Group Leaderboard
 
-Get leaderboard sorted by answer streak (requires session token).
+**Authentication:** Required (JWT Bearer token + Group Membership)
+
+Get leaderboard sorted by answer streak. User must be a member of the group to view streaks.
 
 ```http
-GET /api/groups/{group_id}/leaderboard?session_token=<token>
+GET /api/groups/{group_id}/leaderboard
+Authorization: Bearer <access_token>
 ```
 
 **Response (200):**
@@ -490,11 +726,12 @@ GET /api/groups/{group_id}/leaderboard?session_token=<token>
 
 - Results sorted by `answer_streak` descending, then by `longest_answer_streak`
 - User must be a member of the group
+- Streaks are only visible to group members
 
 **Errors:**
 
-- `401` Invalid or missing session token
-- `403` User not in this group
+- `401` Authorization header required / Invalid token
+- `403` You are not a member of this group
 - `404` Group not found
 
 ---
@@ -519,7 +756,9 @@ manual creation (admin override) or retrieving the current question.
 
 ### Create Daily Question (Admin)
 
-Group admins create today's question.
+**Authentication:** Group Admin Token (X-Admin-Token header)
+
+Group admins can manually create today's question (overrides automatic generation).
 
 ```http
 POST /api/groups/{group_id}/questions
@@ -541,9 +780,11 @@ Content-Type: application/json
   "question_text": "Who is the funniest?",
   "question_type": "member_choice",
   "options": ["Alice", "Bob", "Charlie"],
-  "question_date": "2025-12-17T00:00:00Z",
+  "question_date": "2026-02-09T00:00:00Z",
   "is_active": true,
-  "allow_multiple": false
+  "allow_multiple": false,
+  "option_counts": {},
+  "total_votes": 0
 }
 ```
 
@@ -553,12 +794,23 @@ Content-Type: application/json
 - Requires ≥2 members for member/duo types
 - Options auto-generated for member/duo types
 
+**Errors:**
+
+- `401` X-Admin-Token header required / Invalid admin token
+- `400` Question already exists for today
+- `404` Group not found
+
 ---
 
 ### Get Today's Question
 
+**Authentication:** Required (JWT Bearer token + Group Membership)
+
+Get the current day's question for a group. User must be a member of the group.
+
 ```http
-GET /api/groups/{group_id}/questions/today?session_token=<token>
+GET /api/groups/{group_id}/questions/today
+Authorization: Bearer <access_token>
 ```
 
 **Response (200):**
@@ -589,12 +841,23 @@ GET /api/groups/{group_id}/questions/today?session_token=<token>
 **Note:** `user_vote` is `null` if not answered, a string for single-select, or an array for
 multi-select when `allow_multiple` is `true`.
 
+**Errors:**
+
+- `401` Authorization header required / Invalid token
+- `403` You are not a member of this group
+- `404` No question for today / Group not found
+
 ---
 
 ### Submit Answer/Vote
 
+**Authentication:** Required (JWT Bearer token + Group Membership)
+
+Submit an answer to the current question. Updates streaks on first submission.
+
 ```http
-POST /api/groups/{group_id}/questions/{question_id}/answer?session_token=<token>
+POST /api/groups/{group_id}/questions/{question_id}/answer
+Authorization: Bearer <access_token>
 Content-Type: application/json
 
 // Single choice
@@ -617,15 +880,17 @@ Content-Type: application/json
 
 ```json
 {
-  "message": "Vote recorded",
-  "question_id": "uuid",
-  "options": ["Alice", "Bob", "Charlie"],
+  "success": true,
+  "question_type": "member_choice",
+  "vote_count_a": 4,
+  "vote_count_b": 1,
+  "total_votes": 7,
   "option_counts": {
     "Alice": 4,
     "Bob": 1,
     "Charlie": 2
   },
-  "total_votes": 7,
+  "options": ["Alice", "Bob", "Charlie"],
   "user_answer": "Alice",
   "current_streak": 4,
   "longest_streak": 5
@@ -636,22 +901,27 @@ Content-Type: application/json
 
 - `answer` must be in `options` for choice-based types
 - Array required when `allow_multiple` is true
-- Only one vote per user per question
+- Can update answer by resubmitting (replaces previous vote)
+- Streaks only increment on first answer per question
 
 **Errors:**
 
-- `400` Invalid answer or already voted
-- `401` Invalid session token
+- `400` Invalid answer / Answer required / Only one selection allowed
+- `401` Authorization header required / Invalid token
+- `403` User not in this group
 - `404` Question not found
 
 ---
 
 ### Get Question History
 
-Retrieve paginated history of all questions in a group (most recent first).
+**Authentication:** Required (JWT Bearer token + Group Membership)
+
+Retrieve paginated history of all questions in a group (most recent first). User must be a member.
 
 ```http
 GET /api/groups/{group_id}/questions/history?skip=0&limit=20
+Authorization: Bearer <access_token>
 ```
 
 **Query Parameters:**
@@ -682,7 +952,7 @@ GET /api/groups/{group_id}/questions/history?skip=0&limit=20
         "Bob": 2,
         "Charlie": 1
       },
-      "question_date": "2025-12-17T00:00:00Z",
+      "question_date": "2026-02-09T00:00:00Z",
       "is_active": false,
       "vote_count_a": 0,
       "vote_count_b": 0,
@@ -701,7 +971,7 @@ GET /api/groups/{group_id}/questions/history?skip=0&limit=20
         "Movie B": 2,
         "Movie C": 4
       },
-      "question_date": "2025-12-16T00:00:00Z",
+      "question_date": "2026-02-08T00:00:00Z",
       "is_active": false,
       "vote_count_a": 3,
       "vote_count_b": 2,
@@ -729,13 +999,19 @@ GET /api/groups/{group_id}/questions/history?skip=0&limit=20
 
 ### Create Question Set
 
+**Authentication:** Required (JWT Bearer token)
+
+Create a new question set. Any authenticated user can create sets.
+
 ```http
 POST /api/question-sets
+Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
   "name": "Icebreakers",
   "description": "Fun conversation starters",
+  "is_public": true,
   "template_ids": ["template-uuid-1", "template-uuid-2"]
 }
 ```
@@ -744,69 +1020,123 @@ Content-Type: application/json
 
 ```json
 {
-  "id": 1,
   "set_id": "uuid",
   "name": "Icebreakers",
   "description": "Fun conversation starters",
   "is_public": true,
-  "created_at": "2025-12-17T10:00:00Z"
+  "templates": [
+    {
+      "template_id": "uuid",
+      "category": "Default",
+      "question_text": "What's your superpower?",
+      "question_type": "free_text",
+      "allow_multiple": false,
+      "is_public": true,
+      "created_at": "2026-02-09T10:00:00Z"
+    }
+  ],
+  "created_at": "2026-02-09T10:00:00Z"
 }
 ```
+
+**Errors:**
+
+- `401` Authorization header required / Invalid token
 
 ---
 
 ### List Public Question Sets
 
+**Authentication:** Required (JWT Bearer token)
+
+Get all public question sets with their templates.
+
 ```http
 GET /api/question-sets
+Authorization: Bearer <access_token>
 ```
 
 **Response (200):**
 
 ```json
-{
-  "sets": [
-    {
-      "id": 1,
-      "set_id": "uuid",
-      "name": "Icebreakers",
-      "is_public": true,
-      "template_count": 10
-    }
-  ]
-}
+[
+  {
+    "set_id": "uuid",
+    "name": "Icebreakers",
+    "description": "Fun conversation starters",
+    "is_public": true,
+    "created_at": "2026-02-09T10:00:00Z",
+    "templates": [
+      {
+        "template_id": "uuid",
+        "category": "Default",
+        "question_text": "What's your superpower?",
+        "option_a_template": null,
+        "option_b_template": null,
+        "question_type": "free_text",
+        "allow_multiple": false,
+        "is_public": true,
+        "created_at": "2026-02-09T10:00:00Z"
+      }
+    ]
+  }
+]
 ```
+
+**Errors:**
+
+- `401` Authorization header required / Invalid token
 
 ---
 
 ### Get Question Set Details
 
+**Authentication:** Required (JWT Bearer token)
+
+Get a single question set by ID with all templates.
+
 ```http
 GET /api/question-sets/{set_id}
+Authorization: Bearer <access_token>
 ```
 
 **Response (200):**
 
 ```json
 {
-  "id": 1,
   "set_id": "uuid",
   "name": "Icebreakers",
+  "description": "Fun conversation starters",
   "is_public": true,
+  "created_at": "2026-02-09T10:00:00Z",
   "templates": [
     {
-      "id": 1,
       "template_id": "uuid",
+      "category": "Default",
       "question_text": "What's your superpower?",
-      "question_type": "free_text"
+      "option_a_template": null,
+      "option_b_template": null,
+      "question_type": "free_text",
+      "allow_multiple": false,
+      "is_public": true,
+      "created_at": "2026-02-09T10:00:00Z"
     }
   ]
 }
 ```
 
+**Errors:**
+
+- `401` Authorization header required / Invalid token
+- `404` Question set not found
+
 ---
 
 ### Assign Sets to Group (Admin)
+
+**Authentication:** Group Admin Token (X-Admin-Token header)
+
+Assign question sets to a group. The group will use these sets for daily question generation.
 
 ```http
 POST /api/groups/{group_id}/question-sets
@@ -819,6 +1149,11 @@ Content-Type: application/json
 }
 ```
 
+**Parameters:**
+
+- `question_set_ids`: Array of question set UUIDs to assign
+- `replace`: If `true`, removes all existing assignments first
+
 **Response (200):**
 
 ```json
@@ -828,18 +1163,28 @@ Content-Type: application/json
     {
       "set_id": "uuid",
       "name": "Icebreakers",
-      "template_count": 10
+      "is_active": true
     }
   ]
 }
 ```
 
+**Errors:**
+
+- `401` X-Admin-Token header required / Invalid admin token
+- `404` Group not found
+
 ---
 
 ### List Group Question Sets
 
+**Authentication:** Required (JWT Bearer token + Group Membership)
+
+Get all question sets assigned to a group. User must be a member of the group.
+
 ```http
 GET /api/groups/{group_id}/question-sets
+Authorization: Bearer <access_token>
 ```
 
 **Response (200):**
@@ -852,17 +1197,27 @@ GET /api/groups/{group_id}/question-sets
       "set_id": "uuid",
       "name": "Icebreakers",
       "is_public": true,
-      "template_count": 10
+      "is_active": true
     }
   ]
 }
 ```
+
+**Errors:**
+
+- `401` Authorization header required / Invalid token
+- `403` You are not a member of this group
+- `404` Group not found
 
 ---
 
 ## Admin Authentication
 
 Instance admins have full platform access with optional 2FA security.
+
+**Authentication:** Admin endpoints (except `/api/admin/login`, `/api/admin/2fa`,
+`/api/admin/refresh`) require the `Authorization: Bearer <admin_access_token>` header with a valid
+admin JWT token.
 
 ### Initial Setup
 
@@ -882,6 +1237,8 @@ ADMIN_INITIAL_PASSWORD=your_password   # Required - change this!
 ---
 
 ### Step 1: Login with Password
+
+**Authentication:** None (public endpoint)
 
 ```http
 POST /api/admin/login
@@ -919,6 +1276,8 @@ Content-Type: application/json
 
 ### Step 2: Verify TOTP (if configured)
 
+**Authentication:** Requires temp_token from Step 1
+
 ```http
 POST /api/admin/2fa
 Content-Type: application/json
@@ -944,7 +1303,9 @@ Content-Type: application/json
 
 ---
 
-### Refresh Token
+### Refresh Token (Admin)
+
+**Authentication:** Requires valid refresh_token
 
 ```http
 POST /api/admin/refresh
@@ -970,9 +1331,11 @@ Content-Type: application/json
 
 ### Logout
 
+**Authentication:** Required (Admin JWT Bearer token)
+
 ```http
 POST /api/admin/logout
-Authorization: Bearer <access_token>
+Authorization: Bearer <admin_access_token>
 ```
 
 **Response (200):**
@@ -989,9 +1352,11 @@ Authorization: Bearer <access_token>
 
 ### Get Profile
 
+**Authentication:** Required (Admin JWT Bearer token)
+
 ```http
 GET /api/admin/profile
-Authorization: Bearer <access_token>
+Authorization: Bearer <admin_access_token>
 ```
 
 **Response (200):**
@@ -1010,7 +1375,7 @@ Authorization: Bearer <access_token>
 
 ---
 
-### Change Password
+### Change Password (Admin)
 
 ```http
 POST /api/admin/account/change-password
@@ -1227,7 +1592,169 @@ Authorization: Bearer <access_token>
 
 ---
 
-## Admin: User Management
+## Admin: Account Management (Platform Users)
+
+Accounts represent platform-level user identities (email + password). An account can exist without
+being in any group, and can be a member of multiple groups.
+
+### List All Accounts
+
+**Authentication:** Required (Admin JWT Bearer token)
+
+```http
+GET /api/admin/accounts?limit=50&offset=0&search=alice
+Authorization: Bearer <admin_access_token>
+```
+
+**Query Parameters:**
+
+- `limit`: 1-500 (default: 50)
+- `offset`: Starting position (default: 0)
+- `search`: Optional search by email or display name
+
+**Response (200):**
+
+```json
+{
+  "accounts": [
+    {
+      "id": 1,
+      "account_id": "uuid-string",
+      "email": "alice@example.com",
+      "display_name": "Alice",
+      "is_active": true,
+      "created_at": "2026-02-09T10:00:00Z",
+      "last_login": "2026-02-09T09:00:00Z",
+      "group_count": 2,
+      "groups": [
+        {
+          "user_id": 10,
+          "group_id": 1,
+          "group_name": "Fun Group",
+          "display_name": "Alice"
+        },
+        {
+          "user_id": 15,
+          "group_id": 3,
+          "group_name": "Work Group",
+          "display_name": "AliceW"
+        }
+      ]
+    }
+  ],
+  "total": 100,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+---
+
+### Create Account (Admin)
+
+**Authentication:** Required (Admin JWT Bearer token)
+
+Create a new user account. The account can be created **without** assigning to any group, or
+optionally added to a group at creation time.
+
+```http
+POST /api/admin/accounts
+Authorization: Bearer <admin_access_token>
+Content-Type: application/json
+
+{
+  "email": "newuser@example.com",
+  "password": "SecurePass1",
+  "display_name": "NewUser",
+  "group_id": 1,
+  "group_display_name": "NewUserInGroup",
+  "color_avatar": "#FF5733"
+}
+```
+
+**Fields:**
+
+- `email` (required): Unique email address
+- `password` (required): Password (min 8 characters)
+- `display_name` (required): Default display name for the account
+- `group_id` (optional): Group ID to add the account to
+- `group_display_name` (optional): Display name within the group (defaults to `display_name`)
+- `color_avatar` (optional): Hex color for avatar (random if not provided)
+
+**Response (200) - Account only (no group):**
+
+```json
+{
+  "id": 5,
+  "account_id": "uuid-string",
+  "email": "newuser@example.com",
+  "display_name": "NewUser",
+  "is_active": true,
+  "created_at": "2026-02-09T10:00:00Z",
+  "group_membership": null
+}
+```
+
+**Response (200) - Account with group:**
+
+```json
+{
+  "id": 5,
+  "account_id": "uuid-string",
+  "email": "newuser@example.com",
+  "display_name": "NewUser",
+  "is_active": true,
+  "created_at": "2026-02-09T10:00:00Z",
+  "group_membership": {
+    "user_id": 42,
+    "group_id": 1,
+    "group_name": "Fun Group",
+    "display_name": "NewUserInGroup"
+  }
+}
+```
+
+**Errors:**
+
+- `400`: Email is required
+- `400`: Password must be at least 8 characters
+- `400`: Display name is required
+- `400`: Account with this email already exists
+- `400`: Group not found (if group_id provided)
+- `400`: Display name already taken in group (if group_id provided)
+
+---
+
+### Delete Account (Admin)
+
+**Authentication:** Required (Admin JWT Bearer token)
+
+Delete an account and all their group memberships and votes.
+
+```http
+DELETE /api/admin/accounts/{account_id}
+Authorization: Bearer <admin_access_token>
+```
+
+**Response (200):**
+
+```json
+{
+  "status": "deleted",
+  "email": "newuser@example.com"
+}
+```
+
+**Errors:**
+
+- `404`: Account not found
+
+---
+
+## Admin: User Management (Group Memberships)
+
+Users represent group memberships. A user entry links an account to a specific group with a display
+name and avatar.
 
 ### List All Users
 
@@ -1289,17 +1816,18 @@ Content-Type: application/json
 
 ---
 
-### Recover User Token
+### Reset User Password
 
-Generate a new session token for account recovery.
+Reset the password for a user's linked account.
 
 ```http
-POST /api/admin/users/{user_id}/recover-token
+POST /api/admin/users/{user_id}/reset-password
 Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
-  "reason": "User lost access to their account"
+  "new_password": "NewSecurePass1",
+  "reason": "User forgot their password"
 }
 ```
 
@@ -1307,38 +1835,55 @@ Content-Type: application/json
 
 ```json
 {
-  "session_token": "new-plaintext-token",
-  "message": "New session token generated for user Alice"
+  "message": "Password reset successfully for user Alice",
+  "account_email": "alice@example.com"
 }
 ```
 
+**Errors:**
+
+- `404` User not found
+- `400` User has no linked account
+
 ---
 
-### Create User (Admin)
+### Create User / Group Membership (Admin)
 
-Create a new user in a specific group.
+**Authentication:** Required (Admin JWT Bearer token)
+
+Create a new group membership for a user. Optionally link to an existing account by email. To create
+an account without a group, use `POST /api/admin/accounts` instead.
 
 ```http
 POST /api/admin/users
-Authorization: Bearer <access_token>
+Authorization: Bearer <admin_access_token>
 Content-Type: application/json
 
 {
   "display_name": "NewUser",
   "group_id": 1,
-  "color_avatar": "#FF5733"
+  "color_avatar": "#FF5733",
+  "account_email": "newuser@example.com"
 }
 ```
+
+**Fields:**
+
+- `display_name` (required): Display name within the group (min 2 characters)
+- `group_id` (required): Group to add the user to
+- `color_avatar` (optional): Hex color for avatar (random if not provided)
+- `account_email` (optional): Link to an existing account by email
 
 **Response (200):**
 
 ```json
 {
   "id": 42,
+  "user_id": "uuid-string",
   "display_name": "NewUser",
   "group_id": 1,
-  "session_token": "plaintext-session-token",
-  "color_avatar": "#FF5733"
+  "color_avatar": "#FF5733",
+  "account_email": "newuser@example.com"
 }
 ```
 
@@ -1348,16 +1893,21 @@ Content-Type: application/json
 - `400`: Group ID is required
 - `400`: Group not found
 - `400`: Display name already taken in this group
+- `400`: No account found with provided email
+- `400`: Account is already a member of this group
 
 ---
 
-### Delete User (Admin)
+### Delete User / Group Membership (Admin)
 
-Delete a user and all their answers.
+**Authentication:** Required (Admin JWT Bearer token)
+
+Delete a user's group membership and all their answers in that group. This does **not** delete the
+linked account.
 
 ```http
 DELETE /api/admin/users/{user_id}
-Authorization: Bearer <access_token>
+Authorization: Bearer <admin_access_token>
 ```
 
 **Response (200):**
@@ -1845,9 +2395,11 @@ Group creators can create up to 5 private question sets per group.
 
 ### Create Private Set
 
+**Authentication:** Required (JWT Bearer token - must be group creator)
+
 ```http
 POST /api/groups/{group_id}/question-sets/private
-session_token: <token>
+Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
@@ -1882,13 +2434,22 @@ Content-Type: application/json
 - Max 5 sets per group
 - Only group creator can create
 
+**Errors:**
+
+- `401`: Authorization header required / Invalid token
+- `403`: Only group creator can manage private sets
+- `404`: Group not found
+- `400`: Max 5 private sets per group / Invalid validation
+
 ---
 
 ### List My Private Sets
 
+**Authentication:** Required (JWT Bearer token - must be group creator)
+
 ```http
 GET /api/groups/{group_id}/question-sets/my?limit=50&offset=0
-session_token: <token>
+Authorization: Bearer <access_token>
 ```
 
 **Response (200):**
@@ -1917,10 +2478,17 @@ session_token: <token>
 
 ### Get Set Details
 
+**Authentication:** Required (JWT Bearer token + group membership, group creator for private sets)
+
 ```http
 GET /api/groups/{group_id}/question-sets/{set_id}
-session_token: <token>
+Authorization: Bearer <access_token>
 ```
+
+**Notes:**
+
+- Public sets: Any group member can view
+- Private sets: Only the group creator can view
 
 **Response (200):**
 
@@ -1931,7 +2499,7 @@ session_token: <token>
   "is_public": false,
   "creator_id": 1,
   "usage_count": 5,
-  "created_at": "2025-12-17T10:00:00Z",
+  "created_at": "2026-02-09T10:00:00Z",
   "question_count": 1,
   "questions": [
     {
@@ -1943,15 +2511,23 @@ session_token: <token>
 }
 ```
 
+**Errors:**
+
+- `401`: Authorization header required / Invalid token
+- `403`: Not a member of the group / Only group creator can view private sets
+- `404`: Group not found / Question set not found
+
 ---
 
 ### Update Private Set
+
+**Authentication:** Required (JWT Bearer token - must be group creator)
 
 Update a private question set name and/or questions. Only the group creator can update sets.
 
 ```http
 PUT /api/groups/{group_id}/question-sets/{set_id}
-session_token: <token>
+Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
@@ -1978,7 +2554,7 @@ Content-Type: application/json
 
 **Errors:**
 
-- `401`: Invalid session token
+- `401`: Invalid or missing auth token
 - `403`: Only group creator can update private sets
 - `404`: Question set not found
 
@@ -1986,11 +2562,13 @@ Content-Type: application/json
 
 ### Delete Private Set
 
+**Authentication:** Required (JWT Bearer token - must be group creator)
+
 Delete a private question set. Cannot delete sets currently assigned to the group.
 
 ```http
 DELETE /api/groups/{group_id}/question-sets/{set_id}
-session_token: <token>
+Authorization: Bearer <access_token>
 ```
 
 **Response (200):**
@@ -2004,7 +2582,7 @@ session_token: <token>
 
 **Errors:**
 
-- `401`: Invalid session token
+- `401`: Invalid or missing auth token
 - `403`: Only group creator can delete private sets
 - `400`: Cannot delete a set that is currently assigned to the group
 
@@ -2012,11 +2590,13 @@ session_token: <token>
 
 ### Get Question Set Usage
 
+**Authentication:** Required (JWT Bearer token - must be group creator)
+
 Get usage statistics for a private question set (how many times each question has been asked).
 
 ```http
 GET /api/groups/{group_id}/question-sets/{set_id}/usage
-session_token: <token>
+Authorization: Bearer <access_token>
 ```
 
 **Response (200):**
@@ -2046,7 +2626,7 @@ session_token: <token>
 
 **Errors:**
 
-- `401`: Invalid session token
+- `401`: Authorization header required / Invalid token
 - `403`: Only group creator can view usage stats
 - `404`: Question set not found
 
@@ -2074,6 +2654,10 @@ GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
 
 ### Check Push Notification Status
 
+**Authentication:** None (public endpoint)
+
+Check if push notifications are enabled on this server.
+
 ```http
 GET /api/push-notifications/status
 ```
@@ -2098,11 +2682,13 @@ Or if disabled:
 
 ### Register Device Token
 
+**Authentication:** Required (JWT Bearer token - must match user_id in URL)
+
 Register a device to receive push notifications.
 
 ```http
 POST /api/users/{user_id}/device-token
-X-Session-Token: <session_token>
+Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
@@ -2112,6 +2698,12 @@ Content-Type: application/json
 }
 ```
 
+**Notes:**
+
+- The `user_id` in the URL must match the authenticated user's ID
+- If the token already exists, it will be updated instead of creating a duplicate
+- Automatically marks the token as active and updates `last_used_at`
+
 **Response (200):**
 
 ```json
@@ -2120,24 +2712,31 @@ Content-Type: application/json
   "token": "fcm-device-token...",
   "platform": "ios",
   "device_name": "iPhone 15 Pro",
-  "created_at": "2026-01-04T10:00:00Z",
+  "created_at": "2026-02-09T10:00:00Z",
   "is_active": true
 }
 ```
 
 **Errors:**
 
-- `401`: Invalid session token
+- `401`: Authorization header required / Invalid token / User ID mismatch
 - `503`: Push notifications not enabled on server
 
 ### Unregister Device Token
+
+**Authentication:** Required (JWT Bearer token - must match user_id in URL)
 
 Remove a device token (e.g., on logout or when disabling notifications).
 
 ```http
 DELETE /api/users/{user_id}/device-token?token=<device_token>
-X-Session-Token: <session_token>
+Authorization: Bearer <access_token>
 ```
+
+**Notes:**
+
+- The `user_id` in the URL must match the authenticated user's ID
+- Returns success message even if token wasn't found
 
 **Response (200):**
 
@@ -2147,14 +2746,25 @@ X-Session-Token: <session_token>
 }
 ```
 
+**Errors:**
+
+- `401`: Authorization header required / Invalid token / User ID mismatch
+
 ### List Device Tokens
+
+**Authentication:** Required (JWT Bearer token - must match user_id in URL)
 
 List all registered device tokens for a user.
 
 ```http
 GET /api/users/{user_id}/device-tokens
-X-Session-Token: <session_token>
+Authorization: Bearer <access_token>
 ```
+
+**Notes:**
+
+- The `user_id` in the URL must match the authenticated user's ID
+- Only returns active tokens
 
 **Response (200):**
 
@@ -2165,7 +2775,7 @@ X-Session-Token: <session_token>
     "token": "fcm-device-token...",
     "platform": "ios",
     "device_name": "iPhone 15 Pro",
-    "created_at": "2026-01-04T10:00:00Z",
+    "created_at": "2026-02-09T10:00:00Z",
     "is_active": true
   },
   {
@@ -2173,7 +2783,7 @@ X-Session-Token: <session_token>
     "token": "fcm-device-token-2...",
     "platform": "android",
     "device_name": "Pixel 8",
-    "created_at": "2026-01-03T10:00:00Z",
+    "created_at": "2026-02-09T09:00:00Z",
     "is_active": true
   }
 ]
@@ -2181,7 +2791,7 @@ X-Session-Token: <session_token>
 
 **Errors:**
 
-- `401`: Invalid session token
+- `401`: Authorization header required / Invalid token / User ID mismatch
 
 ### Notification Types
 
@@ -2208,21 +2818,51 @@ To receive notifications in your app:
 
 ### Live Vote Updates
 
+**Authentication:** Required (JWT access token sent in message)
+
+Connect to receive real-time voting updates for a specific question.
+
 ```text
 WS /ws/groups/{group_id}/questions/{question_id}
 ```
 
-**Send:**
+**Connection:**
+
+- WebSocket connections don't use HTTP headers, so authentication is handled in messages
+- Must send authentication token with every vote message
+- User must be a member of the specified group
+
+**Send Vote:**
 
 ```json
 {
   "type": "vote",
-  "session_token": "token",
+  "token": "your-jwt-access-token",
   "answer": "Alice"
 }
 ```
 
-**Receive:**
+For free-text questions:
+
+```json
+{
+  "type": "vote",
+  "token": "your-jwt-access-token",
+  "text_answer": "My detailed answer here"
+}
+```
+
+For multiple-choice questions allowing multiple selections:
+
+```json
+{
+  "type": "vote",
+  "token": "your-jwt-access-token",
+  "answer": ["Alice", "Bob"]
+}
+```
+
+**Receive Updates:**
 
 ```json
 {
@@ -2235,21 +2875,60 @@ WS /ws/groups/{group_id}/questions/{question_id}
 }
 ```
 
+**Error Responses:**
+
+```json
+{
+  "error": "text_answer required"
+}
+```
+
+```json
+{
+  "error": "answer required"
+}
+```
+
+```json
+{
+  "error": "invalid option"
+}
+```
+
+**Notes:**
+
+- Connection is silently ignored if:
+  - Token is invalid or missing
+  - User is not a member of the group
+  - Question doesn't exist
+- Vote updates are broadcast to all connected clients for that question
+- Updates existing vote if user has already voted, otherwise creates new vote
+
 ---
 
 ## Error Codes
 
-| Code | Meaning                          |
-| ---- | -------------------------------- |
-| 200  | Success                          |
-| 201  | Created                          |
-| 400  | Bad Request                      |
-| 401  | Unauthorized                     |
-| 403  | Forbidden                        |
-| 404  | Not Found                        |
-| 409  | Conflict                         |
-| 429  | Too Many Requests (Rate Limited) |
-| 500  | Internal Server Error            |
+Common HTTP status codes used across the API:
+
+| Code | Meaning                          | Common Causes                                                            |
+| ---- | -------------------------------- | ------------------------------------------------------------------------ |
+| 200  | Success                          | Request completed successfully                                           |
+| 201  | Created                          | Resource created successfully                                            |
+| 400  | Bad Request                      | Invalid request format, missing required fields, invalid file type/size  |
+| 401  | Unauthorized                     | Missing/invalid/expired JWT token, user ID mismatch, invalid credentials |
+| 403  | Forbidden                        | Not a member of the group, insufficient permissions                      |
+| 404  | Not Found                        | Resource doesn't exist (group, question, user)                           |
+| 409  | Conflict                         | Resource already exists (duplicate email, etc.)                          |
+| 429  | Too Many Requests (Rate Limited) | Exceeded rate limit for endpoint                                         |
+| 500  | Internal Server Error            | Unexpected server error                                                  |
+| 503  | Service Unavailable              | Feature not configured (e.g., push notifications)                        |
+
+**Authentication Error Details:**
+
+- `401` with "Authorization header required" - No `Authorization` header provided
+- `401` with "Invalid token" - JWT token is malformed, expired, or has invalid signature
+- `401` with "User ID mismatch" - Authenticated user doesn't match `user_id` in URL path
+- `403` with "Not a member" - User is authenticated but not a member of the requested group
 
 ---
 
@@ -2307,27 +2986,29 @@ ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
 # ═══════════════════════════════════════════════════════════════════════
 # OPTIONAL SETTINGS
 # ═══════════════════════════════════════════════════════════════════════
-SESSION_TOKEN_EXPIRY_DAYS=7
 LOG_LEVEL=INFO
 SCHEDULE_INTERVAL_SECONDS=86400
+USER_JWT_ACCESS_EXPIRE_MINUTES=30
+USER_JWT_REFRESH_EXPIRE_DAYS=30
 ```
 
 ### Environment Variable Reference
 
-| Variable                    | Description                   | Required | Default |
-| --------------------------- | ----------------------------- | -------- | ------- |
-| `DATABASE_URL`              | PostgreSQL connection string  | Yes      | -       |
-| `REDIS_URL`                 | Redis connection string       | Yes      | -       |
-| `SECRET_KEY`                | JWT secret for user sessions  | Yes      | -       |
-| `ADMIN_JWT_SECRET`          | JWT secret for admin sessions | Yes      | -       |
-| `ADMIN_INITIAL_USERNAME`    | Initial admin username        | No       | `admin` |
-| `ADMIN_INITIAL_PASSWORD`    | Initial admin password        | Yes      | -       |
-| `ALLOWED_ORIGINS`           | CORS allowed origins          | Yes      | -       |
-| `SESSION_TOKEN_EXPIRY_DAYS` | User session expiry           | No       | `7`     |
-| `LOG_LEVEL`                 | Logging level                 | No       | `INFO`  |
-| `SCHEDULE_INTERVAL_SECONDS` | Question scheduling interval  | No       | `86400` |
-| `FCM_PROJECT_ID`            | Firebase project ID           | No\*     | -       |
-| `FCM_SERVICE_ACCOUNT_JSON`  | Firebase service account JSON | No\*     | -       |
+| Variable                         | Description                      | Required | Default |
+| -------------------------------- | -------------------------------- | -------- | ------- |
+| `DATABASE_URL`                   | PostgreSQL connection string     | Yes      | -       |
+| `REDIS_URL`                      | Redis connection string          | Yes      | -       |
+| `SECRET_KEY`                     | JWT secret for user sessions     | Yes      | -       |
+| `ADMIN_JWT_SECRET`               | JWT secret for admin sessions    | Yes      | -       |
+| `ADMIN_INITIAL_USERNAME`         | Initial admin username           | No       | `admin` |
+| `ADMIN_INITIAL_PASSWORD`         | Initial admin password           | Yes      | -       |
+| `ALLOWED_ORIGINS`                | CORS allowed origins             | Yes      | -       |
+| `USER_JWT_ACCESS_EXPIRE_MINUTES` | User access token expiry (mins)  | No       | `30`    |
+| `USER_JWT_REFRESH_EXPIRE_DAYS`   | User refresh token expiry (days) | No       | `30`    |
+| `LOG_LEVEL`                      | Logging level                    | No       | `INFO`  |
+| `SCHEDULE_INTERVAL_SECONDS`      | Question scheduling interval     | No       | `86400` |
+| `FCM_PROJECT_ID`                 | Firebase project ID              | No\*     | -       |
+| `FCM_SERVICE_ACCOUNT_JSON`       | Firebase service account JSON    | No\*     | -       |
 
 \*Required only if push notifications are enabled
 
@@ -2338,26 +3019,29 @@ SCHEDULE_INTERVAL_SECONDS=86400
 ### Complete User Flow
 
 ```bash
-# 1. Create group
-curl -X POST http://localhost:8000/api/groups \
+# 1. Register account
+curl -X POST http://localhost:8000/api/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"name":"My Group"}'
+  -d '{"email":"alice@example.com","password":"SecurePass1","display_name":"Alice"}'
+
+# Save: access_token, refresh_token
+
+# 2. Create group
+curl -X POST http://localhost:8000/api/auth/groups/create \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
+  -d '{"group_name":"My Group","display_name":"Alice"}'
 
 # Save: invite_code, admin_token
 
-# 2. Join group
-curl -X POST http://localhost:8000/api/users/join \
-  -H "Content-Type: application/json" \
-  -d '{"display_name":"Alice","group_invite_code":"ABC123"}'
-
-# Save: session_token
-
 # 3. Get today's question
-curl "http://localhost:8000/api/groups/1/questions/today?session_token=TOKEN"
+curl -H "Authorization: Bearer ACCESS_TOKEN" \
+  "http://localhost:8000/api/groups/{group_id}/questions/today"
 
 # 4. Submit answer
-curl -X POST "http://localhost:8000/api/groups/1/questions/1/answer?session_token=TOKEN" \
+curl -X POST "http://localhost:8000/api/groups/{group_id}/questions/{question_id}/answer" \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ACCESS_TOKEN" \
   -d '{"answer":"Alice"}'
 ```
 

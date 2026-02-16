@@ -18,6 +18,7 @@ class _SessionInfoScreenState extends ConsumerState<SessionInfoScreen> {
   String? _userId;
   String? _displayName;
   String? _adminToken;
+  String? _email;
   bool _isLoading = true;
 
   @override
@@ -28,8 +29,10 @@ class _SessionInfoScreenState extends ConsumerState<SessionInfoScreen> {
 
   Future<void> _loadSessionInfo() async {
     final groupId = await AuthService.getCurrentGroupId();
+    final token = await AuthService.getAccessToken();
+    final email = await AuthService.getEmail();
+
     if (groupId != null) {
-      final token = await AuthService.getToken(groupId);
       final userId = await AuthService.getUserId(groupId);
       final displayName = await AuthService.getDisplayName(groupId);
       final adminToken = await AuthService.getAdminToken(groupId);
@@ -40,10 +43,13 @@ class _SessionInfoScreenState extends ConsumerState<SessionInfoScreen> {
         _userId = userId;
         _displayName = displayName;
         _adminToken = adminToken;
+        _email = email;
         _isLoading = false;
       });
     } else {
       setState(() {
+        _token = token;
+        _email = email;
         _isLoading = false;
       });
     }
@@ -60,6 +66,47 @@ class _SessionInfoScreenState extends ConsumerState<SessionInfoScreen> {
     final success = await ShareService.copyText(value);
     if (mounted) {
       ShareService.showCopyResult(context, success, value);
+    }
+  }
+
+  Future<void> _validateToken() async {
+    final token = _token;
+    if (token == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No token available to validate')),
+        );
+      }
+      return;
+    }
+
+    try {
+      final api = ApiClient();
+      final resp = await api.get('/api/auth/me', accessToken: token);
+      final body = resp.body;
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text('Validate token: ${resp.statusCode}'),
+            content: SingleChildScrollView(
+              child: Text(body.isNotEmpty ? body : '(empty response)'),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Network error: $e')),
+        );
+      }
     }
   }
 
@@ -91,7 +138,7 @@ class _SessionInfoScreenState extends ConsumerState<SessionInfoScreen> {
                         Expanded(
                           child: Text(
                             'This information is for debugging purposes. '
-                            'Do not share your session token with others.',
+                            'Do not share your access token with others.',
                             style:
                                 Theme.of(context).textTheme.bodySmall?.copyWith(
                                       color: AppColors.warning,
@@ -102,6 +149,31 @@ class _SessionInfoScreenState extends ConsumerState<SessionInfoScreen> {
                     ),
                   ),
                 ),
+
+                // Auth Error Card
+                if (authState.error != null) ...[
+                  const SizedBox(height: 16),
+                  Card(
+                    color: AppColors.error.withValues(alpha: 0.06),
+                    child: ListTile(
+                      leading: const Icon(Icons.error_outline, color: AppColors.error),
+                      title: const Text('Last auth error'),
+                      subtitle: Text(authState.error ?? ''),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.refresh),
+                        onPressed: () async {
+                          final notifier = ref.read(authProvider.notifier);
+                          await notifier.reloadSession();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Retrying session restore')),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                ],
 
                 const SizedBox(height: 24),
 
@@ -124,6 +196,14 @@ class _SessionInfoScreenState extends ConsumerState<SessionInfoScreen> {
                       onCopy: () => _copyToClipboard(
                         'Display Name',
                         _displayName ?? authState.user?.displayName,
+                      ),
+                    ),
+                    _InfoItem(
+                      label: 'Email',
+                      value: _email ?? authState.user?.email ?? 'N/A',
+                      onCopy: () => _copyToClipboard(
+                        'Email',
+                        _email ?? authState.user?.email,
                       ),
                     ),
                     _InfoItem(
@@ -162,12 +242,21 @@ class _SessionInfoScreenState extends ConsumerState<SessionInfoScreen> {
                       onCopy: () => _copyToClipboard('Group ID', _groupId),
                     ),
                     _InfoItem(
-                      label: 'Session Token',
+                      label: 'Access Token',
                       value: _maskToken(_token),
                       isSecret: true,
-                      onCopy: () => _copyToClipboard('Session Token', _token),
+                      onCopy: () => _copyToClipboard('Access Token', _token),
                     ),
                   ],
+                ),
+
+                const SizedBox(height: 8),
+
+                // Validate Token Button
+                TextButton.icon(
+                  onPressed: _validateToken,
+                  icon: const Icon(Icons.verified_user_outlined),
+                  label: const Text('Validate current token'),
                 ),
 
                 // Admin Token (if available)

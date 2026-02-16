@@ -96,7 +96,11 @@ class AuthService {
   }
 
   // Storage keys
-  static const _tokenKeyPrefix = 'session_token_';
+  static const _accessTokenKey = 'access_token';
+  static const _refreshTokenKey = 'refresh_token';
+  static const _accountIdKey = 'account_id';
+  static const _emailKey = 'email';
+  static const _displayNameKey = 'display_name';
   static const _currentGroupKey = 'current_group_id';
   static const _adminTokenKeyPrefix = 'admin_token_';
   static const _userIdKeyPrefix = 'user_id_';
@@ -152,18 +156,61 @@ class AuthService {
     debugPrint('DEBUG: === END STORAGE INSPECTION ===');
   }
 
-  // ============= Session Token Management =============
+  // ============= JWT Token Management =============
 
-  /// Save session for a group
-  static Future<void> saveSession({
+  /// Save JWT tokens from login/register response
+  static Future<void> saveTokens({
+    required String accessToken,
+    required String refreshToken,
+  }) async {
+    await _storage.write(_accessTokenKey, accessToken);
+    await _storage.write(_refreshTokenKey, refreshToken);
+  }
+
+  /// Get current access token
+  static Future<String?> getAccessToken() async {
+    return await _storage.read(_accessTokenKey);
+  }
+
+  /// Get current refresh token
+  static Future<String?> getRefreshToken() async {
+    return await _storage.read(_refreshTokenKey);
+  }
+
+  /// Save account info from login/register
+  static Future<void> saveAccountInfo({
+    required String accountId,
+    required String email,
+    required String displayName,
+  }) async {
+    await _storage.write(_accountIdKey, accountId);
+    await _storage.write(_emailKey, email);
+    await _storage.write(_displayNameKey, displayName);
+  }
+
+  /// Get account ID
+  static Future<String?> getAccountId() async {
+    return await _storage.read(_accountIdKey);
+  }
+
+  /// Get account email
+  static Future<String?> getEmail() async {
+    return await _storage.read(_emailKey);
+  }
+
+  /// Get account display name
+  static Future<String?> getAccountDisplayName() async {
+    return await _storage.read(_displayNameKey);
+  }
+
+  /// Save group membership info
+  static Future<void> saveGroupMembership({
     required String groupId,
-    required String token,
-    required String oderId,
+    required String userId,
     required String displayName,
     String? groupName,
   }) async {
-    await _storage.write('$_tokenKeyPrefix$groupId', token);
-    await _storage.write('$_userIdKeyPrefix$groupId', oderId);
+    await _storage.write('$_userIdKeyPrefix$groupId', userId);
     await _storage.write('$_displayNameKeyPrefix$groupId', displayName);
     if (groupName != null) {
       await _storage.write('$_groupNameKeyPrefix$groupId', groupName);
@@ -174,9 +221,26 @@ class AuthService {
     await _addToGroupsList(groupId);
   }
 
-  /// Get session token for a group
+  /// Legacy compatibility: save session (delegates to new methods)
+  static Future<void> saveSession({
+    required String groupId,
+    required String token,
+    required String oderId,
+    required String displayName,
+    String? groupName,
+  }) async {
+    await saveGroupMembership(
+      groupId: groupId,
+      userId: oderId,
+      displayName: displayName,
+      groupName: groupName,
+    );
+  }
+
+  /// Get access token (replaces old getToken)
   static Future<String?> getToken(String groupId) async {
-    return await _storage.read('$_tokenKeyPrefix$groupId');
+    // JWT tokens are global, not per-group
+    return await getAccessToken();
   }
 
   /// Get current active group ID
@@ -211,7 +275,6 @@ class AuthService {
 
   /// Clear session for a group
   static Future<void> clearSession(String groupId) async {
-    await _storage.delete('$_tokenKeyPrefix$groupId');
     await _storage.delete('$_userIdKeyPrefix$groupId');
     await _storage.delete('$_displayNameKeyPrefix$groupId');
     await _storage.delete('$_groupNameKeyPrefix$groupId');
@@ -284,19 +347,19 @@ class AuthService {
 
   /// Check if user has any active session
   static Future<bool> hasActiveSession() async {
-    final groupId = await getCurrentGroupId();
-    if (groupId == null) return false;
-    final token = await getToken(groupId);
-    return token != null && token.isNotEmpty;
+    final accessToken = await getAccessToken();
+    return accessToken != null && accessToken.isNotEmpty;
   }
 
   /// Get current session info
   static Future<Map<String, String?>> getCurrentSessionInfo() async {
     final groupId = await getCurrentGroupId();
+    final accessToken = await getAccessToken();
+
     if (groupId == null) {
       return {
         'groupId': null,
-        'token': null,
+        'token': accessToken,
         'userId': null,
         'displayName': null,
       };
@@ -304,28 +367,36 @@ class AuthService {
 
     return {
       'groupId': groupId,
-      'token': await getToken(groupId),
+      'token': accessToken,
       'userId': await getUserId(groupId),
       'displayName': await getDisplayName(groupId),
     };
   }
 
-  /// Explicitly refresh the session token for the current group
+  /// Refresh the access token using the refresh token
   static Future<Map<String, dynamic>?> refreshSession() async {
-    final groupId = await getCurrentGroupId();
-    if (groupId == null) return null;
-    final token = await getToken(groupId);
-    if (token == null) return null;
-    // Use ApiClient to call refresh endpoint
+    final refreshToken = await getRefreshToken();
+    if (refreshToken == null) return null;
+
     final api = ApiClient();
-    final response = await api.post(
-      '/api/users/refresh-session',
-      {},
-      sessionToken: token,
-    );
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    }
+    try {
+      final response = await api.post(
+        '/api/auth/refresh',
+        {'refresh_token': refreshToken},
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final newAccessToken = data['access_token'] as String?;
+        final newRefreshToken = data['refresh_token'] as String?;
+        if (newAccessToken != null && newRefreshToken != null) {
+          await saveTokens(
+            accessToken: newAccessToken,
+            refreshToken: newRefreshToken,
+          );
+        }
+        return data;
+      }
+    } catch (_) {}
     return null;
   }
 

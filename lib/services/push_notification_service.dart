@@ -19,7 +19,7 @@ class PushNotificationService {
 
   static Future<Map<String, dynamic>?> registerDeviceToken({
     required String userId,
-    required String sessionToken,
+    required String accessToken,
     required String platform,
     String? deviceName,
 
@@ -44,7 +44,7 @@ class PushNotificationService {
           'platform': platform,
           if (deviceName != null) 'device_name': deviceName,
         },
-        sessionToken: sessionToken,
+        accessToken: accessToken,
       );
 
       if (response.statusCode == 200) {
@@ -59,7 +59,7 @@ class PushNotificationService {
 
   static Future<void> unregisterDeviceToken({
     required String userId,
-    required String sessionToken,
+    required String accessToken,
     required String deviceToken,
     ApiClient? apiClient,
   }) async {
@@ -68,7 +68,7 @@ class PushNotificationService {
     try {
       final endpoint =
           '/api/users/$userId/device-token?token=${Uri.encodeComponent(deviceToken)}';
-      final response = await api.delete(endpoint, sessionToken: sessionToken);
+      final response = await api.delete(endpoint, accessToken: accessToken);
       if (response.statusCode != 200) {
         throw ApiException.fromResponse(response);
       }
@@ -79,14 +79,14 @@ class PushNotificationService {
 
   static Future<List<Map<String, dynamic>>> listDeviceTokens({
     required String userId,
-    required String sessionToken,
+    required String accessToken,
     ApiClient? apiClient,
   }) async {
     final api = apiClient ?? ApiClient();
     final shouldDispose = apiClient == null;
     try {
       final response = await api.get('/api/users/$userId/device-tokens',
-          sessionToken: sessionToken);
+          accessToken: accessToken);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data is List) {
