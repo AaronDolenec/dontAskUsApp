@@ -16,6 +16,7 @@ export 'members/members_screen.dart';
 export 'members/member_card.dart';
 export 'history/history_screen.dart';
 export 'history/history_item.dart';
+export 'profile/profile_screen.dart';
 export 'settings/settings_screen.dart';
 export 'settings/help_screen.dart';
 export 'settings/session_info_screen.dart';

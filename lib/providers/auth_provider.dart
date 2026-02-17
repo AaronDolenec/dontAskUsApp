@@ -622,6 +622,80 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
   }
 
+  /// Update avatar color locally
+  void updateAvatarColor(String hexColor) {
+    if (state.user == null) return;
+    state = state.copyWith(
+      user: state.user!.copyWith(colorAvatar: hexColor),
+    );
+  }
+
+  /// Upload a new avatar image
+  Future<String?> uploadAvatar({
+    required List<int> fileBytes,
+    required String fileName,
+  }) async {
+    if (state.user == null) return 'Not logged in';
+    try {
+      final accessToken = await AuthService.getAccessToken();
+      if (accessToken == null) return 'Not authenticated';
+      final api = _ref.read(apiClientProvider);
+      final userId = state.user!.id; // account_id, not group-specific oderId
+      final response = await api.postMultipartBytes(
+        '/api/users/$userId/avatar',
+        fileBytes: fileBytes,
+        fileName: fileName,
+        fileField: 'file',
+        accessToken: accessToken,
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final avatarUrl = data['avatar_url'] as String?;
+        if (avatarUrl != null) {
+          state = state.copyWith(
+            user: state.user!.copyWith(avatarUrl: avatarUrl),
+          );
+        }
+        return null; // success
+      }
+      final exception = ApiException.fromResponse(response);
+      return exception.userFriendlyMessage;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  /// Delete the user's avatar, reverting to color avatar
+  Future<String?> deleteAvatar() async {
+    if (state.user == null) return 'Not logged in';
+    try {
+      final accessToken = await AuthService.getAccessToken();
+      if (accessToken == null) return 'Not authenticated';
+      final api = _ref.read(apiClientProvider);
+      final userId = state.user!.id; // account_id, not group-specific oderId
+      final response = await api.delete(
+        '/api/users/$userId/avatar',
+        accessToken: accessToken,
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final colorAvatar =
+            data['color_avatar'] as String? ?? state.user!.colorAvatar;
+        state = state.copyWith(
+          user: state.user!.copyWith(
+            avatarUrl: '', // clear avatar URL
+            colorAvatar: colorAvatar,
+          ),
+        );
+        return null; // success
+      }
+      final exception = ApiException.fromResponse(response);
+      return exception.userFriendlyMessage;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
   /// Clear error
   void clearError() {
     state = state.copyWith();

@@ -135,6 +135,44 @@ class ApiClient {
     }
   }
 
+  /// Perform a multipart POST request using bytes (works on web and mobile)
+  Future<http.Response> postMultipartBytes(
+    String endpoint, {
+    required List<int> fileBytes,
+    required String fileName,
+    required String fileField,
+    String? accessToken,
+    Map<String, String>? fields,
+  }) async {
+    final url = '$baseUrl$endpoint';
+
+    try {
+      final request = http.MultipartRequest('POST', Uri.parse(url));
+
+      if (accessToken != null) {
+        request.headers['Authorization'] = 'Bearer $accessToken';
+      }
+
+      request.files.add(http.MultipartFile.fromBytes(
+        fileField,
+        fileBytes,
+        filename: fileName,
+      ));
+
+      if (fields != null) {
+        request.fields.addAll(fields);
+      }
+
+      final streamedResponse = await request.send().timeout(ApiConfig.timeout);
+      return await http.Response.fromStream(streamedResponse);
+    } catch (e) {
+      throw ApiException(
+        statusCode: 0,
+        message: 'Network error: ${e.toString()}',
+      );
+    }
+  }
+
   /// Perform a PUT request
   Future<http.Response> put(
     String endpoint,

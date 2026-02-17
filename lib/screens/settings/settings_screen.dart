@@ -13,7 +13,6 @@ import '../onboarding/auth_screen.dart';
 import '../onboarding/join_group_screen.dart';
 import '../groups/groups_screen.dart';
 import 'help_screen.dart';
-import 'session_info_screen.dart';
 import 'recover_session_screen.dart';
 
 /// Settings screen
@@ -67,6 +66,7 @@ class SettingsScreen extends ConsumerWidget {
                       leading: AvatarCircle(
                         colorHex: authState.user!.colorAvatar,
                         initials: authState.user!.displayName.substring(0, 2),
+                        avatarUrl: authState.user!.avatarUrl,
                       ),
                       title: Text(authState.user!.displayName),
                       subtitle: Text(
@@ -195,19 +195,6 @@ class SettingsScreen extends ConsumerWidget {
                       );
                     },
                   ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.bug_report_outlined),
-                    title: const Text('Session Info'),
-                    subtitle: const Text('Debug information'),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const SessionInfoScreen(),
-                        ),
-                      );
-                    },
-                  ),
                 ],
               ),
             ),
@@ -224,56 +211,29 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Card(
-              child: ListTile(
-                leading: const Icon(Icons.logout),
-                title: const Text('Clear All Data'),
-                subtitle: const Text('Logout and clear all stored data'),
-                onTap: () => _showClearDataDialog(context, ref),
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.vpn_key),
+                    title: const Text('Recover Account'),
+                    subtitle: const Text(
+                        'Enter a session token provided by an admin'),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const RecoverSessionScreen()),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.logout, color: AppColors.error),
+                    title: const Text('Clear All Data'),
+                    subtitle: const Text('Logout and clear all stored data'),
+                    onTap: () => _showClearDataDialog(context, ref),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 8),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.vpn_key),
-                title: const Text('Recover Account'),
-                subtitle:
-                    const Text('Enter a session token provided by an admin'),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (_) => const RecoverSessionScreen()),
-                  );
-                },
-              ),
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.refresh),
-              title: const Text('Retry Session Restore'),
-              subtitle: const Text('Retry loading stored sessions from disk'),
-              onTap: () async {
-                final notifier = ref.read(authProvider.notifier);
-                await notifier.reloadSession();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Session restore retried')),
-                  );
-                }
-              },
-            ),
-            const Divider(height: 1),
-            ListTile(
-              leading: const Icon(Icons.storage),
-              title: const Text('Debug Storage'),
-              subtitle: const Text('Print local storage to debug console'),
-              onTap: () async {
-                await AuthService.debugPrintStorage();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Storage printed to console')),
-                  );
-                }
-              },
             ),
 
             const SizedBox(height: 32),

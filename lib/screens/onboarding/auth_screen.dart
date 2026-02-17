@@ -122,6 +122,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       prefixIcon: Icon(Icons.person_outline),
                     ),
                     textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.next,
+                    onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
                     validator: (value) {
                       if (!_isLogin &&
                           (value == null || value.trim().isEmpty)) {
@@ -142,7 +144,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     prefixIcon: Icon(Icons.email_outlined),
                   ),
                   keyboardType: TextInputType.emailAddress,
+                  // Pressing Enter on the email field now submits the form
+                  textInputAction: TextInputAction.done,
                   autocorrect: false,
+                  onFieldSubmitted: (_) => _handleSubmit(),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Please enter your email';
@@ -176,6 +181,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     ),
                   ),
                   obscureText: _obscurePassword,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _handleSubmit(),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your password';
@@ -210,6 +217,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       ),
                     ),
                     obscureText: _obscureConfirmPassword,
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _handleSubmit(),
                     validator: (value) {
                       if (!_isLogin) {
                         if (value == null || value.isEmpty) {

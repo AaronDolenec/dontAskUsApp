@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/providers.dart';
 import '../../models/models.dart';
+import '../../providers/providers.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/widgets.dart';
 import '../admin/create_question_screen.dart';
+import '../profile/profile_screen.dart';
 
 /// Home screen displaying today's question
 class HomeScreen extends ConsumerStatefulWidget {
@@ -25,13 +26,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authState = ref.read(authProvider);
       if (authState.hasGroup) {
+        // Fetch question + connect WebSocket + start polling
+        ref.read(questionProvider.notifier).fetchTodaysQuestion();
         ref.read(questionProvider.notifier).connectWebSocket();
+        ref.read(questionProvider.notifier).startPolling();
       }
     });
   }
 
   @override
   void dispose() {
+    ref.read(questionProvider.notifier).stopPolling();
     ref.read(questionProvider.notifier).disconnectWebSocket();
     _textAnswerController.dispose();
     super.dispose();
@@ -76,15 +81,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  String _getInitials(String name) {
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}';
+    }
+    return name.substring(0, name.length >= 2 ? 2 : 1);
+  }
+
   @override
   Widget build(BuildContext context) {
     final questionState = ref.watch(questionProvider);
     final authState = ref.watch(authProvider);
     final userStreak = ref.watch(userStreakProvider);
 
+    final user = authState.user;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('dontAskUs'),
+        leading: user != null
+            ? Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                    );
+                  },
+                  child: AvatarCircle(
+                    colorHex: user.colorAvatar,
+                    initials: _getInitials(user.displayName),
+                    avatarUrl: user.avatarUrl,
+                    size: 36,
+                  ),
+                ),
+              )
+            : null,
         actions: [
           if (authState.isAdmin)
             IconButton(

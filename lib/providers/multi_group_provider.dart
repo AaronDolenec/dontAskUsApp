@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -10,23 +11,84 @@ import '../utils/utils.dart';
 
 /// Provider for managing multiple groups
 class MultiGroupNotifier extends StateNotifier<MultiGroupState> {
+  Timer? _refreshTimer;
+
   MultiGroupNotifier() : super(const MultiGroupState()) {
     _loadGroups();
   }
 
-  Future<void> _loadGroups() async {
-    state = state.copyWith(isLoading: true);
+  /// Start periodic refresh (call from screen)
+  void startPeriodicRefresh({Duration interval = const Duration(seconds: 30)}) {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(interval, (_) {
+      if (mounted) _loadGroups(silent: true);
+    });
+  }
+
+  /// Stop periodic refresh
+  void stopPeriodicRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+  }
+
+  Future<void> _loadGroups({bool silent = false}) async {
+    if (!silent) {
+      state = state.copyWith(isLoading: true);
+    }
 
     try {
-      final groupIds = await AuthService.getGroupsList();
-      final currentGroupId = await AuthService.getCurrentGroupId();
-
       final accessToken = await AuthService.getAccessToken();
       final api = ApiClient();
 
+      // 1) Fetch fresh group list from server via /api/auth/me
+      List<String> groupIds = await AuthService.getGroupsList();
+      if (accessToken != null) {
+        try {
+          final meResponse =
+              await api.get('/api/auth/me', accessToken: accessToken);
+          if (meResponse.statusCode == 200) {
+            final meData = jsonDecode(meResponse.body) as Map<String, dynamic>;
+            final serverGroups = meData['groups'] as List? ??
+                (meData['account'] is Map ? [] : []);
+            // Also check top-level groups or account.groups
+            final accountGroups = (meData['account'] is Map &&
+                    (meData['account'] as Map).containsKey('groups'))
+                ? (meData['account'] as Map)['groups'] as List? ?? []
+                : serverGroups;
+            final groupsList =
+                serverGroups.isNotEmpty ? serverGroups : accountGroups;
+
+            // Sync server groups to local storage
+            final serverGroupIds = <String>[];
+            for (final g in groupsList) {
+              if (g is Map<String, dynamic>) {
+                final gId = (g['group_id'] ?? '').toString();
+                if (gId.isNotEmpty) {
+                  serverGroupIds.add(gId);
+                  await AuthService.saveGroupMembership(
+                    groupId: gId,
+                    userId: (g['user_id'] ?? '').toString(),
+                    displayName: g['display_name'] as String? ?? '',
+                    groupName: g['group_name'] as String?,
+                  );
+                }
+              }
+            }
+            if (serverGroupIds.isNotEmpty) {
+              groupIds = serverGroupIds;
+            }
+          }
+        } catch (e) {
+          debugPrint('DEBUG: Failed to fetch /api/auth/me for groups: $e');
+          // Fall back to local storage groups
+        }
+      }
+
+      final currentGroupId = await AuthService.getCurrentGroupId();
+
+      // 2) For each group, load name + streak
       final groups = <GroupInfo>[];
       for (final groupId in groupIds) {
-        // Try to get group name first, fall back to display name (user's name in that group)
         final groupName = await AuthService.getGroupName(groupId);
         final displayName = await AuthService.getDisplayName(groupId);
 
@@ -108,6 +170,12 @@ class MultiGroupNotifier extends StateNotifier<MultiGroupState> {
 
   Future<void> refresh() async {
     await _loadGroups();
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 }
 

@@ -179,9 +179,7 @@ Content-Type: application/json
 
 **Response (200):**
 
-```json
-{
-  "access_token": "eyJ...",
+```jsoken": "eyJ...",
   "refresh_token": "eyJ...",
   "token_type": "bearer",
   "user": {

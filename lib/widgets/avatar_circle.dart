@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../utils/app_colors.dart';
 
-/// A circular avatar with a solid color background
+/// A circular avatar with a solid color background or an uploaded image
 class AvatarCircle extends StatelessWidget {
   final String colorHex;
   final String? initials;
+  final String? avatarUrl;
   final double size;
   final bool showBorder;
   final Color? borderColor;
@@ -13,15 +14,50 @@ class AvatarCircle extends StatelessWidget {
     super.key,
     required this.colorHex,
     this.initials,
+    this.avatarUrl,
     this.size = 40,
     this.showBorder = false,
     this.borderColor,
   });
 
+  bool get _hasAvatar => avatarUrl != null && avatarUrl!.isNotEmpty;
+
   @override
   Widget build(BuildContext context) {
     final color = AppColors.fromHex(colorHex);
-    
+
+    if (_hasAvatar) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: showBorder
+              ? Border.all(
+                  color: borderColor ?? Colors.white,
+                  width: 2,
+                )
+              : null,
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ClipOval(
+          child: Image.network(
+            avatarUrl!,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => _buildColorFallback(color),
+          ),
+        ),
+      );
+    }
+
     return Container(
       width: size,
       height: size,
@@ -56,12 +92,33 @@ class AvatarCircle extends StatelessWidget {
           : null,
     );
   }
+
+  Widget _buildColorFallback(Color color) {
+    return Container(
+      width: size,
+      height: size,
+      color: color,
+      child: initials != null
+          ? Center(
+              child: Text(
+                initials!.toUpperCase(),
+                style: TextStyle(
+                  color: AppColors.getContrastingTextColor(color),
+                  fontWeight: FontWeight.bold,
+                  fontSize: size * 0.4,
+                ),
+              ),
+            )
+          : null,
+    );
+  }
 }
 
 /// Avatar with name label
 class AvatarWithName extends StatelessWidget {
   final String colorHex;
   final String displayName;
+  final String? avatarUrl;
   final double avatarSize;
   final TextStyle? nameStyle;
   final bool vertical;
@@ -70,6 +127,7 @@ class AvatarWithName extends StatelessWidget {
     super.key,
     required this.colorHex,
     required this.displayName,
+    this.avatarUrl,
     this.avatarSize = 40,
     this.nameStyle,
     this.vertical = false,
@@ -92,6 +150,7 @@ class AvatarWithName extends StatelessWidget {
           AvatarCircle(
             colorHex: colorHex,
             initials: _initials,
+            avatarUrl: avatarUrl,
             size: avatarSize,
           ),
           const SizedBox(height: 8),
@@ -104,13 +163,14 @@ class AvatarWithName extends StatelessWidget {
         ],
       );
     }
-    
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         AvatarCircle(
           colorHex: colorHex,
           initials: _initials,
+          avatarUrl: avatarUrl,
           size: avatarSize,
         ),
         const SizedBox(width: 12),

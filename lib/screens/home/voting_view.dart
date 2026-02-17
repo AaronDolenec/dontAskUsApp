@@ -205,6 +205,7 @@ class _VotingViewState extends State<VotingView> {
                   AvatarCircle(
                     colorHex: member.colorAvatar,
                     initials: member.initials,
+                    avatarUrl: member.avatarUrl,
                     size: 24,
                   ),
                   const SizedBox(width: 12),
@@ -397,6 +398,7 @@ class _MemberOptionCard extends StatelessWidget {
               AvatarCircle(
                 colorHex: member.colorAvatar,
                 initials: member.initials,
+                avatarUrl: member.avatarUrl,
                 size: 32,
               ),
               const SizedBox(width: 8),

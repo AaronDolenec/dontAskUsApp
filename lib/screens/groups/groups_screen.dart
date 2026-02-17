@@ -6,7 +6,8 @@ import '../main/main_screen.dart';
 import '../onboarding/join_group_screen.dart';
 import '../onboarding/create_group_screen.dart';
 import '../onboarding/auth_screen.dart';
-import '../settings/session_info_screen.dart';
+import '../profile/profile_screen.dart';
+import '../../widgets/widgets.dart';
 
 /// Screen showing all groups the user belongs to.
 /// This is the first screen after login.
@@ -21,10 +22,22 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   @override
   void initState() {
     super.initState();
-    // Refresh groups list when screen loads
+    // Refresh groups list when screen loads and start periodic refresh
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(multiGroupProvider.notifier).refresh();
+      ref.read(multiGroupProvider.notifier).startPeriodicRefresh();
     });
+  }
+
+  @override
+  void dispose() {
+    // Stop periodic refresh when leaving the screen
+    ref.read(multiGroupProvider.notifier).stopPeriodicRefresh();
+    super.dispose();
+  }
+
+  Future<void> _handleRefresh() async {
+    await ref.read(multiGroupProvider.notifier).refresh();
   }
 
   Future<void> _selectGroup(GroupInfo group) async {
@@ -80,26 +93,45 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     }
   }
 
+  String _getInitials(String name) {
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}';
+    }
+    return name.substring(0, name.length >= 2 ? 2 : 1);
+  }
+
   @override
   Widget build(BuildContext context) {
     final multiGroupState = ref.watch(multiGroupProvider);
     final authState = ref.watch(authProvider);
     final groups = multiGroupState.groups;
 
+    final user = authState.user;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('dontAskUs'),
         automaticallyImplyLeading: false,
+        leading: user != null
+            ? Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                    );
+                  },
+                  child: AvatarCircle(
+                    colorHex: user.colorAvatar,
+                    initials: _getInitials(user.displayName),
+                    avatarUrl: user.avatarUrl,
+                    size: 36,
+                  ),
+                ),
+              )
+            : null,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SessionInfoScreen()),
-              );
-            },
-            tooltip: 'Session Info',
-          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: _logout,
@@ -107,81 +139,88 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
           ),
         ],
       ),
-      body: multiGroupState.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : groups.isEmpty
-              ? _buildNoGroupsView(context)
-              : _buildGroupsList(context, groups, authState),
+      body: RefreshIndicator(
+        onRefresh: _handleRefresh,
+        child: multiGroupState.isLoading && groups.isEmpty
+            ? const Center(child: CircularProgressIndicator())
+            : groups.isEmpty
+                ? _buildNoGroupsView(context)
+                : _buildGroupsList(context, groups, authState),
+      ),
     );
   }
 
   Widget _buildNoGroupsView(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.groups_rounded,
-                size: 50,
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Welcome to dontAskUs!',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight - 64),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
                   ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Join a group to start answering daily questions with your friends.',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.textSecondary,
+                  child: const Icon(
+                    Icons.groups_rounded,
+                    size: 50,
+                    color: AppColors.primary,
                   ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 40),
-
-            // Primary: Join a Group
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _joinGroup,
-                icon: const Icon(Icons.login_rounded),
-                label: const Text('Join a Group'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Secondary: Create a Group
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _createGroup,
-                icon: const Icon(Icons.add_circle_outline_rounded),
-                label: const Text('Create a Group'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                const SizedBox(height: 24),
+                Text(
+                  'Welcome to dontAskUs!',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                  textAlign: TextAlign.center,
                 ),
-              ),
+                const SizedBox(height: 12),
+                Text(
+                  'Join a group to start answering daily questions with your friends.',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 40),
+                // Primary: Join a Group
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _joinGroup,
+                    icon: const Icon(Icons.login_rounded),
+                    label: const Text('Join a Group'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Secondary: Create a Group
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _createGroup,
+                    icon: const Icon(Icons.add_circle_outline_rounded),
+                    label: const Text('Create a Group'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -206,6 +245,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         // Groups list
         Expanded(
           child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             itemCount: groups.length,
             itemBuilder: (context, index) {

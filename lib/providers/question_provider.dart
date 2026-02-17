@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../services/services.dart';
@@ -44,6 +46,8 @@ final questionProvider =
 class QuestionNotifier extends StateNotifier<QuestionState> {
   final Ref _ref;
   WebSocketService? _wsService;
+  Timer? _pollTimer;
+  String? _connectedQuestionId;
 
   QuestionNotifier(this._ref) : super(const QuestionState()) {
     // Watch auth state and fetch question when authenticated
@@ -58,6 +62,22 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
     if (auth.hasGroup) {
       fetchTodaysQuestion();
     }
+  }
+
+  /// Start periodic polling for question updates
+  void startPolling({Duration interval = const Duration(seconds: 30)}) {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(interval, (_) {
+      if (mounted) {
+        _fetchFromApi(silent: true);
+      }
+    });
+  }
+
+  /// Stop periodic polling
+  void stopPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
   }
 
   /// Fetch today's question
@@ -86,17 +106,19 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
     await _fetchFromApi();
   }
 
-  Future<void> _fetchFromApi() async {
+  Future<void> _fetchFromApi({bool silent = false}) async {
     final auth = _ref.read(authProvider);
     if (!auth.hasGroup) return;
 
     try {
       final token = await AuthService.getToken(auth.groupId!);
       if (token == null) {
-        state = state.copyWith(
-          isLoading: false,
-          error: 'Session expired',
-        );
+        if (!silent) {
+          state = state.copyWith(
+            isLoading: false,
+            error: 'Session expired',
+          );
+        }
         return;
       }
 
@@ -113,27 +135,38 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
         // Cache the question
         await CacheService.cacheQuestion(auth.groupId!, question);
 
+        final oldQuestionId = state.question?.questionId;
         state = state.copyWith(question: question, isLoading: false);
+
+        // Auto-reconnect WebSocket if question changed
+        if (question.questionId != oldQuestionId ||
+            _connectedQuestionId != question.questionId) {
+          connectWebSocket();
+        }
       } else if (response.statusCode == 404) {
         // No question for today
         state = state.copyWith(isLoading: false);
       } else {
-        final exception = ApiException.fromResponse(response);
-        state = state.copyWith(
-          isLoading: false,
-          error: exception.userFriendlyMessage,
-        );
+        if (!silent) {
+          final exception = ApiException.fromResponse(response);
+          state = state.copyWith(
+            isLoading: false,
+            error: exception.userFriendlyMessage,
+          );
+        }
       }
     } catch (e) {
-      // Try to use cached question
-      final auth = _ref.read(authProvider);
-      final cached = await CacheService.getCachedQuestion(auth.groupId!);
+      if (!silent) {
+        // Try to use cached question
+        final auth = _ref.read(authProvider);
+        final cached = await CacheService.getCachedQuestion(auth.groupId!);
 
-      state = state.copyWith(
-        question: cached,
-        isLoading: false,
-        error: cached == null ? 'Failed to load question' : null,
-      );
+        state = state.copyWith(
+          question: cached,
+          isLoading: false,
+          error: cached == null ? 'Failed to load question' : null,
+        );
+      }
     }
   }
 
@@ -221,7 +254,16 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
     final question = state.question;
     final auth = _ref.read(authProvider);
     if (question == null || auth.groupId == null) return;
+
+    // Don't reconnect if already connected to same question
+    if (_connectedQuestionId == question.questionId && _wsService != null) {
+      return;
+    }
+
     _wsService?.dispose();
+    _connectedQuestionId = question.questionId;
+    debugPrint(
+        'DEBUG: Connecting WebSocket for question ${question.questionId}');
     _wsService = WebSocketService(
       groupId: auth.groupId!,
       questionId: question.questionId,
@@ -229,13 +271,15 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
         updateVoteCounts(optionCounts, totalVotes);
       },
       onError: (error) {
-        // Optionally handle error
+        debugPrint('DEBUG: WebSocket error: $error');
       },
       onConnected: () {
-        // Optionally handle connection
+        debugPrint(
+            'DEBUG: WebSocket connected for question ${question.questionId}');
       },
       onDisconnected: () {
-        // Optionally handle disconnect
+        debugPrint('DEBUG: WebSocket disconnected');
+        _connectedQuestionId = null;
       },
     );
     _wsService!.connect();
@@ -249,6 +293,7 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     disconnectWebSocket();
     super.dispose();
   }

@@ -32,7 +32,8 @@ class User {
       id: int.tryParse(accountId) ?? 0,
       oderId: accountId,
       displayName: json['display_name'] as String? ?? '',
-      colorAvatar: '#3B82F6',
+      colorAvatar: json['color_avatar'] as String? ?? '#3B82F6',
+      avatarUrl: json['avatar_url'] as String?,
       email: json['email'] as String?,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)

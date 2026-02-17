@@ -248,6 +248,7 @@ class _MemberListItem extends StatelessWidget {
             AvatarCircle(
               colorHex: member.colorAvatar,
               initials: member.initials,
+              avatarUrl: member.avatarUrl,
               size: 48,
             ),
           ],
