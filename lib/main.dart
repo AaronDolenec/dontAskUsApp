@@ -5,9 +5,14 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'providers/providers.dart';
-import 'screens/screens.dart';
-import 'utils/utils.dart';
+import 'providers/theme_provider.dart';
+import 'screens/splash/splash_screen.dart';
+import 'screens/onboarding/auth_screen.dart';
+import 'screens/groups/groups_screen.dart';
+import 'screens/onboarding/join_group_screen.dart';
+import 'screens/onboarding/create_group_screen.dart';
+import 'screens/main/main_screen.dart';
+import 'utils/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

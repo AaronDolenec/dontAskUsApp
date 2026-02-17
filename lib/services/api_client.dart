@@ -17,7 +17,6 @@ class ApiClient {
   /// Build common headers
   Map<String, String> _buildHeaders({
     String? accessToken,
-    String? adminToken,
   }) {
     final headers = <String, String>{
       'Content-Type': 'application/json',
@@ -28,10 +27,6 @@ class ApiClient {
       headers['Authorization'] = 'Bearer $accessToken';
     }
 
-    if (adminToken != null) {
-      headers['X-Admin-Token'] = adminToken;
-    }
-
     return headers;
   }
 
@@ -39,7 +34,6 @@ class ApiClient {
   Future<http.Response> get(
     String endpoint, {
     String? accessToken,
-    String? adminToken,
     Map<String, String>? queryParams,
   }) async {
     String url = '$baseUrl$endpoint';
@@ -55,7 +49,6 @@ class ApiClient {
 
     final headers = _buildHeaders(
       accessToken: accessToken,
-      adminToken: adminToken,
     );
 
     try {
@@ -76,13 +69,11 @@ class ApiClient {
     String endpoint,
     Map<String, dynamic> body, {
     String? accessToken,
-    String? adminToken,
   }) async {
     final url = '$baseUrl$endpoint';
 
     final headers = _buildHeaders(
       accessToken: accessToken,
-      adminToken: adminToken,
     );
 
     try {
@@ -178,13 +169,11 @@ class ApiClient {
     String endpoint,
     Map<String, dynamic> body, {
     String? accessToken,
-    String? adminToken,
   }) async {
     final url = '$baseUrl$endpoint';
 
     final headers = _buildHeaders(
       accessToken: accessToken,
-      adminToken: adminToken,
     );
 
     try {
@@ -208,13 +197,11 @@ class ApiClient {
   Future<http.Response> delete(
     String endpoint, {
     String? accessToken,
-    String? adminToken,
   }) async {
     final url = '$baseUrl$endpoint';
 
     final headers = _buildHeaders(
       accessToken: accessToken,
-      adminToken: adminToken,
     );
 
     try {

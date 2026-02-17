@@ -49,7 +49,7 @@ class ErrorDisplay extends StatelessWidget {
         ),
       );
     }
-    
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -73,8 +73,8 @@ class ErrorDisplay extends StatelessWidget {
             Text(
               message,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+                    fontWeight: FontWeight.w600,
+                  ),
               textAlign: TextAlign.center,
             ),
             if (details != null) ...[
@@ -82,8 +82,8 @@ class ErrorDisplay extends StatelessWidget {
               Text(
                 details!,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+                      color: AppColors.textSecondary,
+                    ),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -142,8 +142,8 @@ class EmptyStateDisplay extends StatelessWidget {
             Text(
               title,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+                    fontWeight: FontWeight.w600,
+                  ),
               textAlign: TextAlign.center,
             ),
             if (subtitle != null) ...[
@@ -151,8 +151,8 @@ class EmptyStateDisplay extends StatelessWidget {
               Text(
                 subtitle!,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+                      color: AppColors.textSecondary,
+                    ),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -169,30 +169,14 @@ class EmptyStateDisplay extends StatelessWidget {
 
 /// No question for today state
 class NoQuestionDisplay extends StatelessWidget {
-  final bool isAdmin;
-  final VoidCallback? onCreateQuestion;
-
-  const NoQuestionDisplay({
-    super.key,
-    this.isAdmin = false,
-    this.onCreateQuestion,
-  });
+  const NoQuestionDisplay({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return EmptyStateDisplay(
+    return const EmptyStateDisplay(
       title: 'No Question Today',
-      subtitle: isAdmin 
-          ? 'Create a question for your group to answer!'
-          : 'Check back later for today\'s question.',
+      subtitle: 'Check back later for today\'s question.',
       icon: Icons.help_outline,
-      action: isAdmin && onCreateQuestion != null
-          ? ElevatedButton.icon(
-              onPressed: onCreateQuestion,
-              icon: const Icon(Icons.add),
-              label: const Text('Create Question'),
-            )
-          : null,
     );
   }
 }
@@ -219,9 +203,9 @@ class OfflineBanner extends StatelessWidget {
           Text(
             'You\'re offline',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w500,
-            ),
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                ),
           ),
         ],
       ),

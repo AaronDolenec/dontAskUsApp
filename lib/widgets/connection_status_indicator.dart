@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../providers/providers.dart';
-import '../utils/utils.dart';
+import '../providers/connectivity_provider.dart';
+import '../providers/websocket_provider.dart';
+import '../utils/app_colors.dart';
 
 /// Widget that shows the current connection status
 class ConnectionStatusIndicator extends ConsumerWidget {

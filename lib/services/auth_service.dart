@@ -102,7 +102,6 @@ class AuthService {
   static const _emailKey = 'email';
   static const _displayNameKey = 'display_name';
   static const _currentGroupKey = 'current_group_id';
-  static const _adminTokenKeyPrefix = 'admin_token_';
   static const _userIdKeyPrefix = 'user_id_';
   static const _displayNameKeyPrefix = 'display_name_';
   static const _groupNameKeyPrefix = 'group_name_';
@@ -123,11 +122,10 @@ class AuthService {
     if (groupsList != null && groupsList.isNotEmpty) {
       final groupIds = groupsList.split(',');
       for (final groupId in groupIds) {
-        final token = await storage.read('session_token_$groupId');
         final userId = await storage.read('user_id_$groupId');
         final displayName = await storage.read('display_name_$groupId');
         debugPrint(
-            'DEBUG: Group $groupId - token: ${token != null ? "present (${token.length} chars)" : "null"}, userId: $userId, displayName: $displayName');
+            'DEBUG: Group $groupId - userId: $userId, displayName: $displayName');
       }
     }
 
@@ -221,22 +219,6 @@ class AuthService {
     await _addToGroupsList(groupId);
   }
 
-  /// Legacy compatibility: save session (delegates to new methods)
-  static Future<void> saveSession({
-    required String groupId,
-    required String token,
-    required String oderId,
-    required String displayName,
-    String? groupName,
-  }) async {
-    await saveGroupMembership(
-      groupId: groupId,
-      userId: oderId,
-      displayName: displayName,
-      groupName: groupName,
-    );
-  }
-
   /// Get access token (replaces old getToken)
   static Future<String?> getToken(String groupId) async {
     // JWT tokens are global, not per-group
@@ -278,7 +260,6 @@ class AuthService {
     await _storage.delete('$_userIdKeyPrefix$groupId');
     await _storage.delete('$_displayNameKeyPrefix$groupId');
     await _storage.delete('$_groupNameKeyPrefix$groupId');
-    await _storage.delete('$_adminTokenKeyPrefix$groupId');
 
     // Remove from groups list
     await _removeFromGroupsList(groupId);
@@ -298,24 +279,6 @@ class AuthService {
   /// Clear all sessions (logout from all groups)
   static Future<void> clearAllSessions() async {
     await _storage.deleteAll();
-  }
-
-  // ============= Admin Token Management =============
-
-  /// Save admin token for a group
-  static Future<void> saveAdminToken(String groupId, String adminToken) async {
-    await _storage.write('$_adminTokenKeyPrefix$groupId', adminToken);
-  }
-
-  /// Get admin token for a group
-  static Future<String?> getAdminToken(String groupId) async {
-    return await _storage.read('$_adminTokenKeyPrefix$groupId');
-  }
-
-  /// Check if user is admin for a group
-  static Future<bool> isAdmin(String groupId) async {
-    final token = await getAdminToken(groupId);
-    return token != null && token.isNotEmpty;
   }
 
   // ============= Multi-Group Support =============

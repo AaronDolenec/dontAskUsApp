@@ -2,18 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import '../../models/models.dart';
-import '../../providers/providers.dart';
-import '../../services/services.dart';
+import '../../models/group.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/group_provider.dart';
+import '../../providers/multi_group_provider.dart';
+import '../../services/share_service.dart';
+import '../../services/api_client.dart';
+import '../../services/api_config.dart';
 import '../../utils/app_colors.dart';
-import '../../widgets/widgets.dart';
-import '../admin/create_question_screen.dart';
+import '../../widgets/avatar_circle.dart';
 import '../admin/question_sets_screen.dart';
 import '../onboarding/auth_screen.dart';
 import '../onboarding/join_group_screen.dart';
 import '../groups/groups_screen.dart';
 import 'help_screen.dart';
-import 'recover_session_screen.dart';
 
 /// Settings screen
 class SettingsScreen extends ConsumerWidget {
@@ -106,8 +108,8 @@ class SettingsScreen extends ConsumerWidget {
 
             const SizedBox(height: 24),
 
-            // Admin Section (only shown to admins)
-            if (authState.isAdmin) ...[
+            // Group Management Section (creator features - server validates permissions)
+            if (authState.hasGroup) ...[
               Text(
                 'Admin',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -119,19 +121,6 @@ class SettingsScreen extends ConsumerWidget {
               Card(
                 child: Column(
                   children: [
-                    ListTile(
-                      leading: const Icon(Icons.add_circle_outline),
-                      title: const Text('Create Question'),
-                      subtitle: const Text('Add today\'s question'),
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const CreateQuestionScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    const Divider(height: 1),
                     ListTile(
                       leading: const Icon(Icons.library_books_outlined),
                       title: const Text('Question Sets'),
@@ -150,14 +139,6 @@ class SettingsScreen extends ConsumerWidget {
                       title: const Text('API Diagnostics'),
                       subtitle: const Text('Check API reachability and CORS'),
                       onTap: () => _showApiDiagnostics(context),
-                    ),
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: const Icon(Icons.bug_report),
-                      title: const Text('Run Test Create Question'),
-                      subtitle:
-                          const Text('Post a sample question (admins only)'),
-                      onTap: () => _runTestCreateQuestion(context, ref),
                     ),
                   ],
                 ),
@@ -213,19 +194,6 @@ class SettingsScreen extends ConsumerWidget {
             Card(
               child: Column(
                 children: [
-                  ListTile(
-                    leading: const Icon(Icons.vpn_key),
-                    title: const Text('Recover Account'),
-                    subtitle: const Text(
-                        'Enter a session token provided by an admin'),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => const RecoverSessionScreen()),
-                      );
-                    },
-                  ),
-                  const Divider(height: 1),
                   ListTile(
                     leading: const Icon(Icons.logout, color: AppColors.error),
                     title: const Text('Clear All Data'),
@@ -412,50 +380,6 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  Future<void> _runTestCreateQuestion(
-      BuildContext context, WidgetRef ref) async {
-    final authState = ref.read(authProvider);
-    if (!authState.isAdmin || authState.groupId == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Only admins can run this test')),
-        );
-      }
-      return;
-    }
-
-    final adminToken = await ref.read(adminTokenProvider.future);
-    final api = ref.read(apiClientProvider);
-    final groupId = authState.groupId!;
-
-    final body = {
-      'question_text': 'Test question from client',
-      'question_type': 'binary_vote',
-    };
-
-    try {
-      final response = await api.post('/api/groups/$groupId/questions', body,
-          adminToken: adminToken);
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Test question created successfully')));
-        }
-      } else {
-        final exception = ApiException.fromResponse(response);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text('Test failed: ${exception.userFriendlyMessage}')));
-        }
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Network error: ${e.toString()}')));
-      }
-    }
   }
 }
 

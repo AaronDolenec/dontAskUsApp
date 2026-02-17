@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/utils.dart';
 import '../../services/auth_service.dart';
-import '../settings/recover_session_screen.dart';
 import 'auth_screen.dart';
 
 /// Get started screen with join/create options
@@ -105,22 +104,6 @@ class GetStartedScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              TextButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const RecoverSessionScreen()),
-                  );
-                },
-                child: const Text(
-                  'Recover Account',
-                  style: TextStyle(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
             ],
           ),
         ),

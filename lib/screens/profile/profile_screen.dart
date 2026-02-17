@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../models/models.dart';
-import '../../providers/providers.dart';
-import '../../services/services.dart';
+import '../../models/user.dart';
+import '../../providers/auth_provider.dart';
+import '../../services/auth_service.dart';
+import '../../services/share_service.dart';
+import '../../services/api_client.dart';
+import '../../services/api_config.dart';
 import '../../utils/app_colors.dart';
-import '../../widgets/widgets.dart';
+import '../../widgets/avatar_circle.dart';
+import '../../widgets/color_picker.dart';
 
 /// Profile / Account screen accessible from the user avatar in the top-left.
 /// Shows avatar, lets the user change their avatar color and password,
@@ -32,10 +36,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   // Debug info
   String? _groupId;
-  String? _token;
   String? _userId;
   String? _displayName;
-  String? _adminToken;
   String? _email;
   bool _debugLoading = true;
 
@@ -55,20 +57,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _loadDebugInfo() async {
     final groupId = await AuthService.getCurrentGroupId();
-    final token = await AuthService.getAccessToken();
     final email = await AuthService.getEmail();
 
     if (groupId != null) {
       final userId = await AuthService.getUserId(groupId);
       final displayName = await AuthService.getDisplayName(groupId);
-      final adminToken = await AuthService.getAdminToken(groupId);
       if (mounted) {
         setState(() {
           _groupId = groupId;
-          _token = token;
           _userId = userId;
           _displayName = displayName;
-          _adminToken = adminToken;
           _email = email;
           _debugLoading = false;
         });
@@ -76,7 +74,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } else {
       if (mounted) {
         setState(() {
-          _token = token;
           _email = email;
           _debugLoading = false;
         });
@@ -84,55 +81,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  String _maskToken(String? token) {
-    if (token == null || token.length < 8) return token ?? 'N/A';
-    return '${token.substring(0, 4)}${'•' * (token.length - 8)}${token.substring(token.length - 4)}';
-  }
-
   Future<void> _copyToClipboard(String label, String? value) async {
     if (value == null) return;
     final success = await ShareService.copyText(value);
     if (mounted) {
       ShareService.showCopyResult(context, success, value);
-    }
-  }
-
-  Future<void> _validateToken() async {
-    final token = _token;
-    if (token == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No token available to validate')),
-        );
-      }
-      return;
-    }
-    try {
-      final api = ApiClient();
-      final resp = await api.get('/api/auth/me', accessToken: token);
-      final body = resp.body;
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text('Token validation: ${resp.statusCode}'),
-            content: SingleChildScrollView(
-                child: Text(body.isNotEmpty ? body : '(empty response)')),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Network error: $e')),
-        );
-      }
     }
   }
 
@@ -595,31 +548,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return Column(
       children: [
-        // Warning
-        Card(
-          color: AppColors.warning.withValues(alpha: 0.1),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                const Icon(Icons.warning_amber_rounded,
-                    color: AppColors.warning),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'This information is for debugging purposes. '
-                    'Do not share your access token with others.',
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(color: AppColors.warning),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
         // Auth error
         if (authState.error != null) ...[
           const SizedBox(height: 12),
@@ -689,60 +617,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               value: _groupId ?? 'N/A',
               onCopy: () => _copyToClipboard('Group ID', _groupId),
             ),
-            _DebugItem(
-              label: 'Access Token',
-              value: _maskToken(_token),
-              isSecret: true,
-              onCopy: () => _copyToClipboard('Access Token', _token),
-            ),
           ],
         ),
-
-        const SizedBox(height: 8),
-        TextButton.icon(
-          onPressed: _validateToken,
-          icon: const Icon(Icons.verified_user_outlined),
-          label: const Text('Validate current token'),
-        ),
-
-        // Admin token
-        if (_adminToken != null) ...[
-          const SizedBox(height: 12),
-          _DebugInfoCard(
-            title: 'Admin Information',
-            items: [
-              _DebugItem(
-                label: 'Admin Token',
-                value: _maskToken(_adminToken),
-                isSecret: true,
-                onCopy: () => _copyToClipboard('Admin Token', _adminToken),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Card(
-            color: AppColors.error.withValues(alpha: 0.1),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  const Icon(Icons.security, color: AppColors.error, size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Keep your admin token secret! Anyone with this token '
-                      'can create questions and manage your group.',
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: AppColors.error),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
 
         const SizedBox(height: 12),
 
@@ -874,13 +750,7 @@ class _DebugInfoCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             item.value,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  fontFamily:
-                                      item.isSecret ? 'monospace' : null,
-                                ),
+                            style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         ),
                         if (item.onCopy != null)
@@ -906,13 +776,11 @@ class _DebugInfoCard extends StatelessWidget {
 class _DebugItem {
   final String label;
   final String value;
-  final bool isSecret;
   final VoidCallback? onCopy;
 
   const _DebugItem({
     required this.label,
     required this.value,
-    this.isSecret = false,
     this.onCopy,
   });
 }

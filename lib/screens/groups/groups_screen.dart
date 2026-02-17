@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/providers.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/multi_group_provider.dart';
 import '../../utils/app_colors.dart';
 import '../main/main_screen.dart';
 import '../onboarding/join_group_screen.dart';
 import '../onboarding/create_group_screen.dart';
 import '../onboarding/auth_screen.dart';
 import '../profile/profile_screen.dart';
-import '../../widgets/widgets.dart';
+import '../../widgets/avatar_circle.dart';
 
 /// Screen showing all groups the user belongs to.
 /// This is the first screen after login.

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/providers.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/group_provider.dart';
+import '../../providers/multi_group_provider.dart';
 import '../../utils/app_colors.dart';
-import '../../widgets/widgets.dart';
+import '../../widgets/color_picker.dart';
+import '../../widgets/error_display.dart';
 import '../groups/groups_screen.dart';
 import 'create_group_screen.dart';
 

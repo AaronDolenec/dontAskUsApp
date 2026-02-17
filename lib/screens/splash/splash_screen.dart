@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/providers.dart';
+import '../../providers/auth_provider.dart';
 import '../../utils/app_colors.dart';
 import '../onboarding/auth_screen.dart';
 import '../groups/groups_screen.dart';

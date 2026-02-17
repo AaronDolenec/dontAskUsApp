@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/providers.dart';
-import '../../models/models.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/group_provider.dart';
+import '../../models/group.dart';
+import '../../models/group_member.dart';
 import '../../utils/app_colors.dart';
-import '../../widgets/widgets.dart';
+import '../../widgets/loading_shimmer.dart';
+import '../../widgets/error_display.dart';
+import '../../widgets/avatar_circle.dart';
+import '../../widgets/streak_badge.dart';
 
 /// Screen displaying group members
 class MembersScreen extends ConsumerStatefulWidget {

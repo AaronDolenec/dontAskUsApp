@@ -2,10 +2,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/models.dart';
-import '../../providers/providers.dart';
-import '../../utils/utils.dart';
-import '../../widgets/widgets.dart';
+import '../../models/question_set.dart';
+import '../../providers/api_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../utils/app_colors.dart';
+import '../../widgets/error_display.dart';
+import '../../widgets/loading_shimmer.dart';
 
 List<QuestionSet> _parseQuestionSetsResponse(
   String body, {
@@ -31,7 +33,9 @@ List<QuestionSet> _parseQuestionSetsResponse(
 final questionSetsProvider =
     FutureProvider.autoDispose<List<QuestionSet>>((ref) async {
   final apiClient = ref.read(apiClientProvider);
-  final response = await apiClient.get('/api/question-sets');
+  final accessToken = await ref.read(accessTokenProvider.future);
+  final response =
+      await apiClient.get('/api/question-sets', accessToken: accessToken);
 
   if (response.statusCode == 200) {
     return _parseQuestionSetsResponse(
@@ -49,8 +53,10 @@ final groupQuestionSetsProvider =
   if (!authState.hasGroup || authState.groupId == null) return [];
 
   final apiClient = ref.read(apiClientProvider);
-  final response =
-      await apiClient.get('/api/groups/${authState.groupId}/question-sets');
+  final accessToken = await ref.read(accessTokenProvider.future);
+  final response = await apiClient.get(
+      '/api/groups/${authState.groupId}/question-sets',
+      accessToken: accessToken);
 
   if (response.statusCode == 200) {
     return _parseQuestionSetsResponse(
@@ -84,23 +90,23 @@ class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
     super.dispose();
   }
 
-  /// Helper to ensure we have both groupId and adminToken
-  Future<_GroupAndAdmin?> _requireGroupAndAdmin() async {
+  /// Helper to ensure we have groupId and access token
+  Future<_GroupAndAuth?> _requireGroupAndAuth() async {
     final authState = ref.read(authProvider);
     if (!authState.hasGroup || authState.groupId == null) return null;
 
-    final adminToken = await ref.read(adminTokenProvider.future);
-    if (adminToken == null) return null;
+    final accessToken = await ref.read(accessTokenProvider.future);
+    if (accessToken == null) return null;
 
-    return _GroupAndAdmin(
+    return _GroupAndAuth(
       groupId: authState.groupId!,
-      adminToken: adminToken,
+      accessToken: accessToken,
     );
   }
 
   Future<void> _assignSet(QuestionSet set) async {
     try {
-      final params = await _requireGroupAndAdmin();
+      final params = await _requireGroupAndAuth();
       if (params == null) return;
 
       final apiClient = ref.read(apiClientProvider);
@@ -111,7 +117,7 @@ class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
           'question_set_ids': [set.setId],
           'replace': false,
         },
-        adminToken: params.adminToken,
+        accessToken: params.accessToken,
       );
 
       ref.invalidate(groupQuestionSetsProvider);
@@ -159,13 +165,13 @@ class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
     if (confirm != true) return;
 
     try {
-      final params = await _requireGroupAndAdmin();
+      final params = await _requireGroupAndAuth();
       if (params == null) return;
 
       final apiClient = ref.read(apiClientProvider);
       await apiClient.delete(
         '/api/groups/${params.groupId}/question-sets/${set.setId}',
-        adminToken: params.adminToken,
+        accessToken: params.accessToken,
       );
 
       ref.invalidate(groupQuestionSetsProvider);
@@ -301,13 +307,13 @@ class _QuestionSetsScreenState extends ConsumerState<QuestionSetsScreen>
   }
 }
 
-class _GroupAndAdmin {
+class _GroupAndAuth {
   final String groupId;
-  final String adminToken;
+  final String accessToken;
 
-  const _GroupAndAdmin({
+  const _GroupAndAuth({
     required this.groupId,
-    required this.adminToken,
+    required this.accessToken,
   });
 }
 

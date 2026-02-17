@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/providers.dart';
-import '../../widgets/widgets.dart';
+import '../../providers/history_provider.dart';
+import '../../widgets/loading_shimmer.dart';
+import '../../widgets/error_display.dart';
+import '../../widgets/question_card.dart';
 
 /// Screen displaying question history
 class HistoryScreen extends ConsumerStatefulWidget {

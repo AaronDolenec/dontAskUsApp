@@ -10,9 +10,9 @@ final createQuestionSetProvider =
     FutureProvider.family<QuestionSet?, Map<String, dynamic>>(
         (ref, body) async {
   final api = ref.read(apiClientProvider);
-  final adminToken = await ref.read(adminTokenProvider.future);
+  final accessToken = await ref.read(accessTokenProvider.future);
   final response =
-      await api.post('/api/question-sets', body, adminToken: adminToken);
+      await api.post('/api/question-sets', body, accessToken: accessToken);
   if (response.statusCode == 200) {
     final data = jsonDecode(response.body) as Map<String, dynamic>;
     return QuestionSet.fromJson(data);
@@ -56,13 +56,13 @@ final assignQuestionSetsProvider =
     FutureProvider.family<bool, Map<String, dynamic>>((ref, params) async {
   final api = ref.read(apiClientProvider);
   final groupId = params['groupId'] as String;
-  final adminToken = params['adminToken'] as String;
+  final accessToken = await ref.read(accessTokenProvider.future);
   final setIds = params['setIds'] as List<String>;
   final replace = params['replace'] as bool? ?? false;
   final response = await api.post(
     '/api/groups/$groupId/question-sets',
     {'question_set_ids': setIds, 'replace': replace},
-    adminToken: adminToken,
+    accessToken: accessToken,
   );
   return response.statusCode == 200;
 });

@@ -2,7 +2,7 @@
 
 **Base URL:** `http://localhost:8000` (development)  
 **Version:** 1.3.0  
-**Last Updated:** February 9, 2026
+**Last Updated:** February 17, 2026
 
 **IMPORTANT:** All API endpoints require authentication unless explicitly marked as "Public" or "No
 Auth". After registration or login, include the access token in the `Authorization: Bearer <token>`
@@ -53,7 +53,7 @@ authentication** - users must register an account before they can join groups or
 
 **Additional Flows:**
 
-- **Group Admin Flow:** Create groups, manage question sets via admin token
+- **Group Creator Flow:** Create groups, manage question sets via creator JWT
 - **Instance Admin Flow:** Manage all users, groups, question sets, audit logs with 2FA
 - **Group Creator Flow:** Create private question sets (max 5 per group)
 
@@ -70,7 +70,7 @@ authentication** - users must register an account before they can join groups or
 - `/api/admin/2fa` - Instance admin 2FA verification
 - `/api/admin/refresh` - Instance admin token refresh
 
-Everything else requires a valid JWT access token or admin token.
+Everything else requires a valid JWT access token.
 
 ### Automatic Daily Questions
 
@@ -88,7 +88,7 @@ The backend **automatically generates a new question for each group every day**:
 | Flow            | Method               | Storage      |
 | --------------- | -------------------- | ------------ |
 | Users           | JWT (Email/Password) | Bearer Token |
-| Group Admins    | Admin Token          | Header       |
+| Group Creators  | JWT (Creator ID)     | Bearer Token |
 | Instance Admins | JWT (TOTP optional)  | Bearer Token |
 
 ---
@@ -104,11 +104,11 @@ The backend **automatically generates a new question for each group every day**:
 - Passed as `Authorization: Bearer <token>` header
 - Password requirements: min 8 chars, uppercase, lowercase, digit
 
-### Admin Tokens (Group Creators)
+### Group Creator Identification
 
-- Generated on group creation
-- Passed as `X-Admin-Token` header
-- Never expires (tied to group)
+- The user who creates a group is stored as `creator_id` on the Group model
+- Group creator endpoints verify the requesting user's JWT and check `group.creator_id == user.id`
+- No separate admin token is used — the creator's standard JWT is sufficient
 
 ### JWT Tokens (Instance Admins)
 
@@ -179,7 +179,9 @@ Content-Type: application/json
 
 **Response (200):**
 
-```jsoken": "eyJ...",
+```json
+{
+  "access_token": "eyJ...",
   "refresh_token": "eyJ...",
   "token_type": "bearer",
   "user": {
@@ -350,8 +352,8 @@ Content-Type: application/json
 
 **Authentication:** Required (JWT Bearer token)
 
-Create a new group and automatically join as the first member. Returns an admin token for group
-management.
+Create a new group and automatically join as the first member. The creator is identified by
+`creator_id` on the group model.
 
 ```http
 POST /api/auth/groups/create
@@ -371,7 +373,6 @@ Content-Type: application/json
   "group_id": "group-uuid",
   "name": "My New Group",
   "invite_code": "XYZ789",
-  "admin_token": "plaintext-admin-token-save-this",
   "created_at": "2026-02-09T10:00:00Z",
   "member_count": 1
 }
@@ -382,8 +383,9 @@ Content-Type: application/json
 - Creator is automatically joined with their account's `display_name`
 - Creator gets a random color avatar
 - Default question set is automatically assigned
-- **Save the admin_token immediately** - it's only returned once
-- The admin token is required for group management (assigning question sets, etc.)
+- A daily question is automatically created for the group
+- The group creator is identified by `creator_id` — no separate admin token is needed
+- Group creator endpoints use the creator's JWT for authentication
 
 **Errors:**
 
@@ -548,8 +550,8 @@ function getAvatarDisplay(user) {
 
 **Authentication:** Required (JWT Bearer token)
 
-Create a new group. The creator is automatically added as the first member. Returns an admin token
-for group management.
+Create a new group. The creator is automatically added as the first member and identified by
+`creator_id` on the group model.
 
 ```http
 POST /api/auth/groups/create
@@ -569,7 +571,6 @@ Content-Type: application/json
   "group_id": "uuid",
   "name": "My Awesome Group",
   "invite_code": "ABC123",
-  "admin_token": "plaintext-admin-token-save-this",
   "created_at": "2026-02-09T10:00:00Z",
   "member_count": 1
 }
@@ -577,8 +578,8 @@ Content-Type: application/json
 
 **Notes:**
 
-- The `admin_token` is returned only once - save it immediately
 - Default question set is automatically assigned to new groups
+- A daily question is automatically created for the group
 - Creator is auto-joined as first member
 
 **Errors:**
@@ -752,50 +753,40 @@ manual creation (admin override) or retrieving the current question.
 
 ---
 
-### Create Daily Question (Admin)
+### Set Today's Question (Instance Admin Only)
 
-**Authentication:** Group Admin Token (X-Admin-Token header)
+**Authentication:** Instance Admin JWT (Bearer token)
 
-Group admins can manually create today's question (overrides automatic generation).
+Instance admins can manually override today's question for a group. This deletes any existing
+question and votes for today and creates a new one.
 
 ```http
-POST /api/groups/{group_id}/questions
-X-Admin-Token: <admin_token>
-Content-Type: application/json
-
-{
-  "question_text": "Who is the funniest?",
-  "question_type": "member_choice"
-}
+POST /api/admin/groups/{group_id}/set-today-question
+Authorization: Bearer <admin_access_token>
 ```
 
 **Response (200):**
 
 ```json
 {
-  "id": 1,
+  "message": "Today's question set successfully",
   "question_id": "uuid",
   "question_text": "Who is the funniest?",
   "question_type": "member_choice",
-  "options": ["Alice", "Bob", "Charlie"],
-  "question_date": "2026-02-09T00:00:00Z",
-  "is_active": true,
-  "allow_multiple": false,
-  "option_counts": {},
-  "total_votes": 0
+  "options": ["Alice", "Bob", "Charlie"]
 }
 ```
 
-**Rules:**
+**Notes:**
 
-- One question per day per group
-- Requires ≥2 members for member/duo types
-- Options auto-generated for member/duo types
+- Only instance admins can set questions — users cannot manually change questions
+- Questions are automatically assigned on group creation and rotate daily
+- Uses integer group ID (from admin groups list)
 
 **Errors:**
 
-- `401` X-Admin-Token header required / Invalid admin token
-- `400` Question already exists for today
+- `401` Admin authentication required
+- `400` Unable to generate question (not enough members or templates)
 - `404` Group not found
 
 ---
@@ -1132,13 +1123,14 @@ Authorization: Bearer <access_token>
 
 ### Assign Sets to Group (Admin)
 
-**Authentication:** Group Admin Token (X-Admin-Token header)
+**Authentication:** Group Creator JWT (Bearer token)
 
-Assign question sets to a group. The group will use these sets for daily question generation.
+Assign question sets to a group. The group will use these sets for daily question generation. Only
+the group creator can assign question sets.
 
 ```http
 POST /api/groups/{group_id}/question-sets
-X-Admin-Token: <admin_token>
+Authorization: Bearer <access_token>
 Content-Type: application/json
 
 {
@@ -1169,7 +1161,8 @@ Content-Type: application/json
 
 **Errors:**
 
-- `401` X-Admin-Token header required / Invalid admin token
+- `401` Authentication required
+- `403` Only group creator can assign question sets
 - `404` Group not found
 
 ---
@@ -1978,7 +1971,7 @@ Content-Type: application/json
 
 ### Create Group (Admin)
 
-Create a new group. Generates invite code and admin token automatically.
+Create a new group. Generates invite code automatically.
 
 ```http
 POST /api/admin/groups
@@ -2032,11 +2025,11 @@ Authorization: Bearer <access_token>
 
 ### Get Admin Leaderboard
 
-Get group leaderboard (admin access via X-Admin-Token).
+Get group leaderboard. Requires JWT authentication and group membership.
 
 ```http
-GET /api/admin/groups/{group_id}/leaderboard
-X-Admin-Token: <admin_token>
+GET /api/groups/{group_id}/leaderboard
+Authorization: Bearer <access_token>
 ```
 
 **Response (200):**
@@ -2062,11 +2055,12 @@ X-Admin-Token: <admin_token>
 
 ### Get Question Status
 
-Get question exhaustion status for a group.
+Get question exhaustion status for a group. Requires JWT authentication and group creator
+permission.
 
 ```http
-GET /api/admin/groups/{group_id}/question-status
-X-Admin-Token: <admin_token>
+GET /api/groups/{group_id}/question-status
+Authorization: Bearer <access_token>
 ```
 
 **Response (200):**
@@ -2097,13 +2091,13 @@ When exhausted:
 
 ---
 
-### Reset Question Cycle
+### Reset Question Cycle (Instance Admin Only)
 
 Reset question cycle by clearing all used questions for a group.
 
 ```http
 POST /api/admin/groups/{group_id}/reset-question-cycle
-X-Admin-Token: <admin_token>
+Authorization: Bearer <admin_access_token>
 ```
 
 **Response (200):**
@@ -2116,36 +2110,75 @@ X-Admin-Token: <admin_token>
 }
 ```
 
+**Notes:**
+
+- Uses integer group ID (from admin groups list)
+- Only instance admins can reset question cycles
+
 ---
 
-### Regenerate Today's Question
+## Admin: API Logs
 
-Delete today's question (if any) and create a new one from current question sets.
+### Get API Logs
+
+Get server-side request logs. Logs all non-admin API requests.
 
 ```http
-POST /api/admin/groups/{group_id}/regenerate-today
-X-Admin-Token: <admin_token>
+GET /api/admin/api-logs?page=1&per_page=50&method=POST&path=/auth
+Authorization: Bearer <admin_access_token>
+```
+
+**Query Parameters:**
+
+- `page` (optional, default: 1): Page number
+- `per_page` (optional, default: 50): Items per page (max 200)
+- `method` (optional): Filter by HTTP method (GET, POST, etc.)
+- `path` (optional): Filter by path substring
+- `status_code` (optional): Filter by status code
+- `min_duration_ms` (optional): Filter by minimum duration in ms
+
+**Response (200):**
+
+```json
+{
+  "logs": [
+    {
+      "id": 1,
+      "timestamp": "2026-02-17T14:00:00Z",
+      "method": "POST",
+      "path": "/api/auth/register",
+      "query_string": "",
+      "status_code": 200,
+      "duration_ms": 45.2,
+      "client_ip": "127.0.0.1",
+      "user_agent": "Mozilla/5.0...",
+      "account_id": "uuid",
+      "response_size": 256
+    }
+  ],
+  "total": 100,
+  "page": 1,
+  "per_page": 50
+}
+```
+
+### Delete API Logs
+
+Clear all API logs.
+
+```http
+DELETE /api/admin/api-logs
+Authorization: Bearer <admin_access_token>
 ```
 
 **Response (200):**
 
 ```json
 {
-  "id": 123,
-  "question_id": 456,
-  "question_text": "What's your favorite...",
-  "question_type": "single_choice",
-  "options": ["Option A", "Option B", "Option C"],
-  "option_counts": {},
-  "question_date": "2025-12-17",
-  "is_active": true,
-  "total_votes": 0
+  "message": "All API logs cleared",
+  "deleted_count": 100
 }
 ```
-
-**Errors:**
-
-- `400`: Unable to generate today's question (insufficient members or no templates)
 
 ---
 
@@ -2982,31 +3015,44 @@ ADMIN_INITIAL_PASSWORD=changeme123
 ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
 
 # ═══════════════════════════════════════════════════════════════════════
+# USER JWT
+# ═══════════════════════════════════════════════════════════════════════
+USER_JWT_SECRET=your-user-jwt-secret-change-in-production
+USER_JWT_ACCESS_EXPIRE_MINUTES=30
+USER_JWT_REFRESH_EXPIRE_DAYS=30
+
+# ═══════════════════════════════════════════════════════════════════════
+# REVERSE PROXY — Uncomment if running behind nginx/traefik/etc.
+# Ensures real client IPs are logged instead of the proxy IP.
+# ═══════════════════════════════════════════════════════════════════════
+# TRUSTED_PROXIES=*
+
+# ═══════════════════════════════════════════════════════════════════════
 # OPTIONAL SETTINGS
 # ═══════════════════════════════════════════════════════════════════════
 LOG_LEVEL=INFO
 SCHEDULE_INTERVAL_SECONDS=86400
-USER_JWT_ACCESS_EXPIRE_MINUTES=30
-USER_JWT_REFRESH_EXPIRE_DAYS=30
 ```
 
 ### Environment Variable Reference
 
-| Variable                         | Description                      | Required | Default |
-| -------------------------------- | -------------------------------- | -------- | ------- |
-| `DATABASE_URL`                   | PostgreSQL connection string     | Yes      | -       |
-| `REDIS_URL`                      | Redis connection string          | Yes      | -       |
-| `SECRET_KEY`                     | JWT secret for user sessions     | Yes      | -       |
-| `ADMIN_JWT_SECRET`               | JWT secret for admin sessions    | Yes      | -       |
-| `ADMIN_INITIAL_USERNAME`         | Initial admin username           | No       | `admin` |
-| `ADMIN_INITIAL_PASSWORD`         | Initial admin password           | Yes      | -       |
-| `ALLOWED_ORIGINS`                | CORS allowed origins             | Yes      | -       |
-| `USER_JWT_ACCESS_EXPIRE_MINUTES` | User access token expiry (mins)  | No       | `30`    |
-| `USER_JWT_REFRESH_EXPIRE_DAYS`   | User refresh token expiry (days) | No       | `30`    |
-| `LOG_LEVEL`                      | Logging level                    | No       | `INFO`  |
-| `SCHEDULE_INTERVAL_SECONDS`      | Question scheduling interval     | No       | `86400` |
-| `FCM_PROJECT_ID`                 | Firebase project ID              | No\*     | -       |
-| `FCM_SERVICE_ACCOUNT_JSON`       | Firebase service account JSON    | No\*     | -       |
+| Variable                         | Description                                 | Required | Default |
+| -------------------------------- | ------------------------------------------- | -------- | ------- |
+| `DATABASE_URL`                   | PostgreSQL connection string                | Yes      | -       |
+| `REDIS_URL`                      | Redis connection string                     | Yes      | -       |
+| `SECRET_KEY`                     | JWT secret for user sessions                | Yes      | -       |
+| `ADMIN_JWT_SECRET`               | JWT secret for admin sessions               | Yes      | -       |
+| `ADMIN_INITIAL_USERNAME`         | Initial admin username                      | No       | `admin` |
+| `ADMIN_INITIAL_PASSWORD`         | Initial admin password                      | Yes      | -       |
+| `ALLOWED_ORIGINS`                | CORS allowed origins                        | Yes      | -       |
+| `USER_JWT_SECRET`                | JWT secret for user tokens                  | Yes      | -       |
+| `USER_JWT_ACCESS_EXPIRE_MINUTES` | User access token expiry (mins)             | No       | `30`    |
+| `USER_JWT_REFRESH_EXPIRE_DAYS`   | User refresh token expiry (days)            | No       | `30`    |
+| `TRUSTED_PROXIES`                | Trusted proxy IPs/CIDRs for X-Forwarded-For | No       | -       |
+| `LOG_LEVEL`                      | Logging level                               | No       | `INFO`  |
+| `SCHEDULE_INTERVAL_SECONDS`      | Question scheduling interval                | No       | `86400` |
+| `FCM_PROJECT_ID`                 | Firebase project ID                         | No\*     | -       |
+| `FCM_SERVICE_ACCOUNT_JSON`       | Firebase service account JSON               | No\*     | -       |
 
 \*Required only if push notifications are enabled
 
@@ -3030,7 +3076,7 @@ curl -X POST http://localhost:8000/api/auth/groups/create \
   -H "Authorization: Bearer ACCESS_TOKEN" \
   -d '{"group_name":"My Group","display_name":"Alice"}'
 
-# Save: invite_code, admin_token
+# Save: invite_code (group creator is identified via JWT + creator_id)
 
 # 3. Get today's question
 curl -H "Authorization: Bearer ACCESS_TOKEN" \

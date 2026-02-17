@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../models/models.dart';
-import '../../providers/providers.dart';
+import '../../models/daily_question.dart';
+import '../../models/question_type.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/question_provider.dart';
 import '../../utils/app_colors.dart';
-import '../../widgets/widgets.dart';
-import '../admin/create_question_screen.dart';
+import '../../widgets/avatar_circle.dart';
+import '../../widgets/streak_badge.dart';
+import '../../widgets/loading_shimmer.dart';
+import '../../widgets/error_display.dart';
+import '../../widgets/question_card.dart';
+import '../../widgets/vote_option_card.dart';
 import '../profile/profile_screen.dart';
+import '../groups/groups_screen.dart';
 
 /// Home screen displaying today's question
 class HomeScreen extends ConsumerStatefulWidget {
@@ -15,14 +22,27 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with SingleTickerProviderStateMixin {
   dynamic _selectedAnswer;
   final List<String> _selectedMultipleAnswers = [];
   final _textAnswerController = TextEditingController();
+  bool _showStreakCelebration = false;
+  int _celebrationStreak = 0;
+  late final AnimationController _celebrationController;
+  late final Animation<double> _celebrationAnimation;
 
   @override
   void initState() {
     super.initState();
+    _celebrationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _celebrationAnimation = CurvedAnimation(
+      parent: _celebrationController,
+      curve: Curves.elasticOut,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authState = ref.read(authProvider);
       if (authState.hasGroup) {
@@ -36,6 +56,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   void dispose() {
+    _celebrationController.dispose();
     ref.read(questionProvider.notifier).stopPolling();
     ref.read(questionProvider.notifier).disconnectWebSocket();
     _textAnswerController.dispose();
@@ -49,6 +70,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _submitAnswer(DailyQuestion question) async {
+    final oldStreak = ref.read(userStreakProvider);
+    bool success = false;
+
     if (question.questionType == QuestionType.freeText) {
       if (_textAnswerController.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -56,7 +80,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
         return;
       }
-      await ref.read(questionProvider.notifier).submitAnswer(
+      success = await ref.read(questionProvider.notifier).submitAnswer(
             null,
             textAnswer: _textAnswerController.text.trim(),
           );
@@ -67,7 +91,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
         return;
       }
-      await ref
+      success = await ref
           .read(questionProvider.notifier)
           .submitAnswer(_selectedMultipleAnswers);
     } else {
@@ -77,7 +101,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
         return;
       }
-      await ref.read(questionProvider.notifier).submitAnswer(_selectedAnswer);
+      success = await ref
+          .read(questionProvider.notifier)
+          .submitAnswer(_selectedAnswer);
+    }
+
+    if (success && mounted) {
+      final newStreak = ref.read(userStreakProvider);
+      if (newStreak > oldStreak) {
+        setState(() {
+          _showStreakCelebration = true;
+          _celebrationStreak = newStreak;
+        });
+        _celebrationController.forward(from: 0);
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() {
+              _showStreakCelebration = false;
+            });
+          }
+        });
+      }
     }
   }
 
@@ -119,18 +163,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               )
             : null,
         actions: [
-          if (authState.isAdmin)
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const CreateQuestionScreen(),
-                  ),
-                );
-              },
-              tooltip: 'Create Question',
-            ),
+          IconButton(
+            icon: const Icon(Icons.groups_outlined),
+            onPressed: () {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const GroupsScreen()),
+                (route) => false,
+              );
+            },
+            tooltip: 'My Groups',
+          ),
         ],
       ),
       body: RefreshIndicator(
@@ -139,6 +181,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           physics: const AlwaysScrollableScrollPhysics(),
           child: Column(
             children: [
+              // Streak Celebration
+              if (_showStreakCelebration)
+                AnimatedBuilder(
+                  animation: _celebrationAnimation,
+                  builder: (context, child) {
+                    return Transform.scale(
+                      scale: _celebrationAnimation.value.clamp(0.0, 1.0),
+                      child: child,
+                    );
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 14),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFFF97316),
+                          Color(0xFFF59E0B),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFF97316).withValues(alpha: 0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('🔥', style: TextStyle(fontSize: 28)),
+                        const SizedBox(width: 12),
+                        Text(
+                          '$_celebrationStreak day streak!',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text('🎉', style: TextStyle(fontSize: 28)),
+                      ],
+                    ),
+                  ),
+                ),
+
               // Streak Display
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -164,14 +256,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 )
               else if (questionState.question == null)
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: NoQuestionDisplay(
-                    isAdmin: authState.isAdmin,
-                    onCreateQuestion: () {
-                      // TODO: Navigate to create question screen
-                    },
-                  ),
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: NoQuestionDisplay(),
                 )
               else
                 _buildQuestionContent(questionState.question!),
@@ -289,7 +376,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Widget _buildResultsWidget(DailyQuestion question) {
-    final options = question.options ?? [];
     final winningOption = question.winningOption;
 
     if (question.questionType == QuestionType.freeText) {
@@ -325,29 +411,85 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
     }
 
-    return Column(
-      children: options.asMap().entries.map((entry) {
-        final index = entry.key;
-        final option = entry.value;
-        final voteCount = question.optionCounts?[option] ?? 0;
-        final color = AppColors.getVoteColor(index);
-        final isWinner = option == winningOption;
-        final isUserVote = question.userVoteList?.contains(option) ??
-            question.userVoteString == option;
+    // Build list of options with their vote counts, filter out zero votes,
+    // and sort by vote count descending
+    final allOptions = question.options ?? [];
+    final optionsWithVotes = <_OptionResult>[];
+    for (final option in allOptions) {
+      final count = question.optionCounts?[option] ?? 0;
+      if (count > 0) {
+        optionsWithVotes.add(_OptionResult(
+          option: option,
+          voteCount: count,
+          isWinner: option == winningOption,
+          isUserVote: question.userVoteList?.contains(option) ??
+              question.userVoteString == option,
+        ));
+      }
+    }
+    optionsWithVotes.sort((a, b) => b.voteCount.compareTo(a.voteCount));
 
-        return Padding(
+    if (optionsWithVotes.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Text('No votes yet',
+              style: TextStyle(color: AppColors.textSecondary)),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: VoteOptionCard(
-            option: option,
-            voteCount: voteCount,
-            totalVotes: question.totalVotes,
-            isSelected: isUserVote,
-            showResults: true,
-            isWinner: isWinner,
-            color: color,
+          child: Text(
+            'Results',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
           ),
-        );
-      }).toList(),
+        ),
+        ...optionsWithVotes.asMap().entries.map((entry) {
+          final index = entry.key;
+          final result = entry.value;
+          final color = AppColors.getVoteColor(index);
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: VoteOptionCard(
+              option: result.option,
+              voteCount: result.voteCount,
+              totalVotes: question.totalVotes,
+              isSelected: result.isUserVote,
+              showResults: true,
+              isWinner: result.isWinner,
+              color: color,
+            ),
+          );
+        }),
+      ],
     );
   }
+}
+
+/// Helper class to hold option result data for sorting
+class _OptionResult {
+  final String option;
+  final int voteCount;
+  final bool isWinner;
+  final bool isUserVote;
+
+  const _OptionResult({
+    required this.option,
+    required this.voteCount,
+    required this.isWinner,
+    required this.isUserVote,
+  });
 }

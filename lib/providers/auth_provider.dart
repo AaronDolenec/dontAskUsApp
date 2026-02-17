@@ -11,14 +11,12 @@ class AuthState {
   final String? groupId;
   final bool isLoading;
   final String? error;
-  final bool isAdmin;
 
   const AuthState({
     this.user,
     this.groupId,
     this.isLoading = false,
     this.error,
-    this.isAdmin = false,
   });
 
   AuthState copyWith({
@@ -26,14 +24,12 @@ class AuthState {
     String? groupId,
     bool? isLoading,
     String? error,
-    bool? isAdmin,
   }) {
     return AuthState(
       user: user ?? this.user,
       groupId: groupId ?? this.groupId,
       isLoading: isLoading ?? this.isLoading,
       error: error,
-      isAdmin: isAdmin ?? this.isAdmin,
     );
   }
 
@@ -105,12 +101,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
         }
 
         if (groupId != null) {
-          final isAdmin = await AuthService.isAdmin(groupId);
           state = state.copyWith(
             user: user,
             groupId: groupId,
             isLoading: false,
-            isAdmin: isAdmin,
           );
           return;
         }
@@ -280,15 +274,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await AuthService.setCurrentGroup(currentGroupId);
     }
 
-    final isAdmin = currentGroupId != null
-        ? await AuthService.isAdmin(currentGroupId)
-        : false;
-
     state = state.copyWith(
       user: user,
       groupId: currentGroupId,
       isLoading: false,
-      isAdmin: isAdmin,
     );
   }
 
@@ -361,8 +350,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
           groupName: groupName,
         );
 
-        final isAdmin = await AuthService.isAdmin(groupId);
-
         // Refresh user info
         final meResponse = await api.get(
           '/api/auth/me',
@@ -386,7 +373,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
           user: user,
           groupId: groupId,
           isLoading: false,
-          isAdmin: isAdmin,
         );
         return true;
       }
@@ -431,10 +417,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final group = Group.fromJson(data);
 
-        if (group.adminToken != null) {
-          await AuthService.saveAdminToken(group.groupId, group.adminToken!);
-        }
-
         // Refresh user info to get updated groups list
         final meResponse = await api.get(
           '/api/auth/me',
@@ -455,13 +437,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
           }
 
           await AuthService.setCurrentGroup(group.groupId);
-          final isAdmin = await AuthService.isAdmin(group.groupId);
 
           state = state.copyWith(
             user: user,
             groupId: group.groupId,
             isLoading: false,
-            isAdmin: isAdmin,
           );
         } else {
           state = state.copyWith(isLoading: false);
@@ -491,7 +471,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     try {
       await AuthService.setCurrentGroup(groupId);
-      final isAdmin = await AuthService.isAdmin(groupId);
       final displayName = await AuthService.getDisplayName(groupId);
       final userId = await AuthService.getUserId(groupId);
 
@@ -502,85 +481,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
         ),
         groupId: groupId,
         isLoading: false,
-        isAdmin: isAdmin,
       );
       return true;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
-      );
-      return false;
-    }
-  }
-
-  /// Recover account using a raw session token (legacy support)
-  Future<bool> recoverWithToken(String token) async {
-    state = state.copyWith(isLoading: true);
-
-    try {
-      // Try treating the token as an access token
-      final api = _ref.read(apiClientProvider);
-      final response = await api.get(
-        '/api/auth/me',
-        accessToken: token,
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final user = User.fromMeJson(data);
-
-        // Save the token
-        await AuthService.saveTokens(
-          accessToken: token,
-          refreshToken: '', // No refresh token available in recovery
-        );
-
-        await AuthService.saveAccountInfo(
-          accountId: user.oderId,
-          email: user.email ?? '',
-          displayName: user.displayName,
-        );
-
-        for (final group in user.groups) {
-          await AuthService.saveGroupMembership(
-            groupId: group.groupId,
-            userId: group.userId,
-            displayName: group.displayName,
-            groupName: group.groupName,
-          );
-        }
-
-        String? groupId;
-        if (user.groups.isNotEmpty) {
-          groupId = user.groups.first.groupId;
-          await AuthService.setCurrentGroup(groupId);
-        }
-
-        final isAdmin =
-            groupId != null ? await AuthService.isAdmin(groupId) : false;
-
-        state = state.copyWith(
-          user: user,
-          groupId: groupId,
-          isLoading: false,
-          isAdmin: isAdmin,
-        );
-        return true;
-      }
-
-      state = state.copyWith(isLoading: false, error: 'Invalid token');
-      return false;
-    } catch (e) {
-      debugPrint('DEBUG: recoverWithToken error: $e');
-
-      final isNetworkError = e is ApiException && e.statusCode == 0 ||
-          e.toString().toLowerCase().contains('network error');
-
-      state = state.copyWith(
-        isLoading: false,
-        error:
-            isNetworkError ? 'Network error. Please try again.' : e.toString(),
       );
       return false;
     }
@@ -712,13 +618,3 @@ final accessTokenProvider = FutureProvider<String?>((ref) async {
   ref.watch(authProvider); // Re-evaluate when auth changes
   return await AuthService.getAccessToken();
 });
-
-/// Provider for current admin token
-final adminTokenProvider = FutureProvider<String?>((ref) async {
-  final auth = ref.watch(authProvider);
-  if (auth.groupId == null) return null;
-  return await AuthService.getAdminToken(auth.groupId!);
-});
-
-/// Legacy alias
-final sessionTokenProvider = accessTokenProvider;

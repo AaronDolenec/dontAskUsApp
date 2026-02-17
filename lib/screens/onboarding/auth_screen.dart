@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/providers.dart';
+import '../../providers/auth_provider.dart';
 import '../../utils/app_colors.dart';
-import '../settings/recover_session_screen.dart';
 import '../groups/groups_screen.dart';
 
 /// Screen for login and registration
@@ -300,27 +299,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       child: Text(_isLogin ? 'Sign Up' : 'Sign In'),
                     ),
                   ],
-                ),
-
-                const SizedBox(height: 16),
-
-                // Recover account link (small, unobtrusive)
-                Center(
-                  child: TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const RecoverSessionScreen(),
-                        ),
-                      );
-                    },
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.textSecondary,
-                      textStyle: const TextStyle(fontSize: 12),
-                    ),
-                    child: const Text('Recover Account'),
-                  ),
                 ),
               ],
             ),

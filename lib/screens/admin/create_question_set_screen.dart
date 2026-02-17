@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:convert';
 
-import '../../services/services.dart';
-import '../../providers/providers.dart';
+import '../../services/api_exception.dart';
+import '../../providers/api_provider.dart';
+import '../../providers/auth_provider.dart';
 
 class CreateQuestionSetScreen extends ConsumerStatefulWidget {
   const CreateQuestionSetScreen({super.key});
@@ -35,7 +36,7 @@ class _CreateQuestionSetScreenState
     setState(() => _isLoading = true);
 
     try {
-      final adminToken = await ref.read(adminTokenProvider.future);
+      final accessToken = await ref.read(accessTokenProvider.future);
       final api = ref.read(apiClientProvider);
 
       final body = {
@@ -45,7 +46,7 @@ class _CreateQuestionSetScreenState
       };
 
       final response =
-          await api.post('/api/question-sets', body, adminToken: adminToken);
+          await api.post('/api/question-sets', body, accessToken: accessToken);
 
       if (response.statusCode == 200) {
         final parsed = response.body.isNotEmpty
@@ -63,7 +64,7 @@ class _CreateQuestionSetScreenState
                     'question_set_ids': [setId],
                     'replace': false,
                   },
-                  adminToken: adminToken);
+                  accessToken: accessToken);
             }
           }
         }

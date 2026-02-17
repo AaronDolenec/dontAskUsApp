@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import '../../providers/providers.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/share_service.dart';
 import '../../utils/app_colors.dart';
-import '../../models/models.dart';
+import '../../models/group.dart';
 import '../groups/groups_screen.dart';
 
 /// Screen for creating a new group

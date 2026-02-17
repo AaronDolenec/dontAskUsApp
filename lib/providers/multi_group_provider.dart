@@ -5,9 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../providers/providers.dart';
-import '../services/services.dart';
-import '../utils/utils.dart';
+import 'auth_provider.dart';
+import 'group_provider.dart';
+import 'question_provider.dart';
+import '../services/auth_service.dart';
+import '../services/api_client.dart';
+import '../services/share_service.dart';
+import '../utils/app_colors.dart';
 
 /// Provider for managing multiple groups
 class MultiGroupNotifier extends StateNotifier<MultiGroupState> {
