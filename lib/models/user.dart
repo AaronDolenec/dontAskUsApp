@@ -38,6 +38,8 @@ class User {
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : DateTime.now(),
+      answerStreak: json['answer_streak'] as int? ?? 0,
+      longestAnswerStreak: json['longest_answer_streak'] as int? ?? 0,
       groups: groupsJson
           .map((g) => UserGroupMembership.fromJson(g as Map<String, dynamic>))
           .toList(),

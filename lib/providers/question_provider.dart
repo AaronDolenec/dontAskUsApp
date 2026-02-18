@@ -6,6 +6,7 @@ import '../models/models.dart';
 import '../services/services.dart';
 import 'api_provider.dart';
 import 'auth_provider.dart';
+import 'group_provider.dart';
 
 /// State for today's question
 class QuestionState {
@@ -14,11 +15,16 @@ class QuestionState {
   final String? error;
   final bool isSubmitting;
 
+  /// Whether the question is from today (true) or a previous day (false).
+  /// When false, the question is shown in results-only mode.
+  final bool isFromToday;
+
   const QuestionState({
     this.question,
     this.isLoading = false,
     this.error,
     this.isSubmitting = false,
+    this.isFromToday = true,
   });
 
   QuestionState copyWith({
@@ -26,12 +32,14 @@ class QuestionState {
     bool? isLoading,
     String? error,
     bool? isSubmitting,
+    bool? isFromToday,
   }) {
     return QuestionState(
       question: question ?? this.question,
       isLoading: isLoading ?? this.isLoading,
       error: error,
       isSubmitting: isSubmitting ?? this.isSubmitting,
+      isFromToday: isFromToday ?? this.isFromToday,
     );
   }
 }
@@ -54,6 +62,7 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
     _ref.listen(authProvider, (previous, next) {
       if (next.hasGroup && !next.isLoading) {
         fetchTodaysQuestion();
+        startPolling();
       }
     });
 
@@ -80,6 +89,14 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
     _pollTimer = null;
   }
 
+  /// Check whether a date is today
+  bool _isToday(DateTime date) {
+    final now = DateTime.now();
+    return now.year == date.year &&
+        now.month == date.month &&
+        now.day == date.day;
+  }
+
   /// Fetch today's question
   Future<void> fetchTodaysQuestion({bool forceRefresh = false}) async {
     final auth = _ref.read(authProvider);
@@ -89,20 +106,21 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
     if (!forceRefresh) {
       final cached = await CacheService.getCachedQuestion(auth.groupId!);
       if (cached != null) {
-        // Check if it's still today's question
-        final now = DateTime.now();
-        final questionDate = cached.questionDate;
-        if (now.year == questionDate.year &&
-            now.month == questionDate.month &&
-            now.day == questionDate.day) {
-          state = state.copyWith(question: cached, isLoading: false);
-          // Still refresh in background
-          _fetchFromApi();
-          return;
-        }
+        final isTodaysCached = _isToday(cached.questionDate);
+        // Show cached question immediately (even if from a previous day)
+        state = state.copyWith(
+          question: cached,
+          isLoading: false,
+          isFromToday: isTodaysCached,
+        );
+        // Always refresh from API in background
+        _fetchFromApi(silent: true);
+        return;
       }
     }
 
+    // No cache – show loading and fetch
+    state = state.copyWith(isLoading: true);
     await _fetchFromApi();
   }
 
@@ -136,7 +154,11 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
         await CacheService.cacheQuestion(auth.groupId!, question);
 
         final oldQuestionId = state.question?.questionId;
-        state = state.copyWith(question: question, isLoading: false);
+        state = state.copyWith(
+          question: question,
+          isLoading: false,
+          isFromToday: true,
+        );
 
         // Auto-reconnect WebSocket if question changed
         if (question.questionId != oldQuestionId ||
@@ -144,8 +166,25 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
           connectWebSocket();
         }
       } else if (response.statusCode == 404) {
-        // No question for today
-        state = state.copyWith(isLoading: false);
+        // No question for today – show last question from cache if available
+        if (state.question == null) {
+          final cached = await CacheService.getCachedQuestion(auth.groupId!);
+          if (cached != null) {
+            state = state.copyWith(
+              question: cached,
+              isLoading: false,
+              isFromToday: false,
+            );
+          } else {
+            state = state.copyWith(isLoading: false, isFromToday: false);
+          }
+        } else {
+          // Keep existing question but mark as not today's
+          state = state.copyWith(
+            isLoading: false,
+            isFromToday: _isToday(state.question!.questionDate),
+          );
+        }
       } else {
         if (!silent) {
           final exception = ApiException.fromResponse(response);
@@ -327,7 +366,43 @@ final userStreakProvider = Provider<int>((ref) {
   final questionState = ref.watch(questionProvider);
   final authState = ref.watch(authProvider);
 
-  return questionState.question?.userStreak ??
-      authState.user?.answerStreak ??
-      0;
+  // Best source: today's question response includes user_streak
+  final fromQuestion = questionState.question?.userStreak;
+  if (fromQuestion != null && fromQuestion > 0) return fromQuestion;
+
+  // Fallback: find current user in group members list
+  final members = ref.watch(groupMembersProvider).valueOrNull ?? [];
+  if (members.isNotEmpty && authState.user != null) {
+    final displayName = authState.user!.displayName;
+    final me = members.cast<GroupMember?>().firstWhere(
+          (m) => m!.displayName == displayName,
+          orElse: () => null,
+        );
+    if (me != null && me.answerStreak > 0) return me.answerStreak;
+  }
+
+  return authState.user?.answerStreak ?? 0;
+});
+
+/// Provider for longest streak
+final longestStreakProvider = Provider<int?>((ref) {
+  final questionState = ref.watch(questionProvider);
+  final authState = ref.watch(authProvider);
+
+  // Best source: today's question
+  final fromQuestion = questionState.question?.longestStreak;
+  if (fromQuestion != null && fromQuestion > 0) return fromQuestion;
+
+  // Fallback: group members
+  final members = ref.watch(groupMembersProvider).valueOrNull ?? [];
+  if (members.isNotEmpty && authState.user != null) {
+    final displayName = authState.user!.displayName;
+    final me = members.cast<GroupMember?>().firstWhere(
+          (m) => m!.displayName == displayName,
+          orElse: () => null,
+        );
+    if (me != null) return me.longestAnswerStreak;
+  }
+
+  return authState.user?.longestAnswerStreak;
 });

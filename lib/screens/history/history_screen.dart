@@ -128,12 +128,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           }
 
           final question = state.questions[index];
-          return QuestionHistoryCard(
-            question: question,
-            onTap: () {
-              // TODO: Navigate to question detail
-            },
-          );
+          return QuestionHistoryCard(question: question);
         },
       ),
     );

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/app_colors.dart';
 import '../groups/groups_screen.dart';
+import 'forgot_password_screen.dart';
 
 /// Screen for login and registration
 class AuthScreen extends ConsumerStatefulWidget {
@@ -192,6 +193,24 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     return null;
                   },
                 ),
+
+                // Forgot Password (login only)
+                if (_isLogin) ...[
+                  const SizedBox(height: 4),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const ForgotPasswordScreen(),
+                          ),
+                        );
+                      },
+                      child: const Text('Forgot Password?'),
+                    ),
+                  ),
+                ],
 
                 // Confirm Password (register only)
                 if (!_isLogin) ...[

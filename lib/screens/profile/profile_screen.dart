@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/question_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/share_service.dart';
 import '../../services/api_client.dart';
@@ -384,10 +385,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ],
             const SizedBox(height: 8),
-            Text(
-              '🔥 ${user.answerStreak} day streak (Best: ${user.longestAnswerStreak})',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+            Builder(builder: (context) {
+              final currentStreak = ref.watch(userStreakProvider);
+              final longestStreak = ref.watch(longestStreakProvider);
+              return Text(
+                '🔥 $currentStreak day streak (Best: ${longestStreak ?? 0})',
+                style: Theme.of(context).textTheme.bodyMedium,
+              );
+            }),
             const SizedBox(height: 20),
             const Divider(),
             const SizedBox(height: 12),
@@ -597,11 +602,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
             _DebugItem(
               label: 'Current Streak',
-              value: '${authState.user?.answerStreak ?? 0} days',
+              value: '${ref.watch(userStreakProvider)} days',
             ),
             _DebugItem(
               label: 'Longest Streak',
-              value: '${authState.user?.longestAnswerStreak ?? 0} days',
+              value: '${ref.watch(longestStreakProvider) ?? 0} days',
             ),
           ],
         ),

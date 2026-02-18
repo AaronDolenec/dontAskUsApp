@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../services/services.dart';
 import 'api_provider.dart';
+import 'group_provider.dart';
 
 /// Auth state containing user info and session data
 class AuthState {
@@ -74,7 +75,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
+        debugPrint('DEBUG: /api/auth/me response keys=${data.keys.toList()}');
         final user = User.fromMeJson(data);
+        debugPrint(
+            'DEBUG: _loadSession user.id=${user.id}, user.oderId=${user.oderId}');
 
         // Sync group memberships from server
         for (final group in user.groups) {
@@ -106,6 +110,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
             groupId: groupId,
             isLoading: false,
           );
+          // Enrich user with avatar/streak from group members (async, non-blocking)
+          _enrichUserFromGroupMembers(groupId, accessToken);
           return;
         }
 
@@ -162,6 +168,62 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> reloadSession() async {
     _loadSessionRetries = 0;
     await _loadSession();
+  }
+
+  /// Enrich the auth user with avatar_url and streak data from group members.
+  /// /api/auth/me may not return these fields, but /api/groups/{id}/members does.
+  Future<void> _enrichUserFromGroupMembers(
+      String groupId, String accessToken) async {
+    try {
+      final api = _ref.read(apiClientProvider);
+      final response = await api.get(
+        '/api/groups/$groupId/members',
+        accessToken: accessToken,
+      );
+      if (response.statusCode == 200 && state.user != null) {
+        final data = jsonDecode(response.body);
+        List membersJson;
+        if (data is Map<String, dynamic> && data.containsKey('members')) {
+          membersJson = data['members'] as List? ?? [];
+        } else if (data is List) {
+          membersJson = data;
+        } else {
+          return;
+        }
+        final members = membersJson
+            .map((m) => GroupMember.fromJson(m as Map<String, dynamic>))
+            .toList();
+
+        // Find current user by display name
+        final me = members.cast<GroupMember?>().firstWhere(
+              (m) => m!.displayName == state.user!.displayName,
+              orElse: () => null,
+            );
+        if (me != null) {
+          final needsUpdate = (state.user!.avatarUrl == null &&
+                  me.avatarUrl != null &&
+                  me.avatarUrl!.isNotEmpty) ||
+              state.user!.answerStreak != me.answerStreak ||
+              state.user!.longestAnswerStreak != me.longestAnswerStreak;
+          if (needsUpdate) {
+            state = state.copyWith(
+              user: state.user!.copyWith(
+                avatarUrl: me.avatarUrl ?? state.user!.avatarUrl,
+                answerStreak: me.answerStreak,
+                longestAnswerStreak: me.longestAnswerStreak,
+              ),
+            );
+            debugPrint(
+                'DEBUG: Enriched user from members: avatar=${me.avatarUrl}, streak=${me.answerStreak}');
+          }
+        }
+
+        // Also cache members for other providers
+        await CacheService.cacheMembers(groupId, members);
+      }
+    } catch (e) {
+      debugPrint('DEBUG: Failed to enrich user from members: $e');
+    }
   }
 
   /// Register a new account
@@ -247,8 +309,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
       refreshToken: refreshToken,
     );
 
-    // Parse user from top-level fields (register/login response is flat)
-    final user = User.fromAuthJson(data);
+    // Extract the nested user object (login/register responses wrap it)
+    final userData = data['user'] as Map<String, dynamic>? ?? data;
+    debugPrint('DEBUG: _handleAuthResponse keys=${data.keys.toList()}');
+    debugPrint('DEBUG: _handleAuthResponse userData=$userData');
+
+    // Parse user
+    final user = User.fromAuthJson(userData);
+    debugPrint(
+        'DEBUG: _handleAuthResponse user.id=${user.id}, user.oderId=${user.oderId}');
 
     // Save account info
     await AuthService.saveAccountInfo(
@@ -543,17 +612,45 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }) async {
     if (state.user == null) return 'Not logged in';
     try {
-      final accessToken = await AuthService.getAccessToken();
+      String? accessToken = await AuthService.getAccessToken();
       if (accessToken == null) return 'Not authenticated';
       final api = _ref.read(apiClientProvider);
-      final userId = state.user!.id; // account_id, not group-specific oderId
-      final response = await api.postMultipartBytes(
+      final userId = state.user!.oderId; // account_id as string
+      debugPrint(
+          'DEBUG: uploadAvatar userId=$userId, user.id=${state.user!.id}, fileName=$fileName, bytes=${fileBytes.length}');
+      debugPrint(
+          'DEBUG: uploadAvatar token=${accessToken.substring(0, 20)}...');
+      var response = await api.postMultipartBytes(
         '/api/users/$userId/avatar',
         fileBytes: fileBytes,
         fileName: fileName,
         fileField: 'file',
         accessToken: accessToken,
       );
+      debugPrint('DEBUG: uploadAvatar response status=${response.statusCode}');
+      debugPrint('DEBUG: uploadAvatar response body=${response.body}');
+
+      // If 401, try refreshing the token and retry once
+      if (response.statusCode == 401) {
+        debugPrint('DEBUG: uploadAvatar got 401, attempting token refresh...');
+        final refreshResult = await AuthService.refreshSession();
+        if (refreshResult != null) {
+          accessToken = await AuthService.getAccessToken();
+          if (accessToken != null) {
+            response = await api.postMultipartBytes(
+              '/api/users/$userId/avatar',
+              fileBytes: fileBytes,
+              fileName: fileName,
+              fileField: 'file',
+              accessToken: accessToken,
+            );
+            debugPrint(
+                'DEBUG: uploadAvatar retry status=${response.statusCode}');
+            debugPrint('DEBUG: uploadAvatar retry body=${response.body}');
+          }
+        }
+      }
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final avatarUrl = data['avatar_url'] as String?;
@@ -562,6 +659,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
             user: state.user!.copyWith(avatarUrl: avatarUrl),
           );
         }
+        // Invalidate group members cache so avatar updates in member lists
+        _ref.invalidate(groupMembersProvider);
         return null; // success
       }
       final exception = ApiException.fromResponse(response);
@@ -575,14 +674,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<String?> deleteAvatar() async {
     if (state.user == null) return 'Not logged in';
     try {
-      final accessToken = await AuthService.getAccessToken();
+      String? accessToken = await AuthService.getAccessToken();
       if (accessToken == null) return 'Not authenticated';
       final api = _ref.read(apiClientProvider);
-      final userId = state.user!.id; // account_id, not group-specific oderId
-      final response = await api.delete(
+      final userId = state.user!.oderId; // account_id as string
+      var response = await api.delete(
         '/api/users/$userId/avatar',
         accessToken: accessToken,
       );
+
+      // If 401, try refreshing the token and retry once
+      if (response.statusCode == 401) {
+        final refreshResult = await AuthService.refreshSession();
+        if (refreshResult != null) {
+          accessToken = await AuthService.getAccessToken();
+          if (accessToken != null) {
+            response = await api.delete(
+              '/api/users/$userId/avatar',
+              accessToken: accessToken,
+            );
+          }
+        }
+      }
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final colorAvatar =
@@ -593,6 +707,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
             colorAvatar: colorAvatar,
           ),
         );
+        // Invalidate group members cache so avatar updates in member lists
+        _ref.invalidate(groupMembersProvider);
         return null; // success
       }
       final exception = ApiException.fromResponse(response);

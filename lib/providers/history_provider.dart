@@ -36,8 +36,8 @@ final questionHistoryProvider =
       List questionsJson;
       if (data is List) {
         questionsJson = data;
-      } else if (data is Map && data.containsKey('questions')) {
-        questionsJson = data['questions'] as List;
+      } else if (data is Map) {
+        questionsJson = data['questions'] as List? ?? [];
       } else {
         return [];
       }
@@ -154,10 +154,12 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         List questionsJson;
+        int? totalCount;
         if (data is List) {
           questionsJson = data;
-        } else if (data is Map && data.containsKey('questions')) {
-          questionsJson = data['questions'] as List;
+        } else if (data is Map) {
+          questionsJson = data['questions'] as List? ?? [];
+          totalCount = data['total_count'] as int?;
         } else {
           questionsJson = [];
         }
@@ -166,10 +168,16 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
             .toList();
         final allQuestions =
             page == 0 ? newQuestions : [...state.questions, ...newQuestions];
+        final bool hasMore;
+        if (totalCount != null) {
+          hasMore = allQuestions.length < totalCount;
+        } else {
+          hasMore = newQuestions.length >= 20;
+        }
         state = state.copyWith(
           questions: allQuestions,
           isLoading: false,
-          hasMore: newQuestions.length >= 20,
+          hasMore: hasMore,
           currentPage: page,
         );
       } else if (response.statusCode == 404) {

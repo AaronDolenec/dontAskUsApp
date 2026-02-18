@@ -236,8 +236,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                 child: StreakDisplay(
                   streak: userStreak,
-                  longestStreak: questionState.question?.longestStreak ??
-                      authState.user?.longestAnswerStreak,
+                  longestStreak: ref.watch(longestStreakProvider),
                 ),
               ),
 
@@ -272,6 +271,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildQuestionContent(DailyQuestion question) {
+    final isFromToday = ref.watch(
+      questionProvider.select((s) => s.isFromToday),
+    );
+
+    // Past question – always show results, never show voting
+    if (!isFromToday) {
+      return Column(
+        children: [
+          // Past-question banner
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.history, size: 18, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'No new question yet \u2013 here are the latest results',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          QuestionCard(
+            question: question,
+            resultsWidget: _buildResultsWidget(question),
+          ),
+        ],
+      );
+    }
+
     return QuestionCard(
       question: question,
       votingWidget: question.hasUserVoted ? null : _buildVotingWidget(question),

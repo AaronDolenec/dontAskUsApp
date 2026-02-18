@@ -57,17 +57,17 @@ class DailyQuestion {
   /// Get the winning option (option with most votes)
   String? get winningOption {
     if (optionCounts == null || optionCounts!.isEmpty) return null;
-    
+
     String? winner;
     int maxVotes = 0;
-    
+
     for (final entry in optionCounts!.entries) {
       if (entry.value > maxVotes) {
         maxVotes = entry.value;
         winner = entry.key;
       }
     }
-    
+
     return winner;
   }
 
@@ -80,10 +80,11 @@ class DailyQuestion {
 
   factory DailyQuestion.fromJson(Map<String, dynamic> json) {
     return DailyQuestion(
-      id: json['id'] as int,
+      id: json['id'] as int? ?? 0,
       questionId: json['question_id'] as String,
       questionText: json['question_text'] as String,
-      questionType: QuestionTypeExtension.fromString(json['question_type'] as String),
+      questionType:
+          QuestionTypeExtension.fromString(json['question_type'] as String),
       options: json['options'] != null
           ? List<String>.from(json['options'] as List)
           : null,

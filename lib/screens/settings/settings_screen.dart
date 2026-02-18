@@ -6,6 +6,7 @@ import '../../models/group.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/group_provider.dart';
 import '../../providers/multi_group_provider.dart';
+import '../../providers/question_provider.dart';
 import '../../services/share_service.dart';
 import '../../services/api_client.dart';
 import '../../services/api_config.dart';
@@ -25,6 +26,8 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
     final groupInfoAsync = ref.watch(groupInfoProvider);
+    final currentStreak = ref.watch(userStreakProvider);
+    final longestStreak = ref.watch(longestStreakProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -72,7 +75,7 @@ class SettingsScreen extends ConsumerWidget {
                       ),
                       title: Text(authState.user!.displayName),
                       subtitle: Text(
-                          'Streak: 🔥 ${authState.user!.answerStreak} days (Best: ${authState.user!.longestAnswerStreak})'),
+                          'Streak: 🔥 $currentStreak days (Best: ${longestStreak ?? 0})'),
                     ),
                   const Divider(height: 1),
                   ListTile(

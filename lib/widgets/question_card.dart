@@ -58,7 +58,8 @@ class QuestionCard extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -86,7 +87,8 @@ class QuestionCard extends StatelessWidget {
                 const Spacer(),
                 if (question.allowMultiple)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppColors.secondary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
@@ -102,25 +104,25 @@ class QuestionCard extends StatelessWidget {
                   ),
               ],
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Question text
             Text(
               question.questionText,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
-            
+
             const SizedBox(height: 20),
-            
+
             // Voting or Results widget
             if (question.hasUserVoted && resultsWidget != null)
               resultsWidget!
             else if (votingWidget != null)
               votingWidget!,
-            
+
             // Vote count
             if (question.hasUserVoted && question.totalVotes > 0) ...[
               const SizedBox(height: 16),
@@ -138,8 +140,8 @@ class QuestionCard extends StatelessWidget {
                   Text(
                     '${question.totalVotes} vote${question.totalVotes != 1 ? 's' : ''}',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
+                          color: AppColors.textSecondary,
+                        ),
                   ),
                 ],
               ),
@@ -151,8 +153,8 @@ class QuestionCard extends StatelessWidget {
   }
 }
 
-/// Compact question card for history
-class QuestionHistoryCard extends StatelessWidget {
+/// Compact question card for history – expandable to show results
+class QuestionHistoryCard extends StatefulWidget {
   final DailyQuestion question;
   final VoidCallback? onTap;
 
@@ -163,11 +165,25 @@ class QuestionHistoryCard extends StatelessWidget {
   });
 
   @override
+  State<QuestionHistoryCard> createState() => _QuestionHistoryCardState();
+}
+
+class _QuestionHistoryCardState extends State<QuestionHistoryCard> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final question = widget.question;
+    final hasResults = question.optionCounts != null &&
+        question.optionCounts!.isNotEmpty &&
+        question.totalVotes > 0;
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: InkWell(
-        onTap: onTap,
+        onTap: hasResults
+            ? () => setState(() => _expanded = !_expanded)
+            : widget.onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -178,30 +194,31 @@ class QuestionHistoryCard extends StatelessWidget {
               Text(
                 _formatDate(question.questionDate),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppColors.textLight,
-                ),
+                      color: AppColors.textLight,
+                    ),
               ),
-              
+
               const SizedBox(height: 8),
-              
+
               // Question text
               Text(
                 question.questionText,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                      fontWeight: FontWeight.w600,
+                    ),
+                maxLines: _expanded ? null : 2,
+                overflow: _expanded ? null : TextOverflow.ellipsis,
               ),
-              
+
               const SizedBox(height: 12),
-              
-              // User's answer and vote count
+
+              // Badges + expand hint
               Row(
                 children: [
                   if (question.hasUserVoted) ...[
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: AppColors.success.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
@@ -209,11 +226,8 @@ class QuestionHistoryCard extends StatelessWidget {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.check_circle,
-                            size: 14,
-                            color: AppColors.success,
-                          ),
+                          Icon(Icons.check_circle,
+                              size: 14, color: AppColors.success),
                           SizedBox(width: 4),
                           Text(
                             'Answered',
@@ -229,21 +243,38 @@ class QuestionHistoryCard extends StatelessWidget {
                     const SizedBox(width: 8),
                   ],
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: AppColors.background,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      '${question.totalVotes} votes',
+                      '${question.totalVotes} vote${question.totalVotes != 1 ? 's' : ''}',
                       style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 12,
                       ),
                     ),
                   ),
+                  if (hasResults) ...[
+                    const Spacer(),
+                    Icon(
+                      _expanded ? Icons.expand_less : Icons.expand_more,
+                      size: 20,
+                      color: AppColors.textSecondary,
+                    ),
+                  ],
                 ],
               ),
+
+              // Expandable results
+              if (_expanded && hasResults) ...[
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 16),
+                _HistoryResultsSection(question: question),
+              ],
             ],
           ),
         ),
@@ -254,11 +285,117 @@ class QuestionHistoryCard extends StatelessWidget {
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final diff = now.difference(date);
-    
+
     if (diff.inDays == 0) return 'Today';
     if (diff.inDays == 1) return 'Yesterday';
     if (diff.inDays < 7) return '${diff.inDays} days ago';
-    
+
     return '${date.day}/${date.month}/${date.year}';
+  }
+}
+
+/// Inline results section shown inside an expanded history card
+class _HistoryResultsSection extends StatelessWidget {
+  final DailyQuestion question;
+
+  const _HistoryResultsSection({required this.question});
+
+  @override
+  Widget build(BuildContext context) {
+    final optionCounts = question.optionCounts ?? {};
+    final totalVotes = question.totalVotes;
+
+    // Sort options by vote count descending, filter zeros
+    final sorted = optionCounts.entries.where((e) => e.value > 0).toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    if (sorted.isEmpty) {
+      return const Text(
+        'No votes recorded',
+        style: TextStyle(color: AppColors.textSecondary),
+      );
+    }
+
+    final maxCount = sorted.first.value;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Results',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+        const SizedBox(height: 12),
+        ...sorted.map((entry) {
+          final option = entry.key;
+          final count = entry.value;
+          final pct = totalVotes > 0 ? (count / totalVotes * 100) : 0.0;
+          final isWinner = count == maxCount;
+          final barColor = isWinner ? AppColors.primary : AppColors.secondary;
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    if (isWinner)
+                      const Padding(
+                        padding: EdgeInsets.only(right: 6),
+                        child: Icon(Icons.emoji_events,
+                            size: 16, color: AppColors.warning),
+                      ),
+                    Expanded(
+                      child: Text(
+                        option,
+                        style: TextStyle(
+                          fontWeight:
+                              isWinner ? FontWeight.w600 : FontWeight.normal,
+                          fontSize: 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${pct.toStringAsFixed(0)}%',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: barColor,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '($count)',
+                      style: const TextStyle(
+                        color: AppColors.textLight,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: totalVotes > 0 ? count / totalVotes : 0,
+                    minHeight: 6,
+                    backgroundColor: barColor.withValues(alpha: 0.1),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      barColor.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
   }
 }

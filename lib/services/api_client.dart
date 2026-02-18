@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'api_config.dart';
 import 'api_exception.dart';
 
@@ -144,10 +145,21 @@ class ApiClient {
         request.headers['Authorization'] = 'Bearer $accessToken';
       }
 
+      // Determine content type from file extension
+      final ext = fileName.split('.').last.toLowerCase();
+      final mimeType = switch (ext) {
+        'jpg' || 'jpeg' => MediaType('image', 'jpeg'),
+        'png' => MediaType('image', 'png'),
+        'gif' => MediaType('image', 'gif'),
+        'webp' => MediaType('image', 'webp'),
+        _ => MediaType('image', 'jpeg'),
+      };
+
       request.files.add(http.MultipartFile.fromBytes(
         fileField,
         fileBytes,
         filename: fileName,
+        contentType: mimeType,
       ));
 
       if (fields != null) {
