@@ -247,7 +247,7 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final answerResponse = AnswerResponse.fromJson(data);
 
-        // Update question with new vote counts
+        // Update question with new vote counts and answer details
         final updatedQuestion = question.copyWith(
           optionCounts: answerResponse.optionCounts,
           totalVotes: answerResponse.totalVotes,
@@ -255,6 +255,9 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
           userTextAnswer: textAnswer,
           userStreak: answerResponse.currentStreak,
           longestStreak: answerResponse.longestStreak,
+          answerDetails: answerResponse.answerDetails,
+          textAnswers: answerResponse.textAnswers,
+          featuredMember: answerResponse.featuredMember,
         );
 
         // Update cache
@@ -270,6 +273,13 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
           question: updatedQuestion,
           isSubmitting: false,
         );
+
+        // Trigger a background refresh to get the absolute latest state
+        // (e.g. if other members voted between our fetch and submit)
+        Future.delayed(const Duration(seconds: 1), () {
+          if (mounted) _fetchFromApi(silent: true);
+        });
+
         return true;
       }
 
@@ -306,8 +316,9 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
     _wsService = WebSocketService(
       groupId: auth.groupId!,
       questionId: question.questionId,
-      onVoteUpdate: (optionCounts, totalVotes) {
-        updateVoteCounts(optionCounts, totalVotes);
+      onVoteUpdate: (optionCounts, totalVotes, {answerDetails}) {
+        updateVoteCounts(optionCounts, totalVotes,
+            answerDetails: answerDetails);
       },
       onError: (error) {
         debugPrint('DEBUG: WebSocket error: $error');
@@ -338,13 +349,15 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
   }
 
   /// Update vote counts from WebSocket
-  void updateVoteCounts(Map<String, int> optionCounts, int totalVotes) {
+  void updateVoteCounts(Map<String, int> optionCounts, int totalVotes,
+      {List<AnswerDetail>? answerDetails}) {
     if (state.question == null) return;
 
     state = state.copyWith(
       question: state.question!.copyWith(
         optionCounts: optionCounts,
         totalVotes: totalVotes,
+        answerDetails: answerDetails ?? state.question!.answerDetails,
       ),
     );
   }

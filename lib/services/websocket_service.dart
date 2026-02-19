@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import '../models/answer_detail.dart';
 import 'api_config.dart';
 
 /// WebSocket service for real-time vote updates
@@ -14,7 +15,8 @@ class WebSocketService {
 
   final String groupId;
   final String questionId;
-  final Function(Map<String, int> optionCounts, int totalVotes)? onVoteUpdate;
+  final Function(Map<String, int> optionCounts, int totalVotes,
+      {List<AnswerDetail>? answerDetails})? onVoteUpdate;
   final Function()? onConnected;
   final Function(dynamic error)? onError;
   final Function()? onDisconnected;
@@ -74,7 +76,17 @@ class WebSocketService {
         final optionCounts =
             Map<String, int>.from(data['option_counts'] as Map);
         final totalVotes = data['total_votes'] as int? ?? 0;
-        onVoteUpdate?.call(optionCounts, totalVotes);
+
+        // Parse answer_details if present in the WebSocket message
+        List<AnswerDetail>? answerDetails;
+        if (data['answer_details'] != null) {
+          answerDetails = (data['answer_details'] as List)
+              .map((e) => AnswerDetail.fromJson(e as Map<String, dynamic>))
+              .toList();
+        }
+
+        onVoteUpdate?.call(optionCounts, totalVotes,
+            answerDetails: answerDetails);
       }
     } catch (e) {
       onError?.call('Failed to parse message: $e');

@@ -1,8 +1,8 @@
 # dontAskUs - Complete API Documentation
 
 **Base URL:** `http://localhost:8000` (development)  
-**Version:** 1.3.0  
-**Last Updated:** February 17, 2026
+**Version:** 1.5.0  
+**Last Updated:** February 19, 2026
 
 **IMPORTANT:** All API endpoints require authentication unless explicitly marked as "Public" or "No
 Auth". After registration or login, include the access token in the `Authorization: Bearer <token>`
@@ -19,6 +19,9 @@ header for all requests.
 5. [Avatar Upload Endpoints](#avatar-upload-endpoints)
 6. [Group Endpoints](#group-endpoints)
 7. [Daily Questions & Voting](#daily-questions--voting)
+   - [`{member}` Placeholder — Personalized Questions](#member-placeholder--personalized-questions)
+   - [`answer_details` — Who Answered What](#answer_details--who-answered-what-all-question-types)
+   - [`featured_member` — Personalized Questions](#featured_member--personalized-questions)
 8. [Question Sets](#question-sets)
 9. [Leaderboard](#leaderboard)
 10. [Admin Authentication](#admin-authentication)
@@ -76,12 +79,68 @@ Everything else requires a valid JWT access token.
 
 The backend **automatically generates a new question for each group every day**:
 
-- Runs on server startup and every 24 hours (configurable via `SCHEDULE_INTERVAL_SECONDS`)
+- Runs on server startup and then **at midnight UTC every day** (sleep is dynamically calculated to
+  align with the UTC day boundary, regardless of when the container was started)
 - Selects questions from assigned question sets (or public templates as fallback)
 - Never repeats a question within the same group until all are exhausted
 - Different groups receive different questions on the same day
 - Requires at least 2 members for `member_choice` and `duo_choice` questions
 - Sends push notifications to group members (if FCM is configured)
+
+### `{member}` Placeholder — Personalized Questions
+
+Question templates can include the **`{member}` placeholder** in their `question_text`. When the
+daily question is generated, `{member}` is replaced with a **randomly chosen group member's name**.
+
+This works with **every question type**: `binary_vote`, `free_text`, `single_choice`,
+`member_choice`, and `duo_choice`.
+
+**Examples of `{member}` templates:**
+
+| Template                                           | Type            | Resolved Example                              |
+| -------------------------------------------------- | --------------- | --------------------------------------------- |
+| `"Do you think {member} could beat a bear?"`       | `binary_vote`   | `"Do you think Charlie could beat a bear?"`   |
+| `"What is {member}'s most annoying habit?"`        | `free_text`     | `"What is Alice's most annoying habit?"`      |
+| `"Who would {member} call first in an emergency?"` | `member_choice` | `"Who would Bob call first in an emergency?"` |
+| `"Rate {member}'s fashion sense"`                  | `binary_vote`   | `"Rate Alice's fashion sense"`                |
+
+**How it works:**
+
+1. The scheduler picks a template that contains `{member}` in its `question_text`
+2. A random member of the group is chosen
+3. All occurrences of `{member}` in the question text are replaced with that member's display name
+4. The resolved text is stored in `DailyQuestion.question_text`
+5. The chosen member's ID is stored in `DailyQuestion.featured_member_id`
+6. The API response includes `featured_member` (the chosen member's display name)
+
+> **For app developers:** When displaying a `{member}` question, the `featured_member` field tells
+> you which group member was randomly selected. You can use this to highlight them in the UI — for
+> example, show their avatar next to the question or tag them. The `question_text` already has the
+> placeholder resolved, so you can display it directly.
+
+**Creating `{member}` questions (Group Creator):**
+
+When creating a private question set via the Group Creator API, include `{member}` literally in the
+`text` field:
+
+```json
+{
+  "name": "Personalized Questions",
+  "questions": [
+    {
+      "text": "Do you think {member} could survive a zombie apocalypse?",
+      "question_type": "binary_vote"
+    },
+    {
+      "text": "What is {member}'s hidden talent?",
+      "question_type": "free_text"
+    }
+  ]
+}
+```
+
+The `{member}` placeholder is resolved at **question creation time** (when the scheduler picks the
+template for a group), not at display time. Each group gets a different random member.
 
 ### Authentication Types
 
@@ -213,14 +272,27 @@ Content-Type: application/json
   "access_token": "eyJ...",
   "refresh_token": "eyJ...",
   "token_type": "bearer",
-  "user": {
-    "account_id": 1,
-    "email": "alice@example.com",
-    "display_name": "Alice",
-    "groups": []
-  }
+  "expires_in": 1800,
+  "account_id": "uuid",
+  "display_name": "Alice",
+  "email": "alice@example.com",
+  "avatar_url": null,
+  "color_avatar": null,
+  "answer_streak": 0,
+  "longest_answer_streak": 0
 }
 ```
+
+| Field                   | Type           | Description                                  |
+| ----------------------- | -------------- | -------------------------------------------- |
+| `avatar_url`            | string \| null | Full URL to the user's uploaded avatar image |
+| `color_avatar`          | string \| null | Hex color fallback avatar (e.g. `"#BB8FCE"`) |
+| `answer_streak`         | int            | Current consecutive-day answer streak        |
+| `longest_answer_streak` | int            | All-time longest streak                      |
+
+> **Note:** For newly registered accounts (no group memberships yet), `avatar_url` and
+> `color_avatar` will be `null`, and streaks will be `0`. These fields are aggregated from the
+> user's group memberships.
 
 **Errors:**
 
@@ -252,21 +324,23 @@ Content-Type: application/json
   "access_token": "eyJ...",
   "refresh_token": "eyJ...",
   "token_type": "bearer",
-  "user": {
-    "account_id": 1,
-    "email": "alice@example.com",
-    "display_name": "Alice",
-    "groups": [
-      {
-        "user_id": 10,
-        "group_id": "group-uuid",
-        "group_name": "My Group",
-        "display_name": "Alice"
-      }
-    ]
-  }
+  "expires_in": 1800,
+  "account_id": "uuid",
+  "display_name": "Alice",
+  "email": "alice@example.com",
+  "avatar_url": "https://api.example.com/uploads/avatars/abc123.webp",
+  "color_avatar": "#BB8FCE",
+  "answer_streak": 5,
+  "longest_answer_streak": 12
 }
 ```
+
+| Field                   | Type           | Description                                       |
+| ----------------------- | -------------- | ------------------------------------------------- |
+| `avatar_url`            | string \| null | Full URL to user's uploaded avatar (null if none) |
+| `color_avatar`          | string \| null | Hex color fallback from first group membership    |
+| `answer_streak`         | int            | Max current streak across all group memberships   |
+| `longest_answer_streak` | int            | Max all-time streak across all group memberships  |
 
 **Errors:**
 
@@ -297,9 +371,19 @@ Content-Type: application/json
   "access_token": "eyJ...",
   "refresh_token": "eyJ...",
   "token_type": "bearer",
-  "user": { ... }
+  "expires_in": 1800,
+  "account_id": "uuid",
+  "display_name": "Alice",
+  "email": "alice@example.com",
+  "avatar_url": "https://api.example.com/uploads/avatars/abc123.webp",
+  "color_avatar": "#BB8FCE",
+  "answer_streak": 5,
+  "longest_answer_streak": 12
 }
 ```
+
+The response includes the same `avatar_url`, `color_avatar`, `answer_streak`, and
+`longest_answer_streak` fields as login.
 
 **Errors:**
 
@@ -322,19 +406,44 @@ Authorization: Bearer <access_token>
 
 ```json
 {
-  "account_id": 1,
-  "email": "alice@example.com",
-  "display_name": "Alice",
+  "account": {
+    "account_id": "uuid",
+    "email": "alice@example.com",
+    "display_name": "Alice",
+    "is_active": true,
+    "is_verified": false,
+    "created_at": "2026-02-18T00:00:00Z",
+    "last_login": "2026-02-18T12:00:00Z",
+    "avatar_url": "https://api.example.com/uploads/avatars/abc123.webp",
+    "color_avatar": "#BB8FCE",
+    "answer_streak": 5,
+    "longest_answer_streak": 12
+  },
   "groups": [
     {
-      "user_id": 10,
+      "user_id": "uuid",
       "group_id": "group-uuid",
       "group_name": "My Group",
-      "display_name": "Alice"
+      "display_name": "Alice",
+      "color_avatar": "#BB8FCE",
+      "avatar_url": "https://api.example.com/uploads/avatars/abc123.webp",
+      "answer_streak": 5,
+      "longest_answer_streak": 12,
+      "joined_at": "2026-02-01T10:00:00Z"
     }
   ]
 }
 ```
+
+| Field (account level)   | Type           | Description                                        |
+| ----------------------- | -------------- | -------------------------------------------------- |
+| `avatar_url`            | string \| null | Uploaded avatar from first membership that has one |
+| `color_avatar`          | string \| null | Color avatar from first group membership           |
+| `answer_streak`         | int            | Max current streak across all memberships          |
+| `longest_answer_streak` | int            | Max all-time longest streak across all memberships |
+
+Each group membership also includes per-group `avatar_url`, `color_avatar`, `answer_streak`,
+`longest_answer_streak`, and `joined_at`.
 
 **Errors:**
 
@@ -463,10 +572,15 @@ Content-Type: application/json
 
 ```json
 {
-  "user_id": 10,
+  "user_id": "uuid",
   "group_id": "group-uuid",
   "group_name": "My Group",
-  "display_name": "Alice"
+  "display_name": "Alice",
+  "color_avatar": "#BB8FCE",
+  "avatar_url": null,
+  "answer_streak": 0,
+  "longest_answer_streak": 0,
+  "joined_at": "2026-02-18T10:00:00Z"
 }
 ```
 
@@ -570,13 +684,15 @@ file: <image file>
 **Request:**
 
 - File must be uploaded as `multipart/form-data` with field name `file`
-- Supported formats: JPEG, PNG, GIF, WebP
+- Supported formats: **JPEG, PNG, GIF, WebP, BMP, TIFF, ICO, HEIC, HEIF, AVIF, SVG**
 - Maximum file size: 2MB
 - Image is automatically:
   - Resized to max 256x256 pixels (maintains aspect ratio)
   - Converted to WebP format
   - Transparency converted to white background
 - The `user_id` in the URL must match the authenticated user's ID
+- Mobile browsers that send `application/octet-stream` as the content type are also accepted (the
+  server validates the actual file contents via magic bytes)
 
 **Response (200):**
 
@@ -593,7 +709,7 @@ file: <image file>
 
 - `400` No file provided
 - `400` File too large (max 2MB)
-- `400` Invalid file type (only JPEG, PNG, GIF, WebP allowed)
+- `400` Invalid file type (only JPEG, PNG, GIF, WebP, BMP, TIFF, ICO, HEIC, HEIF, AVIF, SVG allowed)
 - `400` Invalid or corrupted image file
 - `401` Authorization header required / Invalid token / User ID mismatch
 - `500` Failed to save avatar file
@@ -880,13 +996,17 @@ manual creation (admin override) or retrieving the current question.
 
 ### Question Types
 
-| Type            | Options Source         | Allow Multiple | Notes                         |
-| --------------- | ---------------------- | -------------- | ----------------------------- |
-| `binary_vote`   | Yes/No (automatic)     | No             | Simple binary choice          |
-| `single_choice` | Custom list            | No             | Single selection from options |
-| `member_choice` | Group members          | Optional       | Choose member(s) from group   |
-| `duo_choice`    | Generated member pairs | No             | Choose from random duos       |
-| `free_text`     | None                   | N/A            | Open-ended text response      |
+| Type            | Options Source         | Allow Multiple | `{member}` Compatible | Notes                         |
+| --------------- | ---------------------- | -------------- | --------------------- | ----------------------------- |
+| `binary_vote`   | Yes/No or custom       | No             | ✅ Yes                | Simple binary choice          |
+| `single_choice` | Custom list            | No             | ✅ Yes                | Single selection from options |
+| `member_choice` | Group members          | Optional       | ✅ Yes                | Choose member(s) from group   |
+| `duo_choice`    | Generated member pairs | No             | ✅ Yes                | Choose from random duos       |
+| `free_text`     | None                   | N/A            | ✅ Yes                | Open-ended text response      |
+
+> **`{member}` placeholder:** Any question type can include `{member}` in its template text. It is
+> replaced with a random group member's display name when the daily question is created. See
+> [`{member}` Placeholder](#member-placeholder--personalized-questions) for details.
 
 ---
 
@@ -945,27 +1065,139 @@ Authorization: Bearer <access_token>
 {
   "id": 1,
   "question_id": "uuid",
-  "question_text": "Who is the funniest?",
-  "question_type": "member_choice",
-  "options": ["Alice", "Bob", "Charlie"],
+  "question_text": "Do you think Charlie could beat a bear in a fight?",
+  "question_type": "binary_vote",
+  "options": ["Yes", "No"],
   "option_counts": {
-    "Alice": 3,
-    "Bob": 1,
-    "Charlie": 2
+    "Yes": 4,
+    "No": 2
   },
-  "question_date": "2025-12-17T00:00:00Z",
+  "question_date": "2026-02-19T00:00:00Z",
   "is_active": true,
   "total_votes": 6,
   "allow_multiple": false,
-  "user_vote": "Alice",
+  "user_vote": "Yes",
   "user_text_answer": null,
+  "text_answers": null,
+  "answer_details": [
+    {
+      "display_name": "Alice",
+      "answer": "Yes",
+      "text_answer": null,
+      "color_avatar": "#FF6B6B",
+      "avatar_url": "https://api.example.com/uploads/avatars/abc123.webp"
+    },
+    {
+      "display_name": "Bob",
+      "answer": "No",
+      "text_answer": null,
+      "color_avatar": "#4ECDC4",
+      "avatar_url": null
+    },
+    {
+      "display_name": "Charlie",
+      "answer": "Yes",
+      "text_answer": null,
+      "color_avatar": "#45B7D1",
+      "avatar_url": null
+    }
+  ],
+  "featured_member": "Charlie",
   "user_streak": 3,
   "longest_streak": 5
 }
 ```
 
-**Note:** `user_vote` is `null` if not answered, a string for single-select, or an array for
-multi-select when `allow_multiple` is `true`.
+#### Response Field Reference
+
+| Field              | Type                       | Description                                                                                     |
+| ------------------ | -------------------------- | ----------------------------------------------------------------------------------------------- |
+| `question_id`      | string                     | UUID of the question (use this for submitting answers)                                          |
+| `question_text`    | string                     | The resolved question text (any `{member}` placeholder already replaced)                        |
+| `question_type`    | string                     | One of: `binary_vote`, `single_choice`, `member_choice`, `duo_choice`, `free_text`              |
+| `options`          | string[] \| null           | Available answer choices (`null` for `free_text`)                                               |
+| `option_counts`    | object \| null             | Vote count per option (e.g. `{"Yes": 4, "No": 2}`)                                              |
+| `total_votes`      | int                        | Total number of users who have answered                                                         |
+| `allow_multiple`   | bool                       | Whether multi-select is allowed for this question                                               |
+| `user_vote`        | string \| string[] \| null | Current user's answer. `null` = not yet answered. Array if `allow_multiple` is true             |
+| `user_text_answer` | string \| null             | Current user's free-text answer (only for `free_text` questions)                                |
+| `text_answers`     | object[] \| null           | All free-text answers with avatars (only for `free_text` — see below)                           |
+| `answer_details`   | object[] \| null           | **Who answered what** — every vote with user info (all question types — see below)              |
+| `featured_member`  | string \| null             | Display name of the randomly chosen member if `{member}` placeholder was used, otherwise `null` |
+| `user_streak`      | int                        | Current user's consecutive-day answer streak                                                    |
+| `longest_streak`   | int                        | Current user's all-time longest streak                                                          |
+
+#### `answer_details` — Who Answered What (All Question Types)
+
+The `answer_details` array is returned for **every question type** once at least one user has
+answered. It lets you show each group member's individual answer alongside their avatar.
+
+```json
+"answer_details": [
+  {
+    "display_name": "Alice",
+    "answer": "Yes",
+    "text_answer": null,
+    "color_avatar": "#FF6B6B",
+    "avatar_url": "https://api.example.com/uploads/avatars/abc123.webp"
+  },
+  {
+    "display_name": "Bob",
+    "answer": ["Alice", "Charlie"],
+    "text_answer": null,
+    "color_avatar": "#4ECDC4",
+    "avatar_url": null
+  }
+]
+```
+
+| Field          | Type                       | Description                                                                                                         |
+| -------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `display_name` | string                     | The member who voted                                                                                                |
+| `answer`       | string \| string[] \| null | Their choice. String for single-select, array for `allow_multiple`. For `free_text`, this equals the `text_answer`. |
+| `text_answer`  | string \| null             | The free-text response (only present for `free_text` questions)                                                     |
+| `color_avatar` | string                     | Hex color fallback avatar (e.g. `"#FF6B6B"`)                                                                        |
+| `avatar_url`   | string \| null             | Full URL to uploaded avatar image, or `null`                                                                        |
+
+> **For app developers:** Use `answer_details` to build a "who voted what" UI. For example, show
+> each member's avatar next to their answer, or group members by their chosen option. This is
+> returned as `null` when nobody has answered yet, so check for `null` before iterating.
+
+> **Privacy note:** `answer_details` is visible to all group members — there are no anonymous votes.
+
+#### `featured_member` — Personalized Questions
+
+When a question was generated from a template containing the `{member}` placeholder,
+`featured_member` contains the display name of the randomly selected group member.
+
+> **For app developers:** If `featured_member` is not `null`, consider highlighting that member in
+> the question UI — for example, show their avatar next to the question text, or apply a special
+> "featured" badge.
+
+#### `text_answers` — Free-Text Responses
+
+For `free_text` questions only, `text_answers` contains all submitted answers with user info:
+
+```json
+"text_answers": [
+  {
+    "display_name": "Alice",
+    "text_answer": "I love coding!",
+    "color_avatar": "#BB8FCE",
+    "avatar_url": "https://api.example.com/uploads/avatars/abc123.webp"
+  },
+  {
+    "display_name": "Bob",
+    "text_answer": "Hiking and photography",
+    "color_avatar": "#4ECDC4",
+    "avatar_url": null
+  }
+]
+```
+
+> **Tip:** For `free_text` questions, both `text_answers` and `answer_details` are populated.
+> `text_answers` is a simpler structure focused on the text; `answer_details` includes the `answer`
+> field as well. Use whichever fits your UI better.
 
 **Errors:**
 
@@ -1007,19 +1239,67 @@ Content-Type: application/json
 ```json
 {
   "success": true,
-  "question_type": "member_choice",
+  "question_type": "binary_vote",
   "vote_count_a": 4,
-  "vote_count_b": 1,
-  "total_votes": 7,
+  "vote_count_b": 2,
+  "total_votes": 6,
   "option_counts": {
-    "Alice": 4,
-    "Bob": 1,
-    "Charlie": 2
+    "Yes": 4,
+    "No": 2
   },
-  "options": ["Alice", "Bob", "Charlie"],
-  "user_answer": "Alice",
+  "options": ["Yes", "No"],
+  "user_answer": "Yes",
   "current_streak": 4,
-  "longest_streak": 5
+  "longest_streak": 5,
+  "answer_details": [
+    {
+      "display_name": "Alice",
+      "answer": "Yes",
+      "text_answer": null,
+      "color_avatar": "#FF6B6B",
+      "avatar_url": "https://api.example.com/uploads/avatars/abc123.webp"
+    },
+    {
+      "display_name": "Bob",
+      "answer": "No",
+      "text_answer": null,
+      "color_avatar": "#4ECDC4",
+      "avatar_url": null
+    }
+  ],
+  "featured_member": "Charlie"
+}
+```
+
+The submit response **always** includes `answer_details` (the complete list of who answered what)
+and `featured_member` (the randomly selected member, or `null` if this question doesn't use the
+`{member}` placeholder).
+
+For `free_text` questions, the response also includes `text_answers`:
+
+```json
+{
+  "success": true,
+  "question_type": "free_text",
+  "total_votes": 2,
+  "text_answers": [
+    {
+      "display_name": "Alice",
+      "text_answer": "I love coding!",
+      "color_avatar": "#BB8FCE",
+      "avatar_url": "https://api.example.com/uploads/avatars/abc123.webp"
+    }
+  ],
+  "answer_details": [
+    {
+      "display_name": "Alice",
+      "answer": "I love coding!",
+      "text_answer": "I love coding!",
+      "color_avatar": "#BB8FCE",
+      "avatar_url": "https://api.example.com/uploads/avatars/abc123.webp"
+    }
+  ],
+  "featured_member": null
 }
 ```
 
@@ -1068,6 +1348,42 @@ Authorization: Bearer <access_token>
   "questions": [
     {
       "question_id": "uuid-1",
+      "question_text": "Do you think Charlie could beat a bear?",
+      "question_type": "binary_vote",
+      "option_a": "Yes",
+      "option_b": "No",
+      "options": ["Yes", "No"],
+      "option_counts": {
+        "Yes": 4,
+        "No": 2
+      },
+      "question_date": "2026-02-19T00:00:00Z",
+      "is_active": false,
+      "vote_count_a": 4,
+      "vote_count_b": 2,
+      "total_votes": 6,
+      "allow_multiple": false,
+      "user_vote": "Yes",
+      "answer_details": [
+        {
+          "display_name": "Alice",
+          "answer": "Yes",
+          "text_answer": null,
+          "color_avatar": "#FF6B6B",
+          "avatar_url": "https://api.example.com/uploads/avatars/abc123.webp"
+        },
+        {
+          "display_name": "Bob",
+          "answer": "No",
+          "text_answer": null,
+          "color_avatar": "#4ECDC4",
+          "avatar_url": null
+        }
+      ],
+      "featured_member": "Charlie"
+    },
+    {
+      "question_id": "uuid-2",
       "question_text": "Who is the funniest?",
       "question_type": "member_choice",
       "option_a": null,
@@ -1078,31 +1394,61 @@ Authorization: Bearer <access_token>
         "Bob": 2,
         "Charlie": 1
       },
-      "question_date": "2026-02-09T00:00:00Z",
+      "question_date": "2026-02-18T00:00:00Z",
       "is_active": false,
       "vote_count_a": 0,
       "vote_count_b": 0,
       "total_votes": 7,
-      "allow_multiple": false
-    },
+      "allow_multiple": false,
+      "user_vote": "Alice",
+      "answer_details": [
+        {
+          "display_name": "Alice",
+          "answer": "Bob",
+          "text_answer": null,
+          "color_avatar": "#FF6B6B",
+          "avatar_url": "https://api.example.com/uploads/avatars/abc123.webp"
+        },
+        {
+          "display_name": "Bob",
+          "answer": "Alice",
+          "text_answer": null,
+          "color_avatar": "#4ECDC4",
+          "avatar_url": null
+        }
+      ],
+      "featured_member": null
+    }
+  ]
+}
+```
+
+Each history entry includes `answer_details` (who answered what) and `featured_member` (the randomly
+chosen member if the question used the `{member}` placeholder, otherwise `null`).
+
+For `free_text` questions in history, each entry also includes `text_answers`:
+
+```json
+{
+  "question_id": "uuid-3",
+  "question_text": "What is Alice's most annoying habit?",
+  "question_type": "free_text",
+  "featured_member": "Alice",
+  "text_answers": [
     {
-      "question_id": "uuid-2",
-      "question_text": "Best movie of 2025?",
-      "question_type": "single_choice",
-      "option_a": "Movie A",
-      "option_b": "Movie B",
-      "options": ["Movie A", "Movie B", "Movie C"],
-      "option_counts": {
-        "Movie A": 3,
-        "Movie B": 2,
-        "Movie C": 4
-      },
-      "question_date": "2026-02-08T00:00:00Z",
-      "is_active": false,
-      "vote_count_a": 3,
-      "vote_count_b": 2,
-      "total_votes": 9,
-      "allow_multiple": false
+      "display_name": "Bob",
+      "text_answer": "She always corrects my grammar",
+      "color_avatar": "#4ECDC4",
+      "avatar_url": null
+    }
+  ],
+  "answer_details": [
+    {
+      "display_name": "Bob",
+      "answer": "She always corrects my grammar",
+      "text_answer": "She always corrects my grammar",
+      "color_avatar": "#4ECDC4",
+      "avatar_url": null
     }
   ]
 }
@@ -1112,8 +1458,10 @@ Authorization: Bearer <access_token>
 
 - Results are ordered by `question_date` descending (most recent first)
 - Includes both active and inactive questions
-- No authentication required (public endpoint)
+- Authentication required (JWT Bearer token + group membership)
 - Use `skip` and `limit` for pagination
+- `answer_details` is `null` if no one has answered that question
+- `featured_member` is `null` for questions that didn't use the `{member}` placeholder
 
 **Errors:**
 
@@ -1194,7 +1542,7 @@ Authorization: Bearer <access_token>
     "created_at": "2026-02-09T10:00:00Z",
     "templates": [
       {
-        "template_id": "uuid",
+        "template_id": "uuid-1",
         "category": "Default",
         "question_text": "What's your superpower?",
         "option_a_template": null,
@@ -1203,11 +1551,26 @@ Authorization: Bearer <access_token>
         "allow_multiple": false,
         "is_public": true,
         "created_at": "2026-02-09T10:00:00Z"
+      },
+      {
+        "template_id": "uuid-2",
+        "category": "Default",
+        "question_text": "Do you think {member} could beat a bear in a fight?",
+        "option_a_template": null,
+        "option_b_template": null,
+        "question_type": "binary_vote",
+        "allow_multiple": false,
+        "is_public": true,
+        "created_at": "2026-02-09T10:00:00Z"
       }
     ]
   }
 ]
 ```
+
+> **Note:** Templates containing `{member}` in the `question_text` will have the placeholder
+> replaced with a random group member's name when the scheduler creates a daily question. The raw
+> template text is returned as-is in this listing.
 
 **Errors:**
 
@@ -2579,10 +2942,22 @@ Content-Type: application/json
       "text": "Is this good?",
       "question_type": "binary_vote",
       "options": ["Yes", "No"]
+    },
+    {
+      "text": "Do you think {member} could survive on a desert island?",
+      "question_type": "binary_vote"
+    },
+    {
+      "text": "What is {member}'s hidden talent?",
+      "question_type": "free_text"
     }
   ]
 }
 ```
+
+> **`{member}` placeholder:** Include `{member}` literally in the `text` field. When the scheduler
+> picks this template for a group, `{member}` is replaced with a randomly chosen group member's
+> display name. Works with all question types.
 
 **Response (200):**
 
@@ -3169,28 +3544,28 @@ USER_JWT_REFRESH_EXPIRE_DAYS=30
 # OPTIONAL SETTINGS
 # ═══════════════════════════════════════════════════════════════════════
 LOG_LEVEL=INFO
-SCHEDULE_INTERVAL_SECONDS=86400
+# SCHEDULE_INTERVAL_SECONDS is deprecated — the scheduler now auto-aligns to midnight UTC
 ```
 
 ### Environment Variable Reference
 
-| Variable                         | Description                                 | Required | Default |
-| -------------------------------- | ------------------------------------------- | -------- | ------- |
-| `DATABASE_URL`                   | PostgreSQL connection string                | Yes      | -       |
-| `REDIS_URL`                      | Redis connection string                     | Yes      | -       |
-| `SECRET_KEY`                     | JWT secret for user sessions                | Yes      | -       |
-| `ADMIN_JWT_SECRET`               | JWT secret for admin sessions               | Yes      | -       |
-| `ADMIN_INITIAL_USERNAME`         | Initial admin username                      | No       | `admin` |
-| `ADMIN_INITIAL_PASSWORD`         | Initial admin password                      | Yes      | -       |
-| `ALLOWED_ORIGINS`                | CORS allowed origins                        | Yes      | -       |
-| `USER_JWT_SECRET`                | JWT secret for user tokens                  | Yes      | -       |
-| `USER_JWT_ACCESS_EXPIRE_MINUTES` | User access token expiry (mins)             | No       | `30`    |
-| `USER_JWT_REFRESH_EXPIRE_DAYS`   | User refresh token expiry (days)            | No       | `30`    |
-| `TRUSTED_PROXIES`                | Trusted proxy IPs/CIDRs for X-Forwarded-For | No       | -       |
-| `LOG_LEVEL`                      | Logging level                               | No       | `INFO`  |
-| `SCHEDULE_INTERVAL_SECONDS`      | Question scheduling interval                | No       | `86400` |
-| `FCM_PROJECT_ID`                 | Firebase project ID                         | No\*     | -       |
-| `FCM_SERVICE_ACCOUNT_JSON`       | Firebase service account JSON               | No\*     | -       |
+| Variable                         | Description                                              | Required | Default |
+| -------------------------------- | -------------------------------------------------------- | -------- | ------- |
+| `DATABASE_URL`                   | PostgreSQL connection string                             | Yes      | -       |
+| `REDIS_URL`                      | Redis connection string                                  | Yes      | -       |
+| `SECRET_KEY`                     | JWT secret for user sessions                             | Yes      | -       |
+| `ADMIN_JWT_SECRET`               | JWT secret for admin sessions                            | Yes      | -       |
+| `ADMIN_INITIAL_USERNAME`         | Initial admin username                                   | No       | `admin` |
+| `ADMIN_INITIAL_PASSWORD`         | Initial admin password                                   | Yes      | -       |
+| `ALLOWED_ORIGINS`                | CORS allowed origins                                     | Yes      | -       |
+| `USER_JWT_SECRET`                | JWT secret for user tokens                               | Yes      | -       |
+| `USER_JWT_ACCESS_EXPIRE_MINUTES` | User access token expiry (mins)                          | No       | `30`    |
+| `USER_JWT_REFRESH_EXPIRE_DAYS`   | User refresh token expiry (days)                         | No       | `30`    |
+| `TRUSTED_PROXIES`                | Trusted proxy IPs/CIDRs for X-Forwarded-For              | No       | -       |
+| `LOG_LEVEL`                      | Logging level                                            | No       | `INFO`  |
+| `SCHEDULE_INTERVAL_SECONDS`      | _(Deprecated)_ Scheduler now auto-aligns to midnight UTC | No       | -       |
+| `FCM_PROJECT_ID`                 | Firebase project ID                                      | No\*     | -       |
+| `FCM_SERVICE_ACCOUNT_JSON`       | Firebase service account JSON                            | No\*     | -       |
 
 \*Required only if push notifications are enabled
 

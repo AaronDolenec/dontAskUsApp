@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../utils/app_colors.dart';
+import 'answer_details_section.dart';
 
 /// Card displaying the daily question
 class QuestionCard extends StatelessWidget {
@@ -107,6 +108,12 @@ class QuestionCard extends StatelessWidget {
 
             const SizedBox(height: 16),
 
+            // Featured member badge (for {member} placeholder questions)
+            if (question.featuredMember != null) ...[
+              FeaturedMemberBadge(memberName: question.featuredMember!),
+              const SizedBox(height: 12),
+            ],
+
             // Question text
             Text(
               question.questionText,
@@ -174,9 +181,10 @@ class _QuestionHistoryCardState extends State<QuestionHistoryCard> {
   @override
   Widget build(BuildContext context) {
     final question = widget.question;
-    final hasResults = question.optionCounts != null &&
-        question.optionCounts!.isNotEmpty &&
-        question.totalVotes > 0;
+    final hasResults = (question.optionCounts != null &&
+            question.optionCounts!.isNotEmpty &&
+            question.totalVotes > 0) ||
+        (question.answerDetails != null && question.answerDetails!.isNotEmpty);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -190,12 +198,20 @@ class _QuestionHistoryCardState extends State<QuestionHistoryCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Date
-              Text(
-                _formatDate(question.questionDate),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.textLight,
-                    ),
+              // Date + featured member
+              Row(
+                children: [
+                  Text(
+                    _formatDate(question.questionDate),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: AppColors.textLight,
+                        ),
+                  ),
+                  if (question.featuredMember != null) ...[
+                    const SizedBox(width: 8),
+                    FeaturedMemberBadge(memberName: question.featuredMember!),
+                  ],
+                ],
               ),
 
               const SizedBox(height: 8),
@@ -309,92 +325,113 @@ class _HistoryResultsSection extends StatelessWidget {
     final sorted = optionCounts.entries.where((e) => e.value > 0).toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    if (sorted.isEmpty) {
+    final bool isFreeText = question.questionType == QuestionType.freeText;
+
+    if (sorted.isEmpty && !isFreeText) {
       return const Text(
         'No votes recorded',
         style: TextStyle(color: AppColors.textSecondary),
       );
     }
 
-    final maxCount = sorted.first.value;
+    final maxCount = sorted.isNotEmpty ? sorted.first.value : 0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Results',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: AppColors.textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        const SizedBox(height: 12),
-        ...sorted.map((entry) {
-          final option = entry.key;
-          final count = entry.value;
-          final pct = totalVotes > 0 ? (count / totalVotes * 100) : 0.0;
-          final isWinner = count == maxCount;
-          final barColor = isWinner ? AppColors.primary : AppColors.secondary;
+        // Featured member badge
+        if (question.featuredMember != null) ...[
+          FeaturedMemberBadge(memberName: question.featuredMember!),
+          const SizedBox(height: 12),
+        ],
 
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    if (isWinner)
-                      const Padding(
-                        padding: EdgeInsets.only(right: 6),
-                        child: Icon(Icons.emoji_events,
-                            size: 16, color: AppColors.warning),
-                      ),
-                    Expanded(
-                      child: Text(
-                        option,
-                        style: TextStyle(
-                          fontWeight:
-                              isWinner ? FontWeight.w600 : FontWeight.normal,
-                          fontSize: 14,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${pct.toStringAsFixed(0)}%',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: barColor,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '($count)',
-                      style: const TextStyle(
-                        color: AppColors.textLight,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+        if (!isFreeText) ...[
+          Text(
+            'Results',
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: totalVotes > 0 ? count / totalVotes : 0,
-                    minHeight: 6,
-                    backgroundColor: barColor.withValues(alpha: 0.1),
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      barColor.withValues(alpha: 0.7),
+          ),
+          const SizedBox(height: 12),
+          ...sorted.map((entry) {
+            final option = entry.key;
+            final count = entry.value;
+            final pct = totalVotes > 0 ? (count / totalVotes * 100) : 0.0;
+            final isWinner = count == maxCount;
+            final barColor = isWinner ? AppColors.primary : AppColors.secondary;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      if (isWinner)
+                        const Padding(
+                          padding: EdgeInsets.only(right: 6),
+                          child: Icon(Icons.emoji_events,
+                              size: 16, color: AppColors.warning),
+                        ),
+                      Expanded(
+                        child: Text(
+                          option,
+                          style: TextStyle(
+                            fontWeight:
+                                isWinner ? FontWeight.w600 : FontWeight.normal,
+                            fontSize: 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '${pct.toStringAsFixed(0)}%',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: barColor,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '($count)',
+                        style: const TextStyle(
+                          color: AppColors.textLight,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: totalVotes > 0 ? count / totalVotes : 0,
+                      minHeight: 6,
+                      backgroundColor: barColor.withValues(alpha: 0.1),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        barColor.withValues(alpha: 0.7),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          );
-        }),
+                ],
+              ),
+            );
+          }),
+        ],
+
+        // Answer details — who answered what
+        if (question.answerDetails != null &&
+            question.answerDetails!.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          AnswerDetailsSection(
+            answerDetails: question.answerDetails!,
+            questionType: question.questionType.apiValue,
+            groupByOption: !isFreeText,
+          ),
+        ],
       ],
     );
   }

@@ -5,6 +5,7 @@ import '../../models/question_type.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/question_provider.dart';
 import '../../utils/app_colors.dart';
+import '../../widgets/answer_details_section.dart';
 import '../../widgets/avatar_circle.dart';
 import '../../widgets/streak_badge.dart';
 import '../../widgets/loading_shimmer.dart';
@@ -418,35 +419,55 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final winningOption = question.winningOption;
 
     if (question.questionType == QuestionType.freeText) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.success.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.check_circle, color: AppColors.success, size: 20),
-                SizedBox(width: 8),
-                Text(
-                  'Your Answer',
-                  style: TextStyle(
-                    color: AppColors.success,
-                    fontWeight: FontWeight.w600,
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // User's own answer
+          if (question.userTextAnswer != null &&
+              question.userTextAnswer!.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.success.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.check_circle,
+                          color: AppColors.success, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Your Answer',
+                        style: TextStyle(
+                          color: AppColors.success,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  Text(
+                    question.userTextAnswer ?? '',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              question.userTextAnswer ?? '',
-              style: Theme.of(context).textTheme.bodyLarge,
+
+          // Show all members' answers via answer_details
+          if (question.answerDetails != null &&
+              question.answerDetails!.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            AnswerDetailsSection(
+              answerDetails: question.answerDetails!,
+              questionType: 'free_text',
+              groupByOption: false,
             ),
           ],
-        ),
+        ],
       );
     }
 
@@ -513,6 +534,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
           );
         }),
+        // Show who answered what
+        if (question.answerDetails != null &&
+            question.answerDetails!.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          AnswerDetailsSection(
+            answerDetails: question.answerDetails!,
+            questionType: question.questionType.apiValue,
+          ),
+        ],
       ],
     );
   }

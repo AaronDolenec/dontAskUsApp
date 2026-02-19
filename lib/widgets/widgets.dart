@@ -1,4 +1,5 @@
 // Barrel file for all widgets
+export 'answer_details_section.dart';
 export 'avatar_circle.dart';
 export 'streak_badge.dart';
 export 'vote_option_card.dart';

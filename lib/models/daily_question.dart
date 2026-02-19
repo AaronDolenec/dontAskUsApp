@@ -1,3 +1,4 @@
+import 'answer_detail.dart';
 import 'question_type.dart';
 
 /// DailyQuestion model representing today's question
@@ -17,6 +18,16 @@ class DailyQuestion {
   final int userStreak;
   final int longestStreak;
 
+  /// Who answered what — every vote with user info (all question types).
+  final List<AnswerDetail>? answerDetails;
+
+  /// All free-text answers with user info (only for free_text questions).
+  final List<TextAnswerEntry>? textAnswers;
+
+  /// Display name of the randomly chosen member if {member} placeholder was
+  /// used, otherwise null.
+  final String? featuredMember;
+
   DailyQuestion({
     required this.id,
     required this.questionId,
@@ -32,6 +43,9 @@ class DailyQuestion {
     this.userTextAnswer,
     this.userStreak = 0,
     this.longestStreak = 0,
+    this.answerDetails,
+    this.textAnswers,
+    this.featuredMember,
   });
 
   /// Check if the user has already voted/answered
@@ -99,6 +113,17 @@ class DailyQuestion {
       userTextAnswer: json['user_text_answer'] as String?,
       userStreak: json['user_streak'] as int? ?? 0,
       longestStreak: json['longest_streak'] as int? ?? 0,
+      answerDetails: json['answer_details'] != null
+          ? (json['answer_details'] as List)
+              .map((e) => AnswerDetail.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : null,
+      textAnswers: json['text_answers'] != null
+          ? (json['text_answers'] as List)
+              .map((e) => TextAnswerEntry.fromJson(e as Map<String, dynamic>))
+              .toList()
+          : null,
+      featuredMember: json['featured_member'] as String?,
     );
   }
 
@@ -118,6 +143,9 @@ class DailyQuestion {
       'user_text_answer': userTextAnswer,
       'user_streak': userStreak,
       'longest_streak': longestStreak,
+      'answer_details': answerDetails?.map((e) => e.toJson()).toList(),
+      'text_answers': textAnswers?.map((e) => e.toJson()).toList(),
+      'featured_member': featuredMember,
     };
   }
 
@@ -136,6 +164,9 @@ class DailyQuestion {
     String? userTextAnswer,
     int? userStreak,
     int? longestStreak,
+    List<AnswerDetail>? answerDetails,
+    List<TextAnswerEntry>? textAnswers,
+    String? featuredMember,
   }) {
     return DailyQuestion(
       id: id ?? this.id,
@@ -152,6 +183,9 @@ class DailyQuestion {
       userTextAnswer: userTextAnswer ?? this.userTextAnswer,
       userStreak: userStreak ?? this.userStreak,
       longestStreak: longestStreak ?? this.longestStreak,
+      answerDetails: answerDetails ?? this.answerDetails,
+      textAnswers: textAnswers ?? this.textAnswers,
+      featuredMember: featuredMember ?? this.featuredMember,
     );
   }
 

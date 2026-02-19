@@ -275,6 +275,36 @@ class _PrivateQuestionSetScreenState
             ),
             const SizedBox(height: 24),
 
+            // {member} placeholder info card
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.star_rounded,
+                      color: Color(0xFFF59E0B), size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Tip: Include {member} in any question to feature a random group member! '
+                      'E.g. "Do you think {member} could survive a zombie apocalypse?"',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: const Color(0xFF92400E),
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
             // Questions header
             Row(
               children: [
@@ -372,11 +402,32 @@ class _PrivateQuestionSetScreenState
             // Question text
             TextFormField(
               controller: q.textController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Question text',
                 hintText: 'e.g. Who is the funniest?',
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
                 isDense: true,
+                helperText:
+                    'Use {member} to insert a random group member\'s name',
+                helperMaxLines: 2,
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.person_add_alt_1, size: 20),
+                  tooltip: 'Insert {member} placeholder',
+                  onPressed: () {
+                    final ctrl = q.textController;
+                    final text = ctrl.text;
+                    final selection = ctrl.selection;
+                    final newText = text.replaceRange(
+                      selection.start,
+                      selection.end,
+                      '{member}',
+                    );
+                    ctrl.text = newText;
+                    ctrl.selection = TextSelection.collapsed(
+                      offset: selection.start + '{member}'.length,
+                    );
+                  },
+                ),
               ),
               maxLines: 2,
               validator: (v) => (v == null || v.trim().isEmpty)

@@ -63,7 +63,9 @@ class WebSocketNotifier extends StateNotifier<WebSocketState> {
       onConnected: _onConnected,
       onDisconnected: _onDisconnected,
       onError: _onError,
-      onVoteUpdate: _onVoteUpdate,
+      onVoteUpdate: (optionCounts, totalVotes, {answerDetails}) {
+        _onVoteUpdate(optionCounts, totalVotes);
+      },
     );
 
     _service!.connect();
