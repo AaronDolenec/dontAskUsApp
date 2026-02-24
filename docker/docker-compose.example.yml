@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  web:
+    image: ghcr.io/aarondolenec/dontaskus-web:latest
+    ports:
+      - "8080:80"
+    volumes:
+      # Mount local build output so you can iterate without rebuilding the image
+      - ../build/web:/srv/app:ro
+    environment:
+      # Runtime configuration: set all sensitive values here in your private docker-compose.yml
+      API_BASE_URL: "http://api.example.com"
+      FCM_PROJECT_ID: "your-firebase-project-id"
+      FCM_SERVICE_ACCOUNT_JSON: "${FCM_SERVICE_ACCOUNT_JSON:-}"
+      SECRET_KEY: "${SECRET_KEY:-replace_me}"
+      # Add other runtime public config values here
+      OTHER_PUBLIC_CONFIG: "value"
+
+# If you have a backend container, add it here and share a Docker network
+# db:
+#   image: postgres:15
+#   environment:
+#     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}

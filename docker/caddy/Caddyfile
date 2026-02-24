@@ -1,0 +1,14 @@
+:80
+root * /srv/app
+encode zstd gzip
+
+# Cache static hashed assets for a long time
+@staticAssets {
+    path_regexp static_assets \.(js|css|svg|png|jpg|jpeg|gif|webp|woff2|woff|ttf|eot|json)$
+}
+
+header @staticAssets Cache-Control "public, max-age=2592000, immutable"
+
+try_files {path} /index.html
+
+file_server
