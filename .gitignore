@@ -100,3 +100,12 @@ secrets/
 *.pem
 *.p12
 *.p8
+
+# Docker compose with environment secrets (create your own docker-compose.yml from the example)
+docker-compose.yml
+docker-compose.override.yml
+/
+# Ignore private docker compose kept inside the docker/ folder
+/docker/docker-compose.yml
+/docker/docker-compose.override.yml
+/docker/docker-compose.secrets.yml
