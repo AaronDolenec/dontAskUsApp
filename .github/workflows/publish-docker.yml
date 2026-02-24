@@ -54,6 +54,6 @@ jobs:
           file: ./docker/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/dontaskus-web:latest
-            ghcr.io/${{ github.repository_owner }}/dontaskus-web:${{ github.sha }}
+            ghcr.io/${{ toLower(github.repository_owner) }}/dontaskus-web:latest
+            ghcr.io/${{ toLower(github.repository_owner) }}/dontaskus-web:${{ github.sha }}
           platforms: linux/amd64,linux/arm64
