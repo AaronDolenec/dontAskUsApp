@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
@@ -7,6 +8,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/group_provider.dart';
 import '../../providers/multi_group_provider.dart';
 import '../../providers/question_provider.dart';
+import '../../services/auth_service.dart';
 import '../../services/share_service.dart';
 import '../../services/api_client.dart';
 import '../../services/api_config.dart';
@@ -32,6 +34,16 @@ class SettingsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
+        leading: IconButton(
+          icon: const Icon(Icons.groups_outlined),
+          onPressed: () {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const GroupsScreen()),
+              (route) => false,
+            );
+          },
+          tooltip: 'All Groups',
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -135,6 +147,14 @@ class SettingsScreen extends ConsumerWidget {
                           ),
                         );
                       },
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.delete_forever,
+                          color: AppColors.error),
+                      title: const Text('Delete Group'),
+                      subtitle: const Text('Permanently delete this group'),
+                      onTap: () => _showDeleteGroupDialog(context, ref),
                     ),
                     const Divider(height: 1),
                     ListTile(
@@ -246,6 +266,108 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  void _showDeleteGroupDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete Group?'),
+        content: const Text(
+          'This will permanently delete the group and all its data '
+          '(members, questions, answers). This cannot be undone.\n\n'
+          'Only the group creator can delete a group.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.of(dialogContext).pop();
+              await _deleteGroup(context, ref);
+            },
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteGroup(BuildContext context, WidgetRef ref) async {
+    final authState = ref.read(authProvider);
+    final groupId = authState.groupId;
+    if (groupId == null) return;
+
+    try {
+      final accessToken = await AuthService.getAccessToken();
+      if (accessToken == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Not authenticated'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+        return;
+      }
+
+      final api = ApiClient();
+      final response = await api.delete(
+        '/api/admin/groups/$groupId',
+        accessToken: accessToken,
+      );
+
+      if (!context.mounted) return;
+
+      if (response.statusCode == 200) {
+        // Clean up local data
+        await AuthService.clearSession(groupId);
+        await ref.read(authProvider.notifier).leaveGroup();
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Group deleted successfully'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => const GroupsScreen()),
+            (route) => false,
+          );
+        }
+      } else {
+        String message;
+        try {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          message = data['detail'] as String? ??
+              data['message'] as String? ??
+              'Failed to delete group';
+        } catch (_) {
+          message = response.statusCode == 403
+              ? 'Only the group creator can delete this group'
+              : response.statusCode == 404
+                  ? 'Group not found'
+                  : 'Failed to delete group (${response.statusCode})';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: AppColors.error),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   void _showClearDataDialog(BuildContext context, WidgetRef ref) {

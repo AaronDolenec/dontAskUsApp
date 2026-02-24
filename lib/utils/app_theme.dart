@@ -16,6 +16,7 @@ class AppTheme {
       colorScheme: const ColorScheme.light(
         primary: AppColors.primary,
         secondary: AppColors.secondary,
+        tertiary: AppColors.accent,
         onSecondary: AppColors.textOnPrimary,
         onSurface: AppColors.textPrimary,
         error: AppColors.error,
@@ -134,6 +135,32 @@ class AppTheme {
             TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
       ),
 
+      // Navigation Bar Theme (Material 3)
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: AppColors.surface,
+        indicatorColor: AppColors.primary.withValues(alpha: 0.12),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primary,
+            );
+          }
+          return const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.normal,
+            color: AppColors.textLight,
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const IconThemeData(color: AppColors.primary);
+          }
+          return const IconThemeData(color: AppColors.textLight);
+        }),
+      ),
+
       // Divider Theme
       dividerTheme: const DividerThemeData(
         color: AppColors.divider,
@@ -202,6 +229,7 @@ class AppTheme {
         primary: AppColors.primary,
         onPrimary: AppColors.textOnPrimary,
         secondary: AppColors.secondary,
+        tertiary: AppColors.accent,
         onSecondary: AppColors.textOnPrimary,
         surface: AppColors.surfaceDark,
         onSurface: AppColors.textPrimaryDark,
@@ -304,6 +332,32 @@ class AppTheme {
             TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
         unselectedLabelStyle:
             TextStyle(fontWeight: FontWeight.normal, fontSize: 12),
+      ),
+
+      // Navigation Bar Theme (Material 3)
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: AppColors.surfaceDark,
+        indicatorColor: AppColors.primaryLight.withValues(alpha: 0.15),
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryLight,
+            );
+          }
+          return const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.normal,
+            color: AppColors.textLightDark,
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
+            return const IconThemeData(color: AppColors.primaryLight);
+          }
+          return const IconThemeData(color: AppColors.textLightDark);
+        }),
       ),
 
       // Divider Theme

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/auth_provider.dart';
 import '../../providers/group_provider.dart';
 import '../../models/group.dart';
 import '../../models/group_member.dart';
@@ -9,6 +8,7 @@ import '../../widgets/loading_shimmer.dart';
 import '../../widgets/error_display.dart';
 import '../../widgets/avatar_circle.dart';
 import '../../widgets/streak_badge.dart';
+import '../groups/groups_screen.dart';
 
 /// Screen displaying group members
 class MembersScreen extends ConsumerStatefulWidget {
@@ -20,29 +20,18 @@ class MembersScreen extends ConsumerStatefulWidget {
 
 class _MembersScreenState extends ConsumerState<MembersScreen> {
   bool _sortByStreak = true;
-  GroupMembersWebSocket? _membersWs;
 
   @override
   void initState() {
     super.initState();
+    // Force a fresh fetch of members every time the screen is opened
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final auth = ref.read(authProvider);
-      if (auth.groupId != null) {
-        _membersWs = GroupMembersWebSocket(
-          groupId: auth.groupId!,
-          onMembersUpdate: (members) {
-            // Optionally trigger provider update or setState
-            setState(() {});
-          },
-        );
-        _membersWs!.connect();
-      }
+      ref.invalidate(groupMembersProvider);
     });
   }
 
   @override
   void dispose() {
-    _membersWs?.disconnect();
     super.dispose();
   }
 
@@ -57,6 +46,16 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Members'),
+        leading: IconButton(
+          icon: const Icon(Icons.groups_outlined),
+          onPressed: () {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const GroupsScreen()),
+              (route) => false,
+            );
+          },
+          tooltip: 'All Groups',
+        ),
         actions: [
           PopupMenuButton<bool>(
             icon: const Icon(Icons.sort),

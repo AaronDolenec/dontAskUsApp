@@ -4,6 +4,7 @@ import '../../providers/auth_provider.dart';
 import '../../utils/app_colors.dart';
 import '../groups/groups_screen.dart';
 import 'forgot_password_screen.dart';
+import 'welcome_screen.dart';
 
 /// Screen for login and registration
 class AuthScreen extends ConsumerStatefulWidget {
@@ -52,11 +53,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     }
 
     if (success && mounted) {
-      // Always go to groups screen after successful auth
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const GroupsScreen()),
-        (route) => false,
-      );
+      if (_isLogin) {
+        // Login — go straight to groups
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const GroupsScreen()),
+          (route) => false,
+        );
+      } else {
+        // Registration — show short onboarding first
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+          (route) => false,
+        );
+      }
     }
   }
 

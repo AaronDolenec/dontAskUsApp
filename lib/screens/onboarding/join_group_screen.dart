@@ -259,15 +259,14 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
 
                 // Group Preview
                 const SizedBox(height: 16),
-                AnimatedContainer(
+                AnimatedSize(
                   duration: const Duration(milliseconds: 200),
-                  height: _isLoadingPreview ||
-                          _previewGroupName != null ||
-                          _previewError != null
-                      ? 60
-                      : 0,
+                  alignment: Alignment.topCenter,
                   child: _isLoadingPreview
-                      ? const Center(child: CircularProgressIndicator())
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
                       : _previewGroupName != null
                           ? Container(
                               padding: const EdgeInsets.all(12),

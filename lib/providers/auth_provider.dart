@@ -659,8 +659,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
             user: state.user!.copyWith(avatarUrl: avatarUrl),
           );
         }
-        // Invalidate group members cache so avatar updates in member lists
-        _ref.invalidate(groupMembersProvider);
+        // Defer invalidation to next microtask to avoid circular dependency
+        // between authProvider state change and groupMembersProvider watch
+        Future.microtask(() => _ref.invalidate(groupMembersProvider));
         return null; // success
       }
       final exception = ApiException.fromResponse(response);
@@ -701,14 +702,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         final colorAvatar =
             data['color_avatar'] as String? ?? state.user!.colorAvatar;
+        // Build a new User directly to set avatarUrl to null (copyWith keeps old value for null params)
         state = state.copyWith(
-          user: state.user!.copyWith(
-            avatarUrl: '', // clear avatar URL
+          user: User(
+            id: state.user!.id,
+            oderId: state.user!.oderId,
+            displayName: state.user!.displayName,
             colorAvatar: colorAvatar,
+            // avatarUrl intentionally omitted — defaults to null, clearing the avatar
+            email: state.user!.email,
+            createdAt: state.user!.createdAt,
+            answerStreak: state.user!.answerStreak,
+            longestAnswerStreak: state.user!.longestAnswerStreak,
+            groups: state.user!.groups,
           ),
         );
-        // Invalidate group members cache so avatar updates in member lists
-        _ref.invalidate(groupMembersProvider);
+        // Defer invalidation to next microtask to avoid circular dependency
+        Future.microtask(() => _ref.invalidate(groupMembersProvider));
         return null; // success
       }
       final exception = ApiException.fromResponse(response);

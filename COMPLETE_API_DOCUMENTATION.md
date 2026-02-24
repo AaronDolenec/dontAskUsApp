@@ -1,8 +1,8 @@
 # dontAskUs - Complete API Documentation
 
 **Base URL:** `http://localhost:8000` (development)  
-**Version:** 1.5.0  
-**Last Updated:** February 19, 2026
+**Version:** 1.7.0  
+**Last Updated:** February 24, 2026
 
 **IMPORTANT:** All API endpoints require authentication unless explicitly marked as "Public" or "No
 Auth". After registration or login, include the access token in the `Authorization: Bearer <token>`
@@ -34,7 +34,11 @@ header for all requests.
 17. [Admin: Audit Logs](#admin-audit-logs)
 18. [Group Creator: Private Question Sets](#group-creator-private-question-sets)
 19. [Push Notifications](#push-notifications)
-20. [WebSocket](#websocket)
+20. [WebSocket — Real-Time Events](#websocket--real-time-events)
+    - [Group-Level WebSocket (Recommended)](#group-level-websocket-recommended)
+    - [Event Types Reference](#event-types-reference)
+    - [Question-Level WebSocket (Legacy)](#question-level-websocket-legacy)
+    - [Integration Guide](#websocket-integration-guide)
 21. [Error Codes](#error-codes)
 22. [Rate Limiting](#rate-limiting)
 23. [Health Check](#health-check)
@@ -77,15 +81,44 @@ Everything else requires a valid JWT access token.
 
 ### Automatic Daily Questions
 
-The backend **automatically generates a new question for each group every day**:
+The backend **automatically generates a new question for each group once per day**:
 
-- Runs on server startup and then **at midnight UTC every day** (sleep is dynamically calculated to
-  align with the UTC day boundary, regardless of when the container was started)
+- Each group has its own **"new day" rollover hour** (`question_hour`, 0–23 UTC). When a group is
+  created, this hour is set to approximately the creation hour **±3 hours of random jitter**. This
+  means different groups roll over to a new question at different times of day.
+- The scheduler runs **every hour** to check all groups and create questions for those whose day has
+  rolled over.
+- **One question at a time:** When a new question is created, all previous questions for the group
+  are automatically deactivated (`is_active = false`). Only one question per group is active at any
+  given time.
+- **Streak check on rollover:** When a new question is created, the system checks which members did
+  **not** answer the previous question and resets their streaks to 0.
+- **On-demand fallback:** If the scheduler hasn't run yet (e.g. timing edge-case, server restart),
+  the `GET /groups/{group_id}/questions/today` endpoint will **automatically create** the group's
+  question on the first request — users never see a stale "no question" state
 - Selects questions from assigned question sets (or public templates as fallback)
-- Never repeats a question within the same group until all are exhausted
+- Never repeats a question within the same group until all are exhausted (90+ default questions)
 - Different groups receive different questions on the same day
 - Requires at least 2 members for `member_choice` and `duo_choice` questions
 - Sends push notifications to group members (if FCM is configured)
+
+#### Per-Group Day Rollover
+
+A group's "question day" does **not** flip at midnight UTC. Instead, it flips at the group's
+`question_hour` UTC. Before that hour, the group is still on the previous calendar day.
+
+**Example:** A group with `question_hour = 14`:
+
+- At 13:59 UTC on Feb 19 → the group's question day is still **Feb 18**
+- At 14:00 UTC on Feb 19 → the group's question day is now **Feb 19**, and a new question is created
+
+This ensures each group gets a new question roughly **24 hours after the previous one**, with
+natural variation (±3 hours) between groups so they don't all roll over at the same instant.
+
+> **For app developers:** The `question_hour` is internal — you don't need to know it. Just call
+> `GET /groups/{group_id}/questions/today` and the backend will always return the correct current
+> question for that group. If the group's day has rolled over but no question exists yet, one will
+> be created on-demand.
 
 ### `{member}` Placeholder — Personalized Questions
 
@@ -287,7 +320,7 @@ Content-Type: application/json
 | ----------------------- | -------------- | -------------------------------------------- |
 | `avatar_url`            | string \| null | Full URL to the user's uploaded avatar image |
 | `color_avatar`          | string \| null | Hex color fallback avatar (e.g. `"#BB8FCE"`) |
-| `answer_streak`         | int            | Current consecutive-day answer streak        |
+| `answer_streak`         | int            | Current consecutive-question answer streak   |
 | `longest_answer_streak` | int            | All-time longest streak                      |
 
 > **Note:** For newly registered accounts (no group memberships yet), `avatar_url` and
@@ -652,13 +685,22 @@ If a user forgets their password:
 2. The user's **data is preserved** (streaks, votes, display name, avatar, etc.)
 3. Account lockout is cleared on password reset
 
-### Streak Reset
+### Streak System
 
-Answer streaks are reset to zero if a user misses answering a daily question:
+Answer streaks track how many consecutive questions a user has answered:
 
-- If the user answers today and answered yesterday → streak continues
-- If the user answers today but last answered 2+ days ago → streak resets to 1
-- Longest streak is preserved for historical tracking
+- **+1 per question answered:** Each time a user answers a daily question, their streak increases by
+  1
+- **Reset on missed question:** When a new question appears for the group and the user **did not
+  answer** the previous question, their streak resets to 0
+- **Editing an answer does not re-increment:** Re-submitting or editing an answer for the same
+  question does not increase the streak again
+- **Longest streak** is preserved for historical tracking (never decreases)
+- **Group streak** is the highest current streak among all group members
+- **Group longest streak** is the highest all-time streak among all group members
+
+> **For app developers:** Streaks are per-group — a user has a separate streak for each group they
+> belong to. The account-level `answer_streak` shown on login/register is the max across all groups.
 
 ---
 
@@ -948,6 +990,7 @@ Authorization: Bearer <access_token>
 **Authentication:** Required (JWT Bearer token + Group Membership)
 
 Get leaderboard sorted by answer streak. User must be a member of the group to view streaks.
+Includes the group streak (highest current streak among all members) and group longest streak.
 
 ```http
 GET /api/groups/{group_id}/leaderboard
@@ -957,28 +1000,42 @@ Authorization: Bearer <access_token>
 **Response (200):**
 
 ```json
-[
-  {
-    "display_name": "Alice",
-    "color_avatar": "#3B82F6",
-    "avatar_url": "https://api.example.com/uploads/avatars/abc123.webp",
-    "answer_streak": 15,
-    "longest_answer_streak": 20
-  },
-  {
-    "display_name": "Bob",
-    "color_avatar": "#EF4444",
-    "answer_streak": 10,
-    "longest_answer_streak": 12
-  }
-]
+{
+  "group_streak": 15,
+  "group_longest_streak": 20,
+  "members": [
+    {
+      "display_name": "Alice",
+      "color_avatar": "#3B82F6",
+      "avatar_url": "https://api.example.com/uploads/avatars/abc123.webp",
+      "answer_streak": 15,
+      "longest_answer_streak": 20
+    },
+    {
+      "display_name": "Bob",
+      "color_avatar": "#EF4444",
+      "avatar_url": null,
+      "answer_streak": 10,
+      "longest_answer_streak": 12
+    }
+  ]
+}
 ```
+
+| Field                             | Type  | Description                                                |
+| --------------------------------- | ----- | ---------------------------------------------------------- |
+| `group_streak`                    | int   | Highest current streak among all group members             |
+| `group_longest_streak`            | int   | Highest all-time streak among all group members            |
+| `members`                         | array | List of members sorted by streak                           |
+| `members[].answer_streak`         | int   | Current consecutive-question answer streak for this member |
+| `members[].longest_answer_streak` | int   | All-time longest streak for this member                    |
 
 **Notes:**
 
 - Results sorted by `answer_streak` descending, then by `longest_answer_streak`
 - User must be a member of the group
 - Streaks are only visible to group members
+- `group_streak` is useful for displaying a group-wide streak counter in the UI
 
 **Errors:**
 
@@ -1211,7 +1268,8 @@ For `free_text` questions only, `text_answers` contains all submitted answers wi
 
 **Authentication:** Required (JWT Bearer token + Group Membership)
 
-Submit an answer to the current question. Updates streaks on first submission.
+Submit an answer to the current question. Increments streak by 1 on first submission for this
+question.
 
 ```http
 POST /api/groups/{group_id}/questions/{question_id}/answer
@@ -3341,40 +3399,341 @@ Authorization: Bearer <access_token>
 
 The server sends these notification types automatically:
 
-| Type                | Trigger                    | Title Example                       |
-| ------------------- | -------------------------- | ----------------------------------- |
-| `new_question`      | New daily question created | "New Question in MyGroup! 🎯"       |
-| `daily_reminder`    | User hasn't answered today | "Don't break your 5-day streak! 🔥" |
-| `results_available` | Voting results ready       | "Results are in! 📊"                |
+| Type                | Trigger                                    | Title Example                       |
+| ------------------- | ------------------------------------------ | ----------------------------------- |
+| `new_question`      | New daily question created                 | "New Question in MyGroup! 🎯"       |
+| `daily_reminder`    | User hasn't answered and streak is at risk | "Don't break your 5-day streak! 🔥" |
+| `results_available` | Voting results ready                       | "Results are in! 📊"                |
+
+**Streak-at-Risk Reminders:** When a new daily question is created, members who missed the previous
+question and had an active streak (`longest_streak > 0`) automatically receive a `daily_reminder`
+push notification. This helps users maintain their streaks.
 
 ### Mobile App Integration
 
-To receive notifications in your app:
+To receive push notifications + real-time updates in your app:
 
 1. **Add Firebase SDK** to your iOS/Android/Web app
 2. **Get device token** from Firebase SDK on app startup
 3. **Register token** with this API when user logs in
 4. **Unregister token** when user logs out
+5. **Connect to the group WebSocket** for live in-app updates (see
+   [WebSocket section](#websocket--real-time-events))
 
 ---
 
-## WebSocket
+## WebSocket — Real-Time Events
 
-### Live Vote Updates
+The backend provides **two** WebSocket endpoints for real-time updates. For new integrations, use
+the **Group-Level WebSocket** — it receives ALL event types with a single connection.
 
-**Authentication:** Required (JWT access token sent in message)
+| Endpoint                                       | Scope                  | Auth            | Use Case                       |
+| ---------------------------------------------- | ---------------------- | --------------- | ------------------------------ |
+| `ws/groups/{group_id}?token=JWT`               | All events for a group | Query param JWT | ⭐ Recommended for mobile apps |
+| `ws/groups/{group_id}/questions/{question_id}` | Vote updates only      | In-message JWT  | Legacy / web widgets           |
 
-Connect to receive real-time voting updates for a specific question.
+---
+
+### Group-Level WebSocket (Recommended)
+
+**Connect to receive ALL real-time events for a group with a single persistent connection.**
+
+```text
+WS /ws/groups/{group_id}?token=<jwt-access-token>
+```
+
+**Authentication:**
+
+- JWT access token is passed as the `token` query parameter
+- User must be a member of the specified group
+- If authentication fails, the server accepts the connection and immediately closes it with code
+  `4001` and reason `"Authentication failed"`
+
+**Connection Example (JavaScript):**
+
+```javascript
+const ws = new WebSocket(`wss://your-server.com/ws/groups/${groupId}?token=${accessToken}`);
+
+ws.onopen = () => {
+  console.log("Connected to group real-time feed");
+};
+
+ws.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+  switch (message.type) {
+    case "vote_update":
+      handleVoteUpdate(message.data);
+      break;
+    case "new_question":
+      handleNewQuestion(message.data);
+      break;
+    case "streak_update":
+      handleStreakUpdate(message.data);
+      break;
+    case "member_joined":
+      handleMemberJoined(message.data);
+      break;
+    case "member_left":
+      handleMemberLeft(message.data);
+      break;
+    case "pong":
+      // keepalive response
+      break;
+  }
+};
+
+ws.onclose = (event) => {
+  if (event.code === 4001) {
+    console.error("Auth failed — re-login and reconnect");
+  }
+};
+```
+
+**Connection Example (Swift / iOS):**
+
+```swift
+let url = URL(string: "wss://your-server.com/ws/groups/\(groupId)?token=\(accessToken)")!
+let task = URLSession.shared.webSocketTask(with: url)
+task.resume()
+
+func receiveMessage() {
+    task.receive { result in
+        switch result {
+        case .success(let message):
+            if case .string(let text) = message,
+               let data = text.data(using: .utf8),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let type = json["type"] as? String {
+                switch type {
+                case "vote_update":  handleVoteUpdate(json["data"])
+                case "new_question": handleNewQuestion(json["data"])
+                case "streak_update": handleStreakUpdate(json["data"])
+                case "member_joined": handleMemberJoined(json["data"])
+                default: break
+                }
+            }
+            receiveMessage() // Continue listening
+        case .failure(let error):
+            print("WS error: \(error)")
+        }
+    }
+}
+receiveMessage()
+```
+
+**Keepalive (Ping/Pong):**
+
+Send a ping to keep the connection alive and check how many users are online:
+
+```json
+// → Send:
+{"type": "ping"}
+
+// ← Receive:
+{
+  "type": "pong",
+  "timestamp": "2026-02-24T14:30:00.000Z",
+  "online_count": 3
+}
+```
+
+**Recommended:** Send a ping every 30 seconds. If no pong is received within 10 seconds, reconnect.
+
+---
+
+### Event Types Reference
+
+All events follow the same envelope format:
+
+```json
+{
+  "type": "<event_type>",
+  "timestamp": "2026-02-24T14:30:00.000Z",
+  "data": { ... }
+}
+```
+
+#### `vote_update`
+
+**Trigger:** A group member submits or changes their answer (via REST API or WebSocket vote).
+
+```json
+{
+  "type": "vote_update",
+  "timestamp": "2026-02-24T14:30:00.000Z",
+  "data": {
+    "question_id": "a1b2c3d4-...",
+    "option_counts": {
+      "Alice": 4,
+      "Bob": 2
+    },
+    "total_votes": 6,
+    "allow_multiple": false,
+    "options": ["Alice", "Bob"],
+    "user": {
+      "display_name": "Charlie",
+      "color_avatar": "#FF6B6B",
+      "voted": "Alice"
+    }
+  }
+}
+```
+
+| Field               | Type               | Description                                 |
+| ------------------- | ------------------ | ------------------------------------------- |
+| `question_id`       | string             | UUID of the question that was answered      |
+| `option_counts`     | object             | Map of option → vote count (updated totals) |
+| `total_votes`       | integer            | Total number of votes on this question      |
+| `allow_multiple`    | boolean            | Whether multiple selections are allowed     |
+| `options`           | string[]           | All available options                       |
+| `user.display_name` | string             | Who just voted                              |
+| `user.color_avatar` | string             | Voter's avatar color                        |
+| `user.voted`        | string \| string[] | What they voted for                         |
+
+#### `new_question`
+
+**Trigger:** The daily question rolls over (scheduler or on-demand creation). Sent when a new
+question is created and the previous one is deactivated.
+
+```json
+{
+  "type": "new_question",
+  "timestamp": "2026-02-24T14:00:00.000Z",
+  "data": {
+    "question_id": "e5f6a7b8-...",
+    "question_text": "Who would survive longest in a zombie apocalypse?",
+    "question_type": "member_choice",
+    "options": ["Alice", "Bob", "Charlie"],
+    "question_date": "2026-02-24T00:00:00",
+    "is_active": true,
+    "allow_multiple": false,
+    "featured_member": null
+  }
+}
+```
+
+| Field             | Type         | Description                                                                |
+| ----------------- | ------------ | -------------------------------------------------------------------------- |
+| `question_id`     | string       | UUID of the new question                                                   |
+| `question_text`   | string       | The question text                                                          |
+| `question_type`   | string       | `member_choice`, `duo_choice`, `binary_vote`, `free_text`, `single_choice` |
+| `options`         | string[]     | Available answer options                                                   |
+| `question_date`   | string       | ISO date of the question                                                   |
+| `is_active`       | boolean      | Always `true` for new questions                                            |
+| `allow_multiple`  | boolean      | Whether multiple selections allowed                                        |
+| `featured_member` | string\|null | Display name if `{member}` placeholder was used                            |
+
+**App behavior:** When receiving `new_question`, refresh the question UI and reset vote state.
+
+#### `streak_update`
+
+**Trigger:** Sent in two scenarios:
+
+1. **After a vote:** The voter's streak is updated (+1 or unchanged if already answered)
+2. **On question rollover:** All members' streaks are recalculated (missed question → streak reset
+   to 0)
+
+**After a vote (single user):**
+
+```json
+{
+  "type": "streak_update",
+  "timestamp": "2026-02-24T14:30:00.000Z",
+  "data": {
+    "user_id": "abc123-...",
+    "display_name": "Alice",
+    "current_streak": 5,
+    "longest_streak": 12
+  }
+}
+```
+
+**On question rollover (all members):**
+
+```json
+{
+  "type": "streak_update",
+  "timestamp": "2026-02-24T14:00:00.000Z",
+  "data": {
+    "reason": "question_rollover",
+    "members": [
+      {
+        "user_id": "abc123-...",
+        "display_name": "Alice",
+        "current_streak": 5,
+        "longest_streak": 12
+      },
+      {
+        "user_id": "def456-...",
+        "display_name": "Bob",
+        "current_streak": 0,
+        "longest_streak": 3
+      }
+    ]
+  }
+}
+```
+
+| Field            | Type    | Description                                             |
+| ---------------- | ------- | ------------------------------------------------------- |
+| `reason`         | string  | `"question_rollover"` (only present in rollover events) |
+| `members`        | array   | All members' updated streaks (only in rollover events)  |
+| `user_id`        | string  | UUID of the user whose streak changed                   |
+| `display_name`   | string  | User's display name                                     |
+| `current_streak` | integer | Current consecutive-answer streak                       |
+| `longest_streak` | integer | All-time best streak                                    |
+
+**App behavior:** Update leaderboard UI, show streak animations, display streak-lost notifications.
+
+#### `member_joined`
+
+**Trigger:** A new user joins the group via invite code.
+
+```json
+{
+  "type": "member_joined",
+  "timestamp": "2026-02-24T15:00:00.000Z",
+  "data": {
+    "user_id": "ghi789-...",
+    "display_name": "NewMember",
+    "color_avatar": "#4ECDC4",
+    "avatar_url": null
+  }
+}
+```
+
+**App behavior:** Add member to member list, show a toast notification ("NewMember joined!"),
+refresh the question options if it's a `member_choice` question.
+
+#### `member_left`
+
+**Trigger:** A member is removed from the group (admin action).
+
+```json
+{
+  "type": "member_left",
+  "timestamp": "2026-02-24T15:00:00.000Z",
+  "data": {
+    "user_id": "ghi789-...",
+    "display_name": "FormerMember"
+  }
+}
+```
+
+**App behavior:** Remove member from member list, refresh question if needed.
+
+---
+
+### Question-Level WebSocket (Legacy)
+
+For backward compatibility, the per-question WebSocket endpoint is still available. It only receives
+vote updates for a specific question.
 
 ```text
 WS /ws/groups/{group_id}/questions/{question_id}
 ```
 
-**Connection:**
-
-- WebSocket connections don't use HTTP headers, so authentication is handled in messages
-- Must send authentication token with every vote message
-- User must be a member of the specified group
+**Authentication:** JWT access token sent in each message (not query param).
 
 **Send Vote:**
 
@@ -3410,43 +3769,138 @@ For multiple-choice questions allowing multiple selections:
 
 ```json
 {
-  "type": "vote_update",
-  "option_counts": {
-    "Alice": 4,
-    "Bob": 2
-  },
-  "total_votes": 6
-}
-```
-
-**Error Responses:**
-
-```json
-{
-  "error": "text_answer required"
-}
-```
-
-```json
-{
-  "error": "answer required"
-}
-```
-
-```json
-{
-  "error": "invalid option"
+  "type": "update",
+  "timestamp": "2026-02-24T14:30:00.000Z",
+  "data": {
+    "option_counts": { "Alice": 4, "Bob": 2 },
+    "total_votes": 6,
+    "allow_multiple": false,
+    "options": ["Alice", "Bob"],
+    "user": {
+      "display_name": "Charlie",
+      "voted": "Alice"
+    }
+  }
 }
 ```
 
 **Notes:**
 
-- Connection is silently ignored if:
-  - Token is invalid or missing
-  - User is not a member of the group
-  - Question doesn't exist
-- Vote updates are broadcast to all connected clients for that question
-- Updates existing vote if user has already voted, otherwise creates new vote
+- Connection is silently ignored if token is invalid, user not in group, or question doesn't exist
+- Vote updates are broadcast to all connected clients for that question AND to group-level WebSocket
+  clients
+- Updates existing vote if user has already voted
+
+---
+
+### WebSocket Integration Guide
+
+#### Recommended Architecture
+
+For mobile apps, the recommended real-time architecture is:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  Mobile App                                              │
+│                                                          │
+│  ┌───────────────┐  ┌────────────────┐  ┌────────────────┐ │
+│  │ REST API      │  │ Group WebSocket │  │ FCM Push       │ │
+│  │ (actions)     │  │ (live updates)  │  │ (background)   │ │
+│  └───────────────┘  └────────────────┘  └────────────────┘ │
+│        │                  │                    │              │
+└────────┼──────────────────┼────────────────────┼──────────────┘
+        │                  │                    │
+        ▼                  ▼                    ▼
+┌──────────────────────────────────────────────────────────┐
+│  DontAskUs Backend                                       │
+│                                                          │
+│  REST POST /answer ────────────────────────────┐       │
+│       │                                    │       │
+│       ▼                                    ▼       │
+│  Save to DB  ───────────────────> WS broadcast  │
+│                                     (vote_update,  │
+│  Scheduler (hourly) ────────────>  streak_update, │
+│       │                              new_question)  │
+│       ▼                                    │       │
+│  FCM Push (offline users) <─────────────┘       │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+```
+
+1. **REST API** for all user actions (register, login, answer questions, etc.)
+2. **Group WebSocket** for live in-app updates (connect on app open, disconnect on close)
+3. **FCM Push Notifications** for background alerts (new question, streak-at-risk)
+
+#### Connection Lifecycle
+
+```
+App Opens → Login (REST) → Get token → Connect WS with token
+                                        │
+                                        ├── Receive events (update UI in real-time)
+                                        ├── Send pings every 30s
+                                        ├── If pong timeout → reconnect
+                                        ├── If 4001 close → re-login, then reconnect
+                                        │
+App Backgrounds → Close WS (optional, depends on platform)
+                   FCM push keeps user informed while backgrounded
+                                        │
+App Foregrounds → Reconnect WS → Fetch latest via REST to sync state
+```
+
+#### Reconnection Strategy
+
+WebSocket connections can drop due to network changes, server restarts, or token expiry. Implement
+exponential backoff:
+
+```javascript
+let reconnectDelay = 1000; // Start at 1 second
+const MAX_DELAY = 30000; // Max 30 seconds
+
+function connectWebSocket() {
+  const ws = new WebSocket(`wss://server/ws/groups/${groupId}?token=${token}`);
+
+  ws.onopen = () => {
+    reconnectDelay = 1000; // Reset on successful connect
+  };
+
+  ws.onclose = (event) => {
+    if (event.code === 4001) {
+      // Auth failed — refresh token first, then reconnect
+      refreshToken().then(connectWebSocket);
+      return;
+    }
+    // Exponential backoff
+    setTimeout(connectWebSocket, reconnectDelay);
+    reconnectDelay = Math.min(reconnectDelay * 2, MAX_DELAY);
+  };
+
+  ws.onmessage = handleMessage;
+}
+```
+
+#### State Synchronization
+
+The WebSocket provides **incremental updates** — not the full state. On reconnect, always fetch the
+latest state via REST to avoid stale data:
+
+```
+Reconnect → GET /api/groups/{id}/questions/today  (sync question + votes)
+         → GET /api/groups/{id}/leaderboard       (sync streaks)
+         → GET /api/groups/{id}/members            (sync member list)
+```
+
+Then apply subsequent WebSocket events on top of the synced state.
+
+#### Event Handling Best Practices
+
+| Event                      | App Action                                                                |
+| -------------------------- | ------------------------------------------------------------------------- |
+| `vote_update`              | Update vote counts/chart, add vote animation for `user.display_name`      |
+| `new_question`             | Replace question UI, clear previous votes, show "New question!" alert     |
+| `streak_update` (single)   | Update the voter's streak badge in leaderboard                            |
+| `streak_update` (rollover) | Refresh entire leaderboard, show streak-lost animations for reset users   |
+| `member_joined`            | Add to member list, show join toast, potentially refresh question options |
+| `member_left`              | Remove from member list, potentially refresh question options             |
 
 ---
 
@@ -3544,28 +3998,28 @@ USER_JWT_REFRESH_EXPIRE_DAYS=30
 # OPTIONAL SETTINGS
 # ═══════════════════════════════════════════════════════════════════════
 LOG_LEVEL=INFO
-# SCHEDULE_INTERVAL_SECONDS is deprecated — the scheduler now auto-aligns to midnight UTC
+# SCHEDULE_INTERVAL_SECONDS is deprecated — the scheduler now runs hourly with per-group rollover
 ```
 
 ### Environment Variable Reference
 
-| Variable                         | Description                                              | Required | Default |
-| -------------------------------- | -------------------------------------------------------- | -------- | ------- |
-| `DATABASE_URL`                   | PostgreSQL connection string                             | Yes      | -       |
-| `REDIS_URL`                      | Redis connection string                                  | Yes      | -       |
-| `SECRET_KEY`                     | JWT secret for user sessions                             | Yes      | -       |
-| `ADMIN_JWT_SECRET`               | JWT secret for admin sessions                            | Yes      | -       |
-| `ADMIN_INITIAL_USERNAME`         | Initial admin username                                   | No       | `admin` |
-| `ADMIN_INITIAL_PASSWORD`         | Initial admin password                                   | Yes      | -       |
-| `ALLOWED_ORIGINS`                | CORS allowed origins                                     | Yes      | -       |
-| `USER_JWT_SECRET`                | JWT secret for user tokens                               | Yes      | -       |
-| `USER_JWT_ACCESS_EXPIRE_MINUTES` | User access token expiry (mins)                          | No       | `30`    |
-| `USER_JWT_REFRESH_EXPIRE_DAYS`   | User refresh token expiry (days)                         | No       | `30`    |
-| `TRUSTED_PROXIES`                | Trusted proxy IPs/CIDRs for X-Forwarded-For              | No       | -       |
-| `LOG_LEVEL`                      | Logging level                                            | No       | `INFO`  |
-| `SCHEDULE_INTERVAL_SECONDS`      | _(Deprecated)_ Scheduler now auto-aligns to midnight UTC | No       | -       |
-| `FCM_PROJECT_ID`                 | Firebase project ID                                      | No\*     | -       |
-| `FCM_SERVICE_ACCOUNT_JSON`       | Firebase service account JSON                            | No\*     | -       |
+| Variable                         | Description                                                                      | Required | Default |
+| -------------------------------- | -------------------------------------------------------------------------------- | -------- | ------- |
+| `DATABASE_URL`                   | PostgreSQL connection string                                                     | Yes      | -       |
+| `REDIS_URL`                      | Redis connection string                                                          | Yes      | -       |
+| `SECRET_KEY`                     | JWT secret for user sessions                                                     | Yes      | -       |
+| `ADMIN_JWT_SECRET`               | JWT secret for admin sessions                                                    | Yes      | -       |
+| `ADMIN_INITIAL_USERNAME`         | Initial admin username                                                           | No       | `admin` |
+| `ADMIN_INITIAL_PASSWORD`         | Initial admin password                                                           | Yes      | -       |
+| `ALLOWED_ORIGINS`                | CORS allowed origins                                                             | Yes      | -       |
+| `USER_JWT_SECRET`                | JWT secret for user tokens                                                       | Yes      | -       |
+| `USER_JWT_ACCESS_EXPIRE_MINUTES` | User access token expiry (mins)                                                  | No       | `30`    |
+| `USER_JWT_REFRESH_EXPIRE_DAYS`   | User refresh token expiry (days)                                                 | No       | `30`    |
+| `TRUSTED_PROXIES`                | Trusted proxy IPs/CIDRs for X-Forwarded-For                                      | No       | -       |
+| `LOG_LEVEL`                      | Logging level                                                                    | No       | `INFO`  |
+| `SCHEDULE_INTERVAL_SECONDS`      | _(Deprecated)_ Scheduler now runs hourly with per-group `question_hour` rollover | No       | -       |
+| `FCM_PROJECT_ID`                 | Firebase project ID                                                              | No\*     | -       |
+| `FCM_SERVICE_ACCOUNT_JSON`       | Firebase service account JSON                                                    | No\*     | -       |
 
 \*Required only if push notifications are enabled
 

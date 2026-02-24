@@ -98,6 +98,8 @@ class MultiGroupNotifier extends StateNotifier<MultiGroupState> {
 
         // Fetch the user's streak from the members endpoint
         int streak = 0;
+        int groupStreak = 0;
+        int memberCount = 0;
         try {
           final userId = await AuthService.getUserId(groupId);
           if (accessToken != null && userId != null) {
@@ -112,10 +114,14 @@ class MultiGroupNotifier extends StateNotifier<MultiGroupState> {
                   : (data is Map && data.containsKey('members')
                       ? data['members'] as List
                       : []);
+              memberCount = members.length;
               for (final m in members) {
+                final mStreak = m['answer_streak'] as int? ?? 0;
                 if (m['user_id'] == userId) {
-                  streak = m['answer_streak'] as int? ?? 0;
-                  break;
+                  streak = mStreak;
+                }
+                if (mStreak > groupStreak) {
+                  groupStreak = mStreak;
                 }
               }
             }
@@ -128,6 +134,8 @@ class MultiGroupNotifier extends StateNotifier<MultiGroupState> {
           groupId: groupId,
           groupName: groupName ?? displayName ?? 'Unknown Group',
           answerStreak: streak,
+          groupStreak: groupStreak,
+          memberCount: memberCount,
         ));
       }
 
@@ -226,13 +234,17 @@ class GroupInfo {
   final String groupId;
   final String groupName;
   final String? inviteCode;
-  final int answerStreak;
+  final int answerStreak; // user's personal streak in this group
+  final int groupStreak; // highest streak among all members
+  final int memberCount;
 
   const GroupInfo({
     required this.groupId,
     required this.groupName,
     this.inviteCode,
     this.answerStreak = 0,
+    this.groupStreak = 0,
+    this.memberCount = 0,
   });
 
   factory GroupInfo.fromJson(Map<String, dynamic> json) {
@@ -241,6 +253,8 @@ class GroupInfo {
       groupName: json['group_name'] as String,
       inviteCode: json['invite_code'] as String?,
       answerStreak: json['answer_streak'] as int? ?? 0,
+      groupStreak: json['group_streak'] as int? ?? 0,
+      memberCount: json['member_count'] as int? ?? 0,
     );
   }
 }

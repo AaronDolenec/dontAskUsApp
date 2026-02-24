@@ -4,6 +4,7 @@ import '../../providers/history_provider.dart';
 import '../../widgets/loading_shimmer.dart';
 import '../../widgets/error_display.dart';
 import '../../widgets/question_card.dart';
+import '../groups/groups_screen.dart';
 
 /// Screen displaying question history
 class HistoryScreen extends ConsumerStatefulWidget {
@@ -68,6 +69,16 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('History'),
+        leading: IconButton(
+          icon: const Icon(Icons.groups_outlined),
+          onPressed: () {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const GroupsScreen()),
+              (route) => false,
+            );
+          },
+          tooltip: 'All Groups',
+        ),
       ),
       body: _buildBody(historyState),
     );

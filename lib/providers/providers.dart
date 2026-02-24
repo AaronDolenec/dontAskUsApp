@@ -5,6 +5,7 @@ export 'auth_provider.dart';
 export 'question_provider.dart';
 export 'question_set_provider.dart';
 export 'websocket_provider.dart';
+export 'group_websocket_provider.dart';
 export 'connectivity_provider.dart';
 export 'theme_provider.dart';
 export 'multi_group_provider.dart';

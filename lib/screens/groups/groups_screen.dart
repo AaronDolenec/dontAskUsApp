@@ -339,19 +339,31 @@ class _GroupCard extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: Text(
-                  group.groupName,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      group.groupName,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    if (group.memberCount > 0)
+                      Text(
+                        '${group.memberCount} member${group.memberCount != 1 ? 's' : ''}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
                       ),
+                  ],
                 ),
               ),
-              // Streak indicator
+              // Group streak indicator (highest streak in the group)
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: group.answerStreak > 0
+                  color: group.groupStreak > 0
                       ? AppColors.streakActive.withValues(alpha: 0.12)
                       : AppColors.streakInactiveBackground,
                   borderRadius: BorderRadius.circular(20),
@@ -363,18 +375,18 @@ class _GroupCard extends StatelessWidget {
                       '🔥',
                       style: TextStyle(
                         fontSize: 14,
-                        color: group.answerStreak > 0
+                        color: group.groupStreak > 0
                             ? AppColors.streakActive
                             : AppColors.streakInactive,
                       ),
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '${group.answerStreak}',
+                      '${group.groupStreak}',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: group.answerStreak > 0
+                        color: group.groupStreak > 0
                             ? AppColors.streakActive
                             : AppColors.streakInactive,
                       ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/daily_question.dart';
 import '../../models/question_type.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/group_websocket_provider.dart';
 import '../../providers/question_provider.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/answer_details_section.dart';
@@ -47,9 +48,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authState = ref.read(authProvider);
       if (authState.hasGroup) {
-        // Fetch question + connect WebSocket + start polling
+        // Fetch question + connect group-level WebSocket
         ref.read(questionProvider.notifier).fetchTodaysQuestion();
-        ref.read(questionProvider.notifier).connectWebSocket();
+        ref.read(groupWebSocketProvider.notifier).connect(authState.groupId!);
+        // Keep polling as fallback for connectivity gaps
         ref.read(questionProvider.notifier).startPolling();
       }
     });
@@ -59,7 +61,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void dispose() {
     _celebrationController.dispose();
     ref.read(questionProvider.notifier).stopPolling();
-    ref.read(questionProvider.notifier).disconnectWebSocket();
     _textAnswerController.dispose();
     super.dispose();
   }

@@ -8,6 +8,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'providers/theme_provider.dart';
 import 'screens/splash/splash_screen.dart';
 import 'screens/onboarding/auth_screen.dart';
+import 'screens/onboarding/welcome_screen.dart';
 import 'screens/groups/groups_screen.dart';
 import 'screens/onboarding/join_group_screen.dart';
 import 'screens/onboarding/create_group_screen.dart';
@@ -76,6 +77,7 @@ class DontAskUsApp extends ConsumerWidget {
       routes: {
         '/': (context) => const SplashScreen(),
         '/auth': (context) => const AuthScreen(),
+        '/welcome': (context) => const WelcomeScreen(),
         '/groups': (context) => const GroupsScreen(),
         '/join': (context) => const JoinGroupScreen(),
         '/create': (context) => const CreateGroupScreen(),
