@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'api_config.dart';
 import 'api_exception.dart';
+import 'auth_service.dart'; // for automatic session refresh on 401
 
 /// HTTP client for API communication
 class ApiClient {
@@ -56,6 +57,18 @@ class ApiClient {
       final response = await _client
           .get(Uri.parse(url), headers: headers)
           .timeout(ApiConfig.timeout);
+      // if unauthorized, attempt to refresh session once
+      if (response.statusCode == 401) {
+        await AuthService.autoRefreshSession();
+        // retry once with potentially refreshed token
+        final newAccessToken = await AuthService.getAccessToken();
+        if (newAccessToken != null) {
+          final retryHeaders = _buildHeaders(accessToken: newAccessToken);
+          return await _client
+              .get(Uri.parse(url), headers: retryHeaders)
+              .timeout(ApiConfig.timeout);
+        }
+      }
       return response;
     } catch (e) {
       throw ApiException(
@@ -85,6 +98,20 @@ class ApiClient {
             body: jsonEncode(body),
           )
           .timeout(ApiConfig.timeout);
+      if (response.statusCode == 401) {
+        await AuthService.autoRefreshSession();
+        final newAccessToken = await AuthService.getAccessToken();
+        if (newAccessToken != null) {
+          final retryHeaders = _buildHeaders(accessToken: newAccessToken);
+          return await _client
+              .post(
+                Uri.parse(url),
+                headers: retryHeaders,
+                body: jsonEncode(body),
+              )
+              .timeout(ApiConfig.timeout);
+        }
+      }
       return response;
     } catch (e) {
       throw ApiException(
@@ -196,6 +223,20 @@ class ApiClient {
             body: jsonEncode(body),
           )
           .timeout(ApiConfig.timeout);
+      if (response.statusCode == 401) {
+        await AuthService.autoRefreshSession();
+        final newAccessToken = await AuthService.getAccessToken();
+        if (newAccessToken != null) {
+          final retryHeaders = _buildHeaders(accessToken: newAccessToken);
+          return await _client
+              .put(
+                Uri.parse(url),
+                headers: retryHeaders,
+                body: jsonEncode(body),
+              )
+              .timeout(ApiConfig.timeout);
+        }
+      }
       return response;
     } catch (e) {
       throw ApiException(
@@ -220,6 +261,16 @@ class ApiClient {
       final response = await _client
           .delete(Uri.parse(url), headers: headers)
           .timeout(ApiConfig.timeout);
+      if (response.statusCode == 401) {
+        await AuthService.autoRefreshSession();
+        final newAccessToken = await AuthService.getAccessToken();
+        if (newAccessToken != null) {
+          final retryHeaders = _buildHeaders(accessToken: newAccessToken);
+          return await _client
+              .delete(Uri.parse(url), headers: retryHeaders)
+              .timeout(ApiConfig.timeout);
+        }
+      }
       return response;
     } catch (e) {
       throw ApiException(
