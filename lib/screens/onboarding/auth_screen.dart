@@ -98,8 +98,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     color: AppColors.primary,
                   ),
                 ),
-                const SizedBox(height: 24),
-
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.next,
+                      autofillHints: const [AutofillHints.username],
                 // Title
                 Text(
                   _isLogin ? 'Welcome Back' : 'Create Account',
@@ -135,7 +136,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
                     validator: (value) {
                       if (!_isLogin &&
-                          (value == null || value.trim().isEmpty)) {
+                      autofillHints: const [AutofillHints.password],
+                      textInputAction: TextInputAction.done,
                         return 'Please enter a display name';
                       }
                       return null;
