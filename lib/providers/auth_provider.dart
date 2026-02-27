@@ -462,7 +462,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   /// Create a new group
-  Future<Group?> createGroup(String name) async {
+  /// Create a new group. Optionally specify a default displayName for
+  /// members (including the creator).
+  Future<Group?> createGroup(String name, {String? displayName}) async {
     state = state.copyWith(isLoading: true);
 
     try {
@@ -476,9 +478,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
 
       final api = _ref.read(apiClientProvider);
+      final body = {'name': name};
+      if (displayName != null) {
+        body['display_name'] = displayName;
+      }
       final response = await api.post(
         '/api/auth/groups/create',
-        {'name': name},
+        body,
         accessToken: accessToken,
       );
 
@@ -532,6 +538,78 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
       return null;
     }
+  }
+
+  /// Update the current user's display name for the active group.
+  Future<bool> updateDisplayName(String newName) async {
+    final groupId = state.groupId;
+    if (groupId == null) return false;
+    state = state.copyWith(isLoading: true);
+    try {
+      final accessToken = await AuthService.getAccessToken();
+      if (accessToken == null) return false;
+
+      final api = _ref.read(apiClientProvider);
+      final response = await api.put(
+        '/api/auth/groups/$groupId/display-name',
+        {'display_name': newName},
+        accessToken: accessToken,
+      );
+      if (response.statusCode == 200) {
+        // update local storage
+        await AuthService.saveGroupMembership(
+          groupId: groupId,
+          userId: state.user?.oderId ?? '',
+          displayName: newName,
+          groupName: state.user?.groups
+                  .firstWhere((g) => g.groupId == groupId)
+                  .groupName ??
+              '',
+        );
+        state = state.copyWith(isLoading: false);
+        return true;
+      }
+    } catch (_) {}
+    state = state.copyWith(isLoading: false);
+    return false;
+  }
+
+  /// Fetch notification settings for the current user/group.
+  Future<NotificationSettings?> fetchNotificationSettings() async {
+    final userId = state.user?.id;
+    if (userId == null) return null;
+    try {
+      final accessToken = await AuthService.getAccessToken();
+      if (accessToken == null) return null;
+      final api = _ref.read(apiClientProvider);
+      final response = await api.get(
+        '/api/users/$userId/notification-settings',
+        accessToken: accessToken,
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return NotificationSettings.fromJson(data);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Update notification settings on the server.
+  Future<bool> updateNotificationSettings(NotificationSettings settings) async {
+    final userId = state.user?.id;
+    if (userId == null) return false;
+    try {
+      final accessToken = await AuthService.getAccessToken();
+      if (accessToken == null) return false;
+      final api = _ref.read(apiClientProvider);
+      final response = await api.put(
+        '/api/users/$userId/notification-settings',
+        settings.toJson(),
+        accessToken: accessToken,
+      );
+      return response.statusCode == 200;
+    } catch (_) {}
+    return false;
   }
 
   /// Switch to a different group

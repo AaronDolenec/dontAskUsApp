@@ -14,6 +14,7 @@ import 'screens/onboarding/join_group_screen.dart';
 import 'screens/onboarding/create_group_screen.dart';
 import 'screens/main/main_screen.dart';
 import 'utils/app_theme.dart';
+import 'services/push_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,6 +38,9 @@ void main() async {
       ),
     );
   }
+
+  // initialize push notifications (ensures Firebase is ready)
+  await PushNotificationService.initialize();
 
   runApp(
     const ProviderScope(

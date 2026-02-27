@@ -18,6 +18,7 @@ class CreateGroupScreen extends ConsumerStatefulWidget {
 
 class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   final _nameController = TextEditingController();
+  final _displayNameController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   Group? _createdGroup;
@@ -26,6 +27,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _displayNameController.dispose();
     super.dispose();
   }
 
@@ -34,6 +36,9 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
 
     final group = await ref.read(authProvider.notifier).createGroup(
           _nameController.text.trim(),
+          displayName: _displayNameController.text.trim().isEmpty
+              ? null
+              : _displayNameController.text.trim(),
         );
 
     if (group != null && mounted) {
@@ -117,6 +122,16 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                 ),
 
                 const SizedBox(height: 40),
+                TextFormField(
+                  controller: _displayNameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Your display name',
+                    hintText: 'How others should see you in this group',
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _handleCreate(),
+                ),
 
                 // Group Name Input
                 Text(

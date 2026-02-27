@@ -4,20 +4,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../models/group.dart';
-import '../../providers/auth_provider.dart';
+import '../../models/user.dart';
+import '../../models/group_member.dart';
 import '../../providers/group_provider.dart';
-import '../../providers/multi_group_provider.dart';
-import '../../providers/question_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/share_service.dart';
 import '../../services/api_client.dart';
-import '../../services/api_config.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/avatar_circle.dart';
-import '../admin/question_sets_screen.dart';
-import '../onboarding/auth_screen.dart';
-import '../onboarding/join_group_screen.dart';
 import '../groups/groups_screen.dart';
+import 'notification_settings_screen.dart';
+import 'session_info_screen.dart';
 import 'help_screen.dart';
 
 /// Settings screen
@@ -26,10 +24,35 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Removed unused variables per analyzer suggestion
+
     final authState = ref.watch(authProvider);
-    final groupInfoAsync = ref.watch(groupInfoProvider);
-    final currentStreak = ref.watch(userStreakProvider);
-    final longestStreak = ref.watch(longestStreakProvider);
+    final user = authState.user;
+    final groupId = authState.groupId;
+    final groupMembership =
+        (user != null && groupId != null && user.groups.isNotEmpty)
+            ? user.groups.firstWhere(
+                (g) => g.groupId == groupId,
+                orElse: () => UserGroupMembership(
+                  userId: '',
+                  groupId: '',
+                  groupName: '',
+                  displayName: '',
+                ),
+              )
+            : null;
+    // Convert UserGroupMembership to Group for _GroupInfoCard
+    Group? group;
+    if (groupMembership != null) {
+      group = Group(
+        id: 0,
+        groupId: groupMembership.groupId,
+        name: groupMembership.groupName,
+        inviteCode: '',
+        createdAt: DateTime.now(),
+        memberCount: 0,
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -50,190 +73,54 @@ class SettingsScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Group Info Section
-            groupInfoAsync.when(
-              data: (group) => group != null
-                  ? _GroupInfoCard(group: group)
-                  : const SizedBox(),
-              loading: () => const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-              ),
-              error: (_, __) => const SizedBox(),
-            ),
-
-            const SizedBox(height: 24),
-
-            // User Section
-            Text(
-              'Account',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Card(
-              child: Column(
-                children: [
-                  if (authState.user != null)
-                    ListTile(
-                      leading: AvatarCircle(
-                        colorHex: authState.user!.colorAvatar,
-                        initials: authState.user!.displayName.substring(0, 2),
-                        avatarUrl: authState.user!.avatarUrl,
-                      ),
-                      title: Text(authState.user!.displayName),
-                      subtitle: Text(
-                          'Streak: 🔥 $currentStreak days (Best: ${longestStreak ?? 0})'),
-                    ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.swap_horiz),
-                    title: const Text('Switch Groups'),
-                    subtitle: const Text('Manage your groups'),
-                    onTap: () => GroupSelectorSheet.show(context),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.group_add),
-                    title: const Text('Join Another Group'),
-                    subtitle: const Text('Enter a new invite code'),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              const JoinGroupScreen(isAddingGroup: true),
-                        ),
-                      );
-                    },
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.exit_to_app),
-                    title: const Text('Leave Group'),
-                    subtitle: const Text('You can rejoin with the invite code'),
-                    onTap: () => _showLeaveGroupDialog(context, ref),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Group Management Section (creator features - server validates permissions)
-            if (authState.hasGroup) ...[
-              Text(
-                'Admin',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
-                    ),
-              ),
-              const SizedBox(height: 8),
-              Card(
-                child: Column(
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.library_books_outlined),
-                      title: const Text('Question Sets'),
-                      subtitle: const Text('Manage question templates'),
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const QuestionSetsScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: const Icon(Icons.delete_forever,
-                          color: AppColors.error),
-                      title: const Text('Delete Group'),
-                      subtitle: const Text('Permanently delete this group'),
-                      onTap: () => _showDeleteGroupDialog(context, ref),
-                    ),
-                    const Divider(height: 1),
-                    ListTile(
-                      leading: const Icon(Icons.api),
-                      title: const Text('API Diagnostics'),
-                      subtitle: const Text('Check API reachability and CORS'),
-                      onTap: () => _showApiDiagnostics(context),
-                    ),
-                  ],
-                ),
-              ),
+            if (group != null) ...[
+              _GroupInfoCard(group: group),
               const SizedBox(height: 24),
             ],
-
-            // About Section
-            Text(
-              'About',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
+            ListTile(
+              leading: const Icon(Icons.notifications_outlined),
+              title: const Text('Notification Settings'),
+              subtitle: const Text('Push and email preferences'),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationSettingsScreen(),
                   ),
+                );
+              },
             ),
-            const SizedBox(height: 8),
-            Card(
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.info_outline),
-                    title: const Text('About dontAskUs'),
-                    subtitle: const Text('Version 1.0.0'),
-                    onTap: () => _showAboutDialog(context),
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('Session Info'),
+              subtitle: const Text('Debug and session details'),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const SessionInfoScreen(),
                   ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.help_outline),
-                    title: const Text('Help & Support'),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const HelpScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
+                );
+              },
             ),
-
-            const SizedBox(height: 24),
-
-            // Account Section
-            Text(
-              'Account',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
+            ListTile(
+              leading: const Icon(Icons.help_outline),
+              title: const Text('Help & Support'),
+              subtitle: const Text('FAQ and contact'),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const HelpScreen(),
                   ),
+                );
+              },
             ),
-            const SizedBox(height: 8),
-            Card(
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.logout, color: AppColors.error),
-                    title: const Text('Clear All Data'),
-                    subtitle: const Text('Logout and clear all stored data'),
-                    onTap: () => _showClearDataDialog(context, ref),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
+            const Divider(height: 32),
           ],
         ),
       ),
     );
   }
 
+  // ignore: unused_element
   void _showLeaveGroupDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
@@ -268,6 +155,7 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
+  // ignore: unused_element
   void _showDeleteGroupDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
@@ -370,40 +258,7 @@ class SettingsScreen extends ConsumerWidget {
     }
   }
 
-  void _showClearDataDialog(BuildContext context, WidgetRef ref) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear All Data?'),
-        content: const Text(
-          'This will log you out and clear all stored data from this device. '
-          'You will need to join a group again to continue using the app.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.of(context).pop();
-              await ref.read(authProvider.notifier).logout();
-
-              if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const AuthScreen()),
-                  (route) => false,
-                );
-              }
-            },
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: const Text('Clear Data'),
-          ),
-        ],
-      ),
-    );
-  }
-
+  // ignore: unused_element
   void _showAboutDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -477,98 +332,51 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
   }
-
-  Future<void> _showApiDiagnostics(BuildContext context) async {
-    final api = ApiClient();
-    String title = 'API Diagnostics';
-    String content;
-
-    try {
-      final response = await api.get('/api/');
-      content =
-          'Status: ${response.statusCode}\nBody: ${response.body}\nHeaders: ${response.headers}';
-    } catch (e) {
-      content =
-          'Network error: ${e.toString()}\nAPI URL: ${ApiConfig.currentBaseUrl}';
-    }
-
-    if (!context.mounted) return;
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text(title),
-        content: SingleChildScrollView(child: Text(content)),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Close')),
-        ],
-      ),
-    );
-  }
 }
 
-class _GroupInfoCard extends StatelessWidget {
+// ignore: unused_element
+class _GroupInfoCard extends ConsumerWidget {
   final Group group;
-
   const _GroupInfoCard({required this.group});
 
-  Future<void> _copyInviteCode(BuildContext context) async {
-    final success = await ShareService.copyInviteCode(group.inviteCode);
-    if (context.mounted) {
-      ShareService.showCopyResult(context, success, group.inviteCode);
-    }
-  }
-
-  void _shareInviteCode() {
-    Share.share(
-      'Join my group "${group.name}" on dontAskUs!\n\nInvite code: ${group.inviteCode}',
-      subject: 'Join my dontAskUs group!',
-    );
-  }
-
-  void _showQRCode(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Invite QR Code'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: QrImageView(
-                data: group.inviteCode,
-                size: 200,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              group.inviteCode,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final groupMembersAsync = ref.watch(groupMembersProvider);
+    final authState = ref.watch(authProvider);
+    final user = authState.user;
+    final groupId = authState.groupId;
+    // Find the current user as a GroupMember
+    GroupMember? currentMember;
+    int memberCount = 0;
+    groupMembersAsync.when(
+      data: (members) {
+        memberCount = members.length;
+        if (user != null && groupId != null) {
+          currentMember = members.firstWhere(
+            (m) => m.userId == user.oderId || m.displayName == user.displayName,
+            orElse: () => GroupMember(
+              userId: user.oderId,
+              displayName: user.displayName,
+              colorAvatar: user.colorAvatar,
+              avatarUrl: user.avatarUrl,
+            ),
+          );
+        }
+      },
+      loading: () {},
+      error: (_, __) {},
+    );
+
+    // Group initials fallback
+    String groupInitials = group.name.isNotEmpty
+        ? group.name
+            .trim()
+            .split(' ')
+            .map((w) => w[0])
+            .take(3)
+            .join()
+            .toUpperCase()
+        : 'G';
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -577,15 +385,27 @@ class _GroupInfoCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(16),
+                // User avatar (always use AvatarCircle)
+                if (currentMember != null)
+                  AvatarCircle(
+                    colorHex: currentMember!.colorAvatar,
+                    initials: currentMember!.initials,
+                    avatarUrl: currentMember!.avatarUrl,
+                    size: 56,
+                  )
+                else
+                  // Group fallback: colored circle with initials
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: AppColors.primary,
+                    child: Text(
+                      groupInitials,
+                      style: const TextStyle(
+                          fontSize: 22,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold),
+                    ),
                   ),
-                  child: const Icon(Icons.group, color: Colors.white, size: 28),
-                ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -593,17 +413,86 @@ class _GroupInfoCard extends StatelessWidget {
                     children: [
                       Text(
                         group.name,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                      Text(
-                        '${group.memberCount} member${group.memberCount != 1 ? 's' : ''}',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(Icons.people_outline,
+                              size: 18, color: AppColors.textSecondary),
+                          const SizedBox(width: 4),
+                          Text(
+                            memberCount > 0
+                                ? '$memberCount member${memberCount != 1 ? 's' : ''}'
+                                : 'Loading members...',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
+                                  color: AppColors.textSecondary,
+                                ),
+                          ),
+                        ],
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: 'Change your display name for this group',
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.edit, size: 18),
+                    label: const Text('Edit Name'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      textStyle: const TextStyle(fontSize: 14),
+                    ),
+                    onPressed: () async {
+                      final newName = await showDialog<String>(
+                        context: context,
+                        builder: (ctx) {
+                          final controller = TextEditingController();
+                          return AlertDialog(
+                            title: const Text(
+                                'Change Display Name for This Group'),
+                            content: TextField(
+                              controller: controller,
+                              decoration: const InputDecoration(
+                                hintText: 'Enter new display name',
+                              ),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(ctx).pop(),
+                                child: const Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.of(ctx).pop(controller.text),
+                                child: const Text('Save'),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                      if (newName != null && newName.trim().isNotEmpty) {
+                        final success = await ref
+                            .read(authProvider.notifier)
+                            .updateDisplayName(newName.trim());
+                        if (!success && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Failed to update display name'),
+                              backgroundColor: AppColors.error,
+                            ),
+                          );
+                        }
+                      }
+                    },
                   ),
                 ),
               ],
@@ -632,12 +521,57 @@ class _GroupInfoCard extends StatelessWidget {
                 ),
                 IconButton(
                   icon: const Icon(Icons.copy),
-                  onPressed: () => _copyInviteCode(context),
+                  onPressed: () async {
+                    final success =
+                        await ShareService.copyInviteCode(group.inviteCode);
+                    if (context.mounted) {
+                      ShareService.showCopyResult(
+                          context, success, group.inviteCode);
+                    }
+                  },
                   tooltip: 'Copy',
                 ),
                 IconButton(
                   icon: const Icon(Icons.qr_code),
-                  onPressed: () => _showQRCode(context),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Invite QR Code'),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: QrImageView(
+                                data: group.inviteCode,
+                                size: 200,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              group.inviteCode,
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('Close'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                   tooltip: 'Show QR',
                 ),
               ],
@@ -646,7 +580,12 @@ class _GroupInfoCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: _shareInviteCode,
+                onPressed: () {
+                  Share.share(
+                    'Join my group "${group.name}" on dontAskUs!\n\nInvite code: ${group.inviteCode}',
+                    subject: 'Join my dontAskUs group!',
+                  );
+                },
                 icon: const Icon(Icons.share),
                 label: const Text('Share Invite'),
               ),
