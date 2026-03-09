@@ -1,10 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'l10n/app_localizations.dart';
 import 'providers/theme_provider.dart';
 import 'screens/splash/splash_screen.dart';
 import 'screens/onboarding/auth_screen.dart';
@@ -14,13 +16,10 @@ import 'screens/onboarding/join_group_screen.dart';
 import 'screens/onboarding/create_group_screen.dart';
 import 'screens/main/main_screen.dart';
 import 'utils/app_theme.dart';
-import 'services/push_notification_service.dart';
+import 'services/app_bootstrap_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Load environment configuration
-  await dotenv.load();
 
   // Set preferred orientations (not supported on web)
   if (!kIsWeb) {
@@ -39,8 +38,8 @@ void main() async {
     );
   }
 
-  // initialize push notifications (ensures Firebase is ready)
-  await PushNotificationService.initialize();
+  // Kick off app bootstrap without blocking first frame.
+  unawaited(AppBootstrapService.ensureInitialized());
 
   runApp(
     const ProviderScope(
@@ -67,14 +66,12 @@ class DontAskUsApp extends ConsumerWidget {
 
       // Localization
       localizationsDelegates: const [
+        AppLocalizations.delegate,
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('en'), // English
-        Locale('de'), // German
-      ],
+      supportedLocales: AppLocalizations.supportedLocales,
 
       // Routes
       initialRoute: '/',

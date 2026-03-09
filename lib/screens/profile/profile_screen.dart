@@ -226,15 +226,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _showApiDiagnostics() async {
     final api = ApiClient();
-    String content;
+    final buffer = StringBuffer();
 
     try {
-      final response = await api.get('/api/');
-      content =
-          'Status: ${response.statusCode}\nBody: ${response.body}\nHeaders: ${response.headers}';
+      final health = await api.get('/health');
+      buffer.writeln('GET /health → ${health.statusCode}');
+      if (health.body.isNotEmpty) {
+        final body = health.body.length > 300
+            ? '${health.body.substring(0, 300)}...'
+            : health.body;
+        buffer.writeln('Body: $body');
+      }
+
+      final token = await AuthService.getAccessToken();
+      if (token == null || token.isEmpty) {
+        buffer.writeln('');
+        buffer.writeln('Auth check skipped: no access token found.');
+      } else {
+        final me = await api.get('/api/auth/me', accessToken: token);
+        buffer.writeln('');
+        buffer.writeln('GET /api/auth/me → ${me.statusCode}');
+        final meBody =
+            me.body.length > 300 ? '${me.body.substring(0, 300)}...' : me.body;
+        if (meBody.isNotEmpty) {
+          buffer.writeln('Body: $meBody');
+        }
+      }
+
+      buffer.writeln('');
+      buffer.writeln('API Base URL: ${ApiConfig.currentBaseUrl}');
     } catch (e) {
-      content =
-          'Network error: ${e.toString()}\nAPI URL: ${ApiConfig.currentBaseUrl}';
+      buffer
+        ..writeln('Diagnostics failed: ${e.toString()}')
+        ..writeln('API URL: ${ApiConfig.currentBaseUrl}');
     }
 
     if (!mounted) return;
@@ -242,7 +266,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('API Diagnostics'),
-        content: SingleChildScrollView(child: Text(content)),
+        content: SingleChildScrollView(child: Text(buffer.toString())),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -562,17 +586,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               leading: const Icon(Icons.error_outline, color: AppColors.error),
               title: const Text('Last auth error'),
               subtitle: Text(authState.error ?? ''),
-              trailing: IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: () async {
-                  await ref.read(authProvider.notifier).reloadSession();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Retrying session restore')),
-                    );
-                  }
-                },
-              ),
             ),
           ),
         ],
@@ -653,37 +666,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ListTile(
                 leading: const Icon(Icons.api),
                 title: const Text('API Diagnostics'),
-                subtitle: const Text('Check API reachability and CORS'),
+                subtitle:
+                    const Text('Check health endpoint and authenticated API'),
                 onTap: _showApiDiagnostics,
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.refresh),
-                title: const Text('Retry Session Restore'),
-                subtitle: const Text('Retry loading stored sessions from disk'),
-                onTap: () async {
-                  await ref.read(authProvider.notifier).reloadSession();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Session restore retried')),
-                    );
-                  }
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.storage),
-                title: const Text('Debug Storage'),
-                subtitle: const Text('Print local storage to debug console'),
-                onTap: () async {
-                  await AuthService.debugPrintStorage();
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Storage printed to console')),
-                    );
-                  }
-                },
               ),
             ],
           ),

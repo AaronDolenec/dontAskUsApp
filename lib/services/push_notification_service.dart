@@ -9,15 +9,26 @@ import 'api_client.dart';
 import 'api_exception.dart';
 
 class PushNotificationService {
+  static bool _initialized = false;
+  static bool _permissionRequested = false;
+
   static Future<void> initialize() async {
+    if (_initialized) return;
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    FirebaseMessaging messaging = FirebaseMessaging.instance;
-    await messaging.requestPermission();
+    _initialized = true;
+  }
+
+  static Future<void> _ensurePermissionRequested() async {
+    if (_permissionRequested) return;
+    _permissionRequested = true;
+    await FirebaseMessaging.instance.requestPermission();
   }
 
   static Future<String?> getDeviceToken() async {
+    await initialize();
+    await _ensurePermissionRequested();
     return await FirebaseMessaging.instance.getToken();
   }
 

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/auth_service.dart';
+import '../../services/app_bootstrap_service.dart';
 import '../../utils/app_colors.dart';
 import '../onboarding/auth_screen.dart';
 import '../groups/groups_screen.dart';
@@ -52,21 +54,26 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _checkAuthAndNavigate() async {
-    // Wait for minimum splash display time
-    await Future.delayed(const Duration(milliseconds: 2000));
+    // Ensure app bootstrap (dotenv + push init) is complete before we touch
+    // providers/services that depend on configuration.
+    await AppBootstrapService.ensureInitialized();
+
+    // Keep splash brief for perceived performance.
+    await Future.delayed(const Duration(milliseconds: 250));
 
     if (!mounted) return;
 
     // Check auth state
     final authState = ref.read(authProvider);
 
-    // Wait for auth to finish loading if still loading
+    // Wait briefly for auth restore to finish.
     if (authState.isLoading) {
-      await Future.doWhile(() async {
-        await Future.delayed(const Duration(milliseconds: 100));
+      final deadline = DateTime.now().add(const Duration(seconds: 2));
+      while (mounted && DateTime.now().isBefore(deadline)) {
+        await Future.delayed(const Duration(milliseconds: 80));
         final state = ref.read(authProvider);
-        return state.isLoading;
-      });
+        if (!state.isLoading) break;
+      }
     }
 
     if (!mounted) return;
@@ -77,7 +84,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     if (finalAuthState.user != null) {
       _navigateToMain();
     } else {
-      _navigateToAuth();
+      // If restore is still in flight but a token exists, prefer Groups to avoid
+      // making users wait on a cold network restore path.
+      final hasToken = (await AuthService.getAccessToken())?.isNotEmpty == true;
+      if (finalAuthState.isLoading && hasToken) {
+        _navigateToMain();
+      } else {
+        _navigateToAuth();
+      }
     }
   }
 

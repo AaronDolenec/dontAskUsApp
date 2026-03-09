@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../utils/utils.dart';
 import 'auth_screen.dart';
 
@@ -14,30 +15,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-
-  final List<OnboardingPage> _pages = [
-    const OnboardingPage(
-      icon: Icons.groups_rounded,
-      title: 'Daily Questions',
-      description:
-          'Get a fun question every day to answer with your group. No pressure, just vibes!',
-      color: AppColors.primary,
-    ),
-    const OnboardingPage(
-      icon: Icons.how_to_vote_rounded,
-      title: 'Vote Together',
-      description:
-          'Vote on questions and see what your friends think. Discover surprising opinions!',
-      color: AppColors.secondary,
-    ),
-    const OnboardingPage(
-      icon: Icons.local_fire_department_rounded,
-      title: 'Build Your Streak',
-      description:
-          'Answer daily to keep your streak going. How long can you keep it up?',
-      color: AppColors.accent,
-    ),
-  ];
+  static const int _pageCount = 7;
 
   @override
   void dispose() {
@@ -52,7 +30,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _nextPage() {
-    if (_currentPage < _pages.length - 1) {
+    if (_currentPage < _pageCount - 1) {
       _pageController.nextPage(
         duration: AppAnimations.normal,
         curve: Curves.easeInOut,
@@ -73,6 +51,52 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final pages = [
+      OnboardingPage(
+        icon: Icons.groups_rounded,
+        title: l10n.onboardingTitle1,
+        description: l10n.onboardingDesc1,
+        color: AppColors.primary,
+      ),
+      OnboardingPage(
+        icon: Icons.how_to_vote_rounded,
+        title: l10n.onboardingTitle2,
+        description: l10n.onboardingDesc2,
+        color: AppColors.secondary,
+      ),
+      OnboardingPage(
+        icon: Icons.quiz_outlined,
+        title: l10n.onboardingTitle4,
+        description: l10n.onboardingDesc4,
+        color: AppColors.warning,
+      ),
+      OnboardingPage(
+        icon: Icons.notifications_active_outlined,
+        title: l10n.onboardingTitle5,
+        description: l10n.onboardingDesc5,
+        color: AppColors.info,
+      ),
+      OnboardingPage(
+        icon: Icons.local_fire_department_rounded,
+        title: l10n.onboardingTitle3,
+        description: l10n.onboardingDesc3,
+        color: AppColors.accent,
+      ),
+      OnboardingPage(
+        icon: Icons.swap_horiz_rounded,
+        title: l10n.onboardingTitle6,
+        description: l10n.onboardingDesc6,
+        color: AppColors.primary,
+      ),
+      OnboardingPage(
+        icon: Icons.emoji_events_outlined,
+        title: l10n.onboardingTitle7,
+        description: l10n.onboardingDesc7,
+        color: AppColors.secondary,
+      ),
+    ];
+
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -85,7 +109,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: TextButton(
                 onPressed: _showGetStartedOptions,
                 child: Text(
-                  'Skip',
+                  l10n.skip,
                   style: TextStyle(
                     color: isDark ? Colors.white70 : Colors.grey[600],
                     fontWeight: FontWeight.w500,
@@ -99,8 +123,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: PageView.builder(
                 controller: _pageController,
                 onPageChanged: _onPageChanged,
-                itemCount: _pages.length,
-                itemBuilder: (context, index) => _pages[index],
+                itemCount: pages.length,
+                itemBuilder: (context, index) => pages[index],
               ),
             ),
 
@@ -110,7 +134,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
-                  _pages.length,
+                  pages.length,
                   (index) => AnimatedContainer(
                     duration: AppAnimations.fast,
                     margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -144,7 +168,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     elevation: 0,
                   ),
                   child: Text(
-                    _currentPage == _pages.length - 1 ? 'Get Started' : 'Next',
+                    _currentPage == pages.length - 1
+                        ? l10n.getStarted
+                        : l10n.next,
                     style: AppTextStyles.button.copyWith(
                       fontSize: 16,
                       color: Colors.white,
@@ -239,6 +265,7 @@ class GetStartedSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
       decoration: BoxDecoration(
@@ -263,25 +290,33 @@ class GetStartedSheet extends StatelessWidget {
 
           // Title
           Text(
-            'Get Started',
+            l10n.getStarted,
             style: AppTextStyles.h3.copyWith(
               color: Theme.of(context).textTheme.bodyLarge?.color,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Join an existing group or create your own',
+            l10n.joinGroupSubtitle,
             style: AppTextStyles.bodyMedium.copyWith(
               color: Colors.grey[600],
             ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            l10n.getStartedTip,
+            style: AppTextStyles.bodySmall.copyWith(
+              color: Colors.grey[600],
+            ),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 32),
 
           // Join group button
           _OptionButton(
             icon: Icons.login_rounded,
-            title: 'Join a Group',
-            subtitle: 'Sign in or create an account first',
+            title: l10n.joinGroup,
+            subtitle: l10n.joinGroupSubtitle,
             color: AppColors.primary,
             onTap: () {
               Navigator.pop(context);
@@ -296,8 +331,8 @@ class GetStartedSheet extends StatelessWidget {
           // Create group button
           _OptionButton(
             icon: Icons.add_circle_outline_rounded,
-            title: 'Create a Group',
-            subtitle: 'Sign in or create an account first',
+            title: l10n.createGroup,
+            subtitle: l10n.createGroupSubtitle,
             color: AppColors.secondary,
             onTap: () {
               Navigator.pop(context);

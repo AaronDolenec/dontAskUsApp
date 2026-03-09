@@ -7,3 +7,4 @@ export 'websocket_service.dart';
 export 'group_websocket_service.dart';
 export 'cache_service.dart';
 export 'share_service.dart';
+export 'app_bootstrap_service.dart';

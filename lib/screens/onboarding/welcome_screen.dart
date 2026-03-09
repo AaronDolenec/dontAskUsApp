@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../utils/app_colors.dart';
+import '../../l10n/app_localizations.dart';
 import '../groups/groups_screen.dart';
 
 /// Short onboarding shown after a new user registers.
@@ -14,7 +15,7 @@ class WelcomeScreen extends StatefulWidget {
 class _WelcomeScreenState extends State<WelcomeScreen> {
   final _controller = PageController();
   int _currentPage = 0;
-  static const _totalPages = 3;
+  static const _totalPages = 5;
 
   @override
   void dispose() {
@@ -42,6 +43,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -51,7 +53,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               alignment: Alignment.topRight,
               child: TextButton(
                 onPressed: _finish,
-                child: const Text('Skip'),
+                child: Text(l10n.skip),
               ),
             ),
 
@@ -62,33 +64,36 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 onPageChanged: (page) {
                   setState(() => _currentPage = page);
                 },
-                children: const [
+                children: [
                   _WelcomePage(
                     icon: Icons.celebration_rounded,
                     iconColor: AppColors.warning,
-                    title: 'Welcome to dontAskUs! 🎉',
-                    description:
-                        'Every day your group gets a fun question to answer.\n\n'
-                        'Vote, see what your friends picked, and discover how '
-                        'well you really know each other.',
+                    title: l10n.welcomePage1Title,
+                    description: l10n.welcomePage1Desc,
                   ),
                   _WelcomePage(
                     icon: Icons.groups_rounded,
                     iconColor: AppColors.primary,
-                    title: 'Create or join a group',
-                    description:
-                        'Start by creating a new group and sharing the invite '
-                        'code with your friends — or join an existing one.\n\n'
-                        'You can be in multiple groups at the same time!',
+                    title: l10n.welcomePage2Title,
+                    description: l10n.welcomePage2Desc,
                   ),
                   _WelcomePage(
                     icon: Icons.local_fire_department_rounded,
                     iconColor: Color(0xFFF97316),
-                    title: 'Build your streak 🔥',
-                    description:
-                        'Answer every day to keep your streak alive.\n\n'
-                        'The longer your streak, the higher you climb on the '
-                        'leaderboard. Don\'t break the chain!',
+                    title: l10n.welcomePage3Title,
+                    description: l10n.welcomePage3Desc,
+                  ),
+                  _WelcomePage(
+                    icon: Icons.notifications_active_outlined,
+                    iconColor: AppColors.info,
+                    title: l10n.welcomePage4Title,
+                    description: l10n.welcomePage4Desc,
+                  ),
+                  _WelcomePage(
+                    icon: Icons.quiz_outlined,
+                    iconColor: AppColors.secondary,
+                    title: l10n.welcomePage5Title,
+                    description: l10n.welcomePage5Desc,
                   ),
                 ],
               ),
@@ -130,8 +135,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       ),
                       child: Text(
                         _currentPage == _totalPages - 1
-                            ? 'Get Started'
-                            : 'Next',
+                            ? l10n.getStarted
+                            : l10n.next,
                       ),
                     ),
                   ),

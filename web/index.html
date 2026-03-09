@@ -33,15 +33,31 @@
   <link rel="manifest" href="manifest.json">
 
   <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
     .loading {
+      position: fixed;
+      inset: 0;
       display: flex;
       justify-content: center;
       align-items: center;
-      height: 100vh;
+      height: 100%;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #667eea;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       flex-direction: column;
+      z-index: 9999;
+      opacity: 1;
+      transition: opacity 220ms ease;
+    }
+    .loading.loading-hidden {
+      opacity: 0;
+      pointer-events: none;
     }
     .spinner {
       width: 50px;
@@ -66,22 +82,46 @@
     <div id="error" class="error" style="display:none;"></div>
   </div>
   <script>
+    const loadingRoot = document.getElementById('loading');
+    const statusEl = document.getElementById('status');
+    const errorEl = document.getElementById('error');
+    const spinnerEl = document.querySelector('.spinner');
+
+    function hideLoadingShell() {
+      if (!loadingRoot || loadingRoot.classList.contains('loading-hidden')) return;
+      loadingRoot.classList.add('loading-hidden');
+      setTimeout(() => loadingRoot.remove(), 260);
+    }
+
+    function showLoadError(title, details) {
+      if (statusEl) statusEl.textContent = 'Error loading app';
+      if (errorEl) {
+        errorEl.style.display = 'block';
+        errorEl.innerHTML = `<strong>${title}</strong> ${details}`;
+      }
+      if (spinnerEl) spinnerEl.style.display = 'none';
+    }
+
     // Show errors on screen for debugging
     window.onerror = function(msg, url, line, col, error) {
-      document.getElementById('status').textContent = 'Error loading app';
-      document.getElementById('error').style.display = 'block';
-      document.getElementById('error').innerHTML = '<strong>Error:</strong> ' + msg + '<br><small>' + url + ':' + line + '</small>';
-      document.querySelector('.spinner').style.display = 'none';
+      showLoadError('Error:', `${msg}<br><small>${url}:${line}</small>`);
       return false;
     };
+
     window.addEventListener('unhandledrejection', function(e) {
-      document.getElementById('status').textContent = 'Error loading app';
-      document.getElementById('error').style.display = 'block';
-      document.getElementById('error').innerHTML = '<strong>Promise Error:</strong> ' + (e.reason?.message || e.reason || 'Unknown error');
-      document.querySelector('.spinner').style.display = 'none';
+      showLoadError('Promise Error:', (e.reason?.message || e.reason || 'Unknown error'));
     });
+
+    window.addEventListener('app-shell-status', function(e) {
+      if (statusEl && e?.detail) {
+        statusEl.textContent = String(e.detail);
+      }
+    });
+
+    window.addEventListener('app-started', hideLoadingShell);
+
     window.addEventListener('flutter-first-frame', function() {
-      document.getElementById('loading').style.display = 'none';
+      hideLoadingShell();
     });
   </script>
   <script src="flutter_bootstrap.js" async></script>

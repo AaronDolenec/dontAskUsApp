@@ -81,18 +81,24 @@ class AuthNotifier extends StateNotifier<AuthState> {
             'DEBUG: _loadSession user.id=${user.id}, user.oderId=${user.oderId}');
 
         // Sync group memberships from server
-        for (final group in user.groups) {
-          await AuthService.saveGroupMembership(
-            groupId: group.groupId,
-            userId: group.userId,
-            displayName: group.displayName,
-            groupName: group.groupName,
-          );
-        }
+        await Future.wait(
+          user.groups.map(
+            (group) => AuthService.saveGroupMembership(
+              groupId: group.groupId,
+              userId: group.userId,
+              displayName: group.displayName,
+              groupName: group.groupName,
+            ),
+          ),
+        );
 
         // Determine current group
-        String? groupId = await AuthService.getCurrentGroupId();
-        final allGroups = await AuthService.getGroupsList();
+        final sessionValues = await Future.wait<dynamic>([
+          AuthService.getCurrentGroupId(),
+          AuthService.getGroupsList(),
+        ]);
+        String? groupId = sessionValues[0] as String?;
+        final allGroups = sessionValues[1] as List<String>;
 
         if (groupId == null || !allGroups.contains(groupId)) {
           if (user.groups.isNotEmpty) {
@@ -327,14 +333,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
 
     // Save group memberships
-    for (final group in user.groups) {
-      await AuthService.saveGroupMembership(
-        groupId: group.groupId,
-        userId: group.userId,
-        displayName: group.displayName,
-        groupName: group.groupName,
-      );
-    }
+    await Future.wait(
+      user.groups.map(
+        (group) => AuthService.saveGroupMembership(
+          groupId: group.groupId,
+          userId: group.userId,
+          displayName: group.displayName,
+          groupName: group.groupName,
+        ),
+      ),
+    );
 
     // Set current group
     String? currentGroupId;
@@ -543,7 +551,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Update the current user's display name for the active group.
   Future<bool> updateDisplayName(String newName) async {
     final groupId = state.groupId;
+    final userId = _resolveCurrentUserIdForSettings();
     if (groupId == null) return false;
+    if (userId == null) return false;
     state = state.copyWith(isLoading: true);
     try {
       final accessToken = await AuthService.getAccessToken();
@@ -551,22 +561,52 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       final api = _ref.read(apiClientProvider);
       final response = await api.put(
-        '/api/auth/groups/$groupId/display-name',
+        '/api/users/$userId/display-name',
         {'display_name': newName},
         accessToken: accessToken,
       );
       if (response.statusCode == 200) {
+        final currentUser = state.user;
+        if (currentUser == null) {
+          state = state.copyWith(isLoading: false);
+          return true;
+        }
+
+        final updatedGroups = currentUser.groups
+            .map((g) => g.groupId == groupId
+                ? UserGroupMembership(
+                    userId: g.userId,
+                    groupId: g.groupId,
+                    groupName: g.groupName,
+                    displayName: newName,
+                  )
+                : g)
+            .toList();
+
+        final updatedCurrentGroup =
+            updatedGroups.cast<UserGroupMembership?>().firstWhere(
+                  (g) => g?.groupId == groupId,
+                  orElse: () => null,
+                );
+
         // update local storage
         await AuthService.saveGroupMembership(
           groupId: groupId,
-          userId: state.user?.oderId ?? '',
+          userId: userId,
           displayName: newName,
-          groupName: state.user?.groups
-                  .firstWhere((g) => g.groupId == groupId)
-                  .groupName ??
-              '',
+          groupName: updatedCurrentGroup?.groupName ?? '',
         );
-        state = state.copyWith(isLoading: false);
+
+        state = state.copyWith(
+          user: currentUser.copyWith(
+            displayName: newName,
+            groups: updatedGroups,
+          ),
+          isLoading: false,
+        );
+
+        // Refresh cached members so UI reflects updated name everywhere.
+        _ref.invalidate(groupMembersProvider);
         return true;
       }
     } catch (_) {}
@@ -576,14 +616,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Fetch notification settings for the current user/group.
   Future<NotificationSettings?> fetchNotificationSettings() async {
-    final userId = state.user?.id;
+    final userId = _resolveCurrentUserIdForSettings();
     if (userId == null) return null;
     try {
       final accessToken = await AuthService.getAccessToken();
       if (accessToken == null) return null;
       final api = _ref.read(apiClientProvider);
       final response = await api.get(
-        '/api/users/$userId/notification-settings',
+        '/api/users/$userId/settings',
         accessToken: accessToken,
       );
       if (response.statusCode == 200) {
@@ -596,20 +636,53 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Update notification settings on the server.
   Future<bool> updateNotificationSettings(NotificationSettings settings) async {
-    final userId = state.user?.id;
+    final userId = _resolveCurrentUserIdForSettings();
     if (userId == null) return false;
     try {
       final accessToken = await AuthService.getAccessToken();
       if (accessToken == null) return false;
       final api = _ref.read(apiClientProvider);
-      final response = await api.put(
-        '/api/users/$userId/notification-settings',
-        settings.toJson(),
+
+      final emailResponse = await api.put(
+        '/api/users/$userId/email-settings',
+        {
+          'email_on_new_question': settings.emailOnNewQuestion,
+          'email_on_reminder': settings.emailOnReminder,
+        },
         accessToken: accessToken,
       );
-      return response.statusCode == 200;
+
+      if (emailResponse.statusCode != 200) {
+        return false;
+      }
+
+      final pushResponse = await api.put(
+        '/api/users/$userId/push-settings',
+        {
+          'push_notifications_enabled': settings.pushNotificationsEnabled,
+        },
+        accessToken: accessToken,
+      );
+
+      return pushResponse.statusCode == 200;
     } catch (_) {}
     return false;
+  }
+
+  String? _resolveCurrentUserIdForSettings() {
+    final user = state.user;
+    if (user == null) return null;
+
+    final groupId = state.groupId;
+    if (groupId != null) {
+      for (final membership in user.groups) {
+        if (membership.groupId == groupId && membership.userId.isNotEmpty) {
+          return membership.userId;
+        }
+      }
+    }
+
+    return user.oderId.isNotEmpty ? user.oderId : null;
   }
 
   /// Switch to a different group

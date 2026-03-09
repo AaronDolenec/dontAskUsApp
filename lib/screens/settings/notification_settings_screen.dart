@@ -30,9 +30,9 @@ class _NotificationSettingsScreenState
     setState(() {
       _settings = fetched ??
           NotificationSettings(
-            pushEnabled: false,
-            emailEnabled: false,
-            pushForAllGroups: false,
+            pushNotificationsEnabled: false,
+            emailOnNewQuestion: false,
+            emailOnReminder: false,
           );
       _loading = false;
     });
@@ -45,12 +45,20 @@ class _NotificationSettingsScreenState
         .read(authProvider.notifier)
         .updateNotificationSettings(_settings!);
     setState(() => _loading = false);
-    if (!success && mounted) {
+    if (!mounted) return;
+
+    if (!success) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Failed to save notification settings'),
         backgroundColor: AppColors.error,
       ));
+      return;
     }
+
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Notification settings saved'),
+      backgroundColor: AppColors.success,
+    ));
   }
 
   @override
@@ -66,40 +74,41 @@ class _NotificationSettingsScreenState
                   child: Column(
                     children: [
                       SwitchListTile(
-                        title: const Text('Push notifications for this group'),
-                        value: _settings!.pushEnabled,
+                        title: const Text('Push notifications'),
+                        subtitle: const Text('Enable Firebase push messages'),
+                        value: _settings!.pushNotificationsEnabled,
                         onChanged: (v) {
                           setState(() {
-                            _settings = NotificationSettings(
-                              pushEnabled: v,
-                              emailEnabled: _settings!.emailEnabled,
-                              pushForAllGroups: _settings!.pushForAllGroups,
+                            _settings = _settings!.copyWith(
+                              pushNotificationsEnabled: v,
                             );
                           });
                         },
                       ),
                       SwitchListTile(
-                        title: const Text('Push notifications for all groups'),
-                        value: _settings!.pushForAllGroups,
+                        title: const Text('Email on new question'),
+                        subtitle: const Text(
+                          'Get an email whenever a new daily question is available',
+                        ),
+                        value: _settings!.emailOnNewQuestion,
                         onChanged: (v) {
                           setState(() {
-                            _settings = NotificationSettings(
-                              pushEnabled: _settings!.pushEnabled,
-                              emailEnabled: _settings!.emailEnabled,
-                              pushForAllGroups: v,
+                            _settings = _settings!.copyWith(
+                              emailOnNewQuestion: v,
                             );
                           });
                         },
                       ),
                       SwitchListTile(
-                        title: const Text('Email notifications'),
-                        value: _settings!.emailEnabled,
+                        title: const Text('Email reminders'),
+                        subtitle: const Text(
+                          'Get reminder emails if you have not answered yet',
+                        ),
+                        value: _settings!.emailOnReminder,
                         onChanged: (v) {
                           setState(() {
-                            _settings = NotificationSettings(
-                              pushEnabled: _settings!.pushEnabled,
-                              emailEnabled: v,
-                              pushForAllGroups: _settings!.pushForAllGroups,
+                            _settings = _settings!.copyWith(
+                              emailOnReminder: v,
                             );
                           });
                         },
