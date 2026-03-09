@@ -4,6 +4,16 @@ import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 class DefaultFirebaseOptions {
+  static bool get isConfigured {
+    bool hasRealValue(String value) =>
+        value.trim().isNotEmpty && !value.startsWith('YOUR_');
+
+    return hasRealValue(web.apiKey) &&
+        hasRealValue(web.projectId) &&
+        hasRealValue(web.messagingSenderId) &&
+        hasRealValue(web.appId);
+  }
+
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
       return web;

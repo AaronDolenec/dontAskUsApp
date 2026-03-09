@@ -13,6 +13,7 @@ import '../../services/share_service.dart';
 import '../../utils/app_colors.dart';
 import '../../widgets/avatar_circle.dart';
 import '../groups/groups_screen.dart';
+import '../onboarding/welcome_screen.dart';
 import 'help_screen.dart';
 import 'notification_settings_screen.dart';
 import 'session_info_screen.dart';
@@ -113,11 +114,26 @@ class SettingsScreen extends ConsumerWidget {
                   const Divider(height: 1),
                   ListTile(
                     leading: const Icon(Icons.help_outline),
+                    title: const Text('Onboarding Walkthrough'),
+                    subtitle: const Text('See how the app works'),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const WelcomeScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.support_agent_outlined),
                     title: const Text('Help & Support'),
                     subtitle: const Text('FAQ and contact'),
                     onTap: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const HelpScreen()),
+                        MaterialPageRoute(
+                          builder: (_) => const HelpScreen(),
+                        ),
                       );
                     },
                   ),

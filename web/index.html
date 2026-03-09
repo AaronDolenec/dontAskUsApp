@@ -124,13 +124,35 @@
       hideLoadingShell();
     });
   </script>
+  <script src="firebase-web-config.js"></script>
   <script src="flutter_bootstrap.js" async></script>
   <script>
+    function hasRealFirebaseValue(value) {
+      return typeof value === 'string' && value.trim().length > 0 && !value.startsWith('YOUR_');
+    }
+
+    function hasValidFirebaseConfig(config) {
+      if (!config || typeof config !== 'object') return false;
+      return (
+        hasRealFirebaseValue(config.apiKey) &&
+        hasRealFirebaseValue(config.projectId) &&
+        hasRealFirebaseValue(config.messagingSenderId) &&
+        hasRealFirebaseValue(config.appId)
+      );
+    }
+
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-          .register('firebase-messaging-sw.js')
-          .then((reg) => console.log('SW registered', reg))
-          .catch((err) => console.error('SW registration failed', err));
+      const firebaseConfig = window.FIREBASE_WEB_CONFIG || null;
+      if (hasValidFirebaseConfig(firebaseConfig)) {
+        navigator.serviceWorker
+            .register('firebase-messaging-sw.js', {
+              scope: '/firebase-cloud-messaging-push-scope',
+            })
+            .then((reg) => console.log('Firebase messaging SW registered', reg.scope))
+            .catch((err) => console.warn('Firebase messaging SW registration skipped:', err));
+      } else {
+        console.info('Firebase messaging SW disabled: missing Firebase web config values.');
+      }
     }
   </script>
 </body>

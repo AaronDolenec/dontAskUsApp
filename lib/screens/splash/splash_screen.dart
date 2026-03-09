@@ -6,6 +6,7 @@ import '../../services/app_bootstrap_service.dart';
 import '../../utils/app_colors.dart';
 import '../onboarding/auth_screen.dart';
 import '../groups/groups_screen.dart';
+import '../main/main_screen.dart';
 
 /// Splash screen with token validation
 class SplashScreen extends ConsumerStatefulWidget {
@@ -58,8 +59,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     // providers/services that depend on configuration.
     await AppBootstrapService.ensureInitialized();
 
-    // Keep splash brief for perceived performance.
-    await Future.delayed(const Duration(milliseconds: 250));
+    // Keep splash very brief for perceived performance.
+    await Future.delayed(const Duration(milliseconds: 120));
 
     if (!mounted) return;
 
@@ -68,7 +69,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     // Wait briefly for auth restore to finish.
     if (authState.isLoading) {
-      final deadline = DateTime.now().add(const Duration(seconds: 2));
+      final deadline = DateTime.now().add(const Duration(milliseconds: 1200));
       while (mounted && DateTime.now().isBefore(deadline)) {
         await Future.delayed(const Duration(milliseconds: 80));
         final state = ref.read(authProvider);
@@ -82,13 +83,23 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     // Navigate based on auth state
     if (finalAuthState.user != null) {
-      _navigateToMain();
+      if (finalAuthState.groupId != null) {
+        _navigateToMain();
+      } else {
+        _navigateToGroups();
+      }
     } else {
       // If restore is still in flight but a token exists, prefer Groups to avoid
       // making users wait on a cold network restore path.
       final hasToken = (await AuthService.getAccessToken())?.isNotEmpty == true;
       if (finalAuthState.isLoading && hasToken) {
-        _navigateToMain();
+        final hasCurrentGroup =
+            (await AuthService.getCurrentGroupId())?.isNotEmpty == true;
+        if (hasCurrentGroup) {
+          _navigateToMain();
+        } else {
+          _navigateToGroups();
+        }
       } else {
         _navigateToAuth();
       }
@@ -96,6 +107,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   void _navigateToMain() {
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const MainScreen(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
+    );
+  }
+
+  void _navigateToGroups() {
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>

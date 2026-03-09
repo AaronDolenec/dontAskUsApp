@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../groups/groups_screen.dart';
 import '../home/home_screen.dart';
 import '../members/members_screen.dart';
@@ -8,14 +11,17 @@ import '../settings/settings_screen.dart';
 
 /// Main screen with bottom navigation
 class MainScreen extends ConsumerStatefulWidget {
-  const MainScreen({super.key});
+  const MainScreen({super.key, this.initialIndex = 0});
+
+  final int initialIndex;
 
   @override
   ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends ConsumerState<MainScreen> {
-  int _currentIndex = 0;
+  static const _lastTabKey = 'main_last_tab_index';
+  late int _currentIndex;
 
   // Use PageView to maintain state between tabs
   late final PageController _pageController;
@@ -30,7 +36,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: _currentIndex);
+    _restoreLastTab();
   }
 
   @override
@@ -55,7 +63,26 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     setState(() {
       _currentIndex = index;
     });
+    unawaited(_persistLastTab(index));
     _pageController.jumpToPage(index);
+  }
+
+  Future<void> _restoreLastTab() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedIndex = prefs.getInt(_lastTabKey);
+    if (!mounted || storedIndex == null) return;
+    if (storedIndex < 0 || storedIndex >= _screens.length) return;
+    if (storedIndex == _currentIndex) return;
+
+    setState(() {
+      _currentIndex = storedIndex;
+    });
+    _pageController.jumpToPage(storedIndex);
+  }
+
+  Future<void> _persistLastTab(int index) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_lastTabKey, index);
   }
 
   @override

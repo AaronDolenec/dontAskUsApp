@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:firebase_core/firebase_core.dart';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -11,16 +12,35 @@ import 'api_exception.dart';
 class PushNotificationService {
   static bool _initialized = false;
   static bool _permissionRequested = false;
+  static bool _firebaseAvailable = true;
 
   static Future<void> initialize() async {
     if (_initialized) return;
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
+
+    if (!kIsWeb || !DefaultFirebaseOptions.isConfigured) {
+      _firebaseAvailable = false;
+      _initialized = true;
+      debugPrint(
+        'Push notifications disabled: Firebase web config is not set.',
+      );
+      return;
+    }
+
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      _firebaseAvailable = true;
+    } catch (e) {
+      _firebaseAvailable = false;
+      debugPrint('Push notifications disabled: Firebase init failed ($e)');
+    }
+
     _initialized = true;
   }
 
   static Future<void> _ensurePermissionRequested() async {
+    if (!_firebaseAvailable) return;
     if (_permissionRequested) return;
     _permissionRequested = true;
     await FirebaseMessaging.instance.requestPermission();
@@ -28,6 +48,7 @@ class PushNotificationService {
 
   static Future<String?> getDeviceToken() async {
     await initialize();
+    if (!_firebaseAvailable) return null;
     await _ensurePermissionRequested();
     return await FirebaseMessaging.instance.getToken();
   }
