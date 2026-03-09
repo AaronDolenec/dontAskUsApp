@@ -143,6 +143,21 @@
 
     if ('serviceWorker' in navigator) {
       const firebaseConfig = window.FIREBASE_WEB_CONFIG || null;
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations
+          .filter((reg) => {
+            const scriptUrl = reg.active?.scriptURL || reg.waiting?.scriptURL || reg.installing?.scriptURL || '';
+            return scriptUrl.includes('firebase-messaging-sw.js') && reg.scope === `${location.origin}/`;
+          })
+          .forEach((reg) => {
+            reg.unregister().then((ok) => {
+              if (ok) {
+                console.info('Unregistered legacy root-scoped Firebase messaging SW');
+              }
+            });
+          });
+      });
+
       if (hasValidFirebaseConfig(firebaseConfig)) {
         navigator.serviceWorker
             .register('firebase-messaging-sw.js', {
