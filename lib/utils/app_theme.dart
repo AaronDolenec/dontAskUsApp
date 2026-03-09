@@ -27,6 +27,7 @@ class AppTheme {
         backgroundColor: AppColors.surface,
         foregroundColor: AppColors.textPrimary,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: true,
         titleTextStyle: TextStyle(
           color: AppColors.textPrimary,
@@ -39,10 +40,11 @@ class AppTheme {
       // Card Theme
       cardTheme: CardThemeData(
         color: AppColors.card,
-        elevation: 2,
+        elevation: 0,
         shadowColor: Colors.black.withValues(alpha: 0.1),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppColors.borderStrong),
         ),
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
@@ -95,7 +97,7 @@ class AppTheme {
       // Input Decoration Theme
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surface,
+        fillColor: AppColors.surfaceSubtle,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
@@ -120,6 +122,19 @@ class AppTheme {
         ),
         labelStyle: const TextStyle(color: AppColors.textSecondary),
         hintStyle: const TextStyle(color: AppColors.textLight),
+        helperMaxLines: 2,
+        errorMaxLines: 2,
+      ),
+
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          minimumSize: const Size(44, 44),
+        ),
+      ),
+
+      listTileTheme: const ListTileThemeData(
+        minVerticalPadding: 8,
+        minLeadingWidth: 28,
       ),
 
       // Bottom Navigation Bar Theme
@@ -242,6 +257,7 @@ class AppTheme {
         backgroundColor: AppColors.surfaceDark,
         foregroundColor: AppColors.textPrimaryDark,
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: true,
         titleTextStyle: TextStyle(
           color: AppColors.textPrimaryDark,
@@ -253,11 +269,12 @@ class AppTheme {
 
       // Card Theme
       cardTheme: CardThemeData(
-        color: AppColors.cardDark,
-        elevation: 2,
+        color: AppColors.surfaceDark,
+        elevation: 0,
         shadowColor: Colors.black.withValues(alpha: 0.3),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppColors.borderStrongDark),
         ),
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
@@ -298,7 +315,7 @@ class AppTheme {
       // Input Decoration Theme
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.cardDark,
+        fillColor: AppColors.surfaceSubtleDark,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
@@ -317,8 +334,25 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.error),
         ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.error, width: 2),
+        ),
         labelStyle: const TextStyle(color: AppColors.textSecondaryDark),
         hintStyle: const TextStyle(color: AppColors.textLightDark),
+        helperMaxLines: 2,
+        errorMaxLines: 2,
+      ),
+
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          minimumSize: const Size(44, 44),
+        ),
+      ),
+
+      listTileTheme: const ListTileThemeData(
+        minVerticalPadding: 8,
+        minLeadingWidth: 28,
       ),
 
       // Bottom Navigation Bar Theme

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -16,6 +17,7 @@ import 'screens/onboarding/join_group_screen.dart';
 import 'screens/onboarding/create_group_screen.dart';
 import 'screens/main/main_screen.dart';
 import 'utils/app_theme.dart';
+import 'utils/app_routes.dart';
 import 'services/app_bootstrap_service.dart';
 
 void main() async {
@@ -40,6 +42,10 @@ void main() async {
 
   // Kick off app bootstrap without blocking first frame.
   unawaited(AppBootstrapService.ensureInitialized());
+
+  if (kIsWeb) {
+    usePathUrlStrategy();
+  }
 
   runApp(
     const ProviderScope(
@@ -74,15 +80,65 @@ class DontAskUsApp extends ConsumerWidget {
       supportedLocales: AppLocalizations.supportedLocales,
 
       // Routes
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const SplashScreen(),
-        '/auth': (context) => const AuthScreen(),
-        '/welcome': (context) => const WelcomeScreen(),
-        '/groups': (context) => const GroupsScreen(),
-        '/join': (context) => const JoinGroupScreen(),
-        '/create': (context) => const CreateGroupScreen(),
-        '/main': (context) => const MainScreen(),
+      initialRoute: AppRoutePaths.root,
+      onGenerateRoute: (settings) {
+        final deepLink = AppRoutePaths.parseGroupTabPath(settings.name);
+        if (deepLink != null) {
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (context) => MainScreen(
+              initialIndex: deepLink.tab.index,
+              initialGroupId: deepLink.groupId,
+            ),
+          );
+        }
+
+        final groupsMessage = AppRoutePaths.parseGroupsMessage(settings.name);
+        final normalizedPath = Uri.tryParse(settings.name ?? '')?.path;
+        switch (normalizedPath) {
+          case AppRoutePaths.root:
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (context) => const SplashScreen(),
+            );
+          case AppRoutePaths.auth:
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (context) => const AuthScreen(),
+            );
+          case AppRoutePaths.welcome:
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (context) => const WelcomeScreen(),
+            );
+          case AppRoutePaths.groups:
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (context) => GroupsScreen(
+                initialSnackMessage: groupsMessage,
+              ),
+            );
+          case AppRoutePaths.join:
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (context) => const JoinGroupScreen(),
+            );
+          case AppRoutePaths.create:
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (context) => const CreateGroupScreen(),
+            );
+          case AppRoutePaths.main:
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (context) => const MainScreen(),
+            );
+          default:
+            return MaterialPageRoute(
+              settings: settings,
+              builder: (context) => const SplashScreen(),
+            );
+        }
       },
 
       // Accessibility

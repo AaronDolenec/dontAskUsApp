@@ -1,9 +1,15 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show SystemNavigator;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../groups/groups_screen.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/group_provider.dart';
+import '../../providers/question_provider.dart';
+import '../../providers/history_provider.dart';
+import '../../utils/app_routes.dart';
 import '../home/home_screen.dart';
 import '../members/members_screen.dart';
 import '../history/history_screen.dart';
@@ -11,9 +17,14 @@ import '../settings/settings_screen.dart';
 
 /// Main screen with bottom navigation
 class MainScreen extends ConsumerStatefulWidget {
-  const MainScreen({super.key, this.initialIndex = 0});
+  const MainScreen({
+    super.key,
+    this.initialIndex = 0,
+    this.initialGroupId,
+  });
 
   final int initialIndex;
+  final String? initialGroupId;
 
   @override
   ConsumerState<MainScreen> createState() => _MainScreenState();
@@ -38,7 +49,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     super.initState();
     _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: _currentIndex);
-    _restoreLastTab();
+
+    if (widget.initialGroupId == null && widget.initialIndex == 0) {
+      _restoreLastTab();
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_applyDeepLinkContext());
+    });
   }
 
   @override
@@ -48,10 +66,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   void _goToGroups() {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const GroupsScreen()),
-      (route) => false,
-    );
+    Navigator.of(context)
+        .pushNamedAndRemoveUntil(AppRoutePaths.groups, (route) => false);
   }
 
   void _onTabTapped(int index) {
@@ -65,6 +81,68 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     });
     unawaited(_persistLastTab(index));
     _pageController.jumpToPage(index);
+    _syncUrlWithCurrentState();
+  }
+
+  Future<void> _applyDeepLinkContext() async {
+    final deepLinkedGroupId = widget.initialGroupId;
+    if (deepLinkedGroupId != null) {
+      final shouldStayOnMain =
+          await _switchToDeepLinkedGroup(deepLinkedGroupId);
+      if (!shouldStayOnMain || !mounted) {
+        return;
+      }
+    }
+    _syncUrlWithCurrentState(replace: true);
+  }
+
+  Future<bool> _switchToDeepLinkedGroup(String groupId) async {
+    for (var i = 0; i < 20; i++) {
+      if (!mounted) return false;
+      final authState = ref.read(authProvider);
+      if (!authState.isLoading) break;
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    }
+
+    if (!mounted) return false;
+    final authState = ref.read(authProvider);
+    final user = authState.user;
+
+    if (user == null || authState.groupId == groupId) {
+      return true;
+    }
+
+    final isMemberOfDeepLinkedGroup =
+        user.groups.any((membership) => membership.groupId == groupId);
+    if (!isMemberOfDeepLinkedGroup) {
+      _redirectToGroupsWithMessage(
+        'That group link is no longer available for your account.',
+      );
+      return false;
+    }
+
+    final switched = await ref.read(authProvider.notifier).switchGroup(groupId);
+    if (!mounted) return false;
+
+    if (!switched) {
+      _redirectToGroupsWithMessage(
+        'Could not open that group. Please choose one from your groups list.',
+      );
+      return false;
+    }
+
+    ref.invalidate(groupInfoProvider);
+    ref.invalidate(groupMembersProvider);
+    ref.invalidate(questionProvider);
+    ref.invalidate(paginatedHistoryProvider);
+    return true;
+  }
+
+  void _redirectToGroupsWithMessage(String message) {
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      AppRoutePaths.groupsWithMessage(message),
+      (route) => false,
+    );
   }
 
   Future<void> _restoreLastTab() async {
@@ -83,6 +161,20 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Future<void> _persistLastTab(int index) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_lastTabKey, index);
+  }
+
+  void _syncUrlWithCurrentState({bool replace = false}) {
+    if (!kIsWeb) return;
+
+    final groupId = ref.read(authProvider).groupId;
+    if (groupId == null || groupId.isEmpty) return;
+
+    final tab = AppRoutePaths.tabFromIndex(_currentIndex);
+    final location = AppRoutePaths.groupTab(groupId, tab);
+    SystemNavigator.routeInformationUpdated(
+      uri: Uri.parse(location),
+      replace: replace,
+    );
   }
 
   @override

@@ -9,6 +9,7 @@ import '../../services/share_service.dart';
 import '../../services/api_client.dart';
 import '../../services/api_config.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/app_feedback.dart';
 import '../../widgets/avatar_circle.dart';
 import '../../widgets/color_picker.dart';
 
@@ -28,6 +29,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _passwordFormKey = GlobalKey<FormState>();
+  bool _didAttemptPasswordSubmit = false;
   bool _isChangingPassword = false;
   bool _showCurrentPassword = false;
   bool _showNewPassword = false;
@@ -91,7 +93,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _changePassword() async {
-    if (!_passwordFormKey.currentState!.validate()) return;
+    if (!_passwordFormKey.currentState!.validate()) {
+      setState(() => _didAttemptPasswordSubmit = true);
+      AppFeedback.showInfo(context, 'Please fix the password fields.');
+      return;
+    }
 
     setState(() => _isChangingPassword = true);
 
@@ -107,19 +113,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _currentPasswordController.clear();
         _newPasswordController.clear();
         _confirmPasswordController.clear();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Password changed successfully'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppFeedback.showSuccess(context, 'Password changed successfully');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content:
-                Text('Failed to change password. Check your current password.'),
-            backgroundColor: AppColors.error,
-          ),
+        AppFeedback.showError(
+          context,
+          'Failed to change password. Check your current password.',
         );
       }
     }
@@ -140,12 +138,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final bytes = await picked.readAsBytes();
     if (bytes.length > 2 * 1024 * 1024) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Image is too large. Maximum size is 2MB.'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppFeedback.showError(
+            context, 'Image is too large. Maximum size is 2MB.');
       }
       return;
     }
@@ -160,19 +154,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (mounted) {
       setState(() => _isUploadingAvatar = false);
       if (error == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Avatar uploaded successfully!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppFeedback.showSuccess(context, 'Avatar uploaded successfully!');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Upload failed: $error'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppFeedback.showError(context, 'Upload failed: $error');
       }
     }
   }
@@ -207,19 +191,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (mounted) {
       setState(() => _isUploadingAvatar = false);
       if (error == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Avatar removed'),
-            backgroundColor: AppColors.success,
-          ),
-        );
+        AppFeedback.showSuccess(context, 'Avatar removed');
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to remove avatar: $error'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppFeedback.showError(context, 'Failed to remove avatar: $error');
       }
     }
   }
@@ -240,11 +214,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
       final token = await AuthService.getAccessToken();
       if (token == null || token.isEmpty) {
-        buffer.writeln('');
+        buffer.writeln();
         buffer.writeln('Auth check skipped: no access token found.');
       } else {
         final me = await api.get('/api/auth/me', accessToken: token);
-        buffer.writeln('');
+        buffer.writeln();
         buffer.writeln('GET /api/auth/me → ${me.statusCode}');
         final meBody =
             me.body.length > 300 ? '${me.body.substring(0, 300)}...' : me.body;
@@ -253,7 +227,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         }
       }
 
-      buffer.writeln('');
+      buffer.writeln();
       buffer.writeln('API Base URL: ${ApiConfig.currentBaseUrl}');
     } catch (e) {
       buffer
@@ -340,19 +314,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Positioned(
                   right: 0,
                   bottom: 0,
-                  child: GestureDetector(
-                    onTap: _isUploadingAvatar ? null : _pickAndUploadAvatar,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                      ),
-                      child: _isUploadingAvatar
+                  child: Material(
+                    color: AppColors.primary,
+                    shape: const CircleBorder(),
+                    child: IconButton(
+                      tooltip: 'Upload profile photo',
+                      constraints:
+                          const BoxConstraints(minWidth: 44, minHeight: 44),
+                      onPressed:
+                          _isUploadingAvatar ? null : _pickAndUploadAvatar,
+                      icon: _isUploadingAvatar
                           ? const SizedBox(
-                              width: 16,
-                              height: 16,
+                              width: 18,
+                              height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 color: Colors.white,
@@ -360,7 +334,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             )
                           : const Icon(
                               Icons.camera_alt,
-                              size: 16,
+                              size: 18,
                               color: Colors.white,
                             ),
                     ),
@@ -456,12 +430,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         padding: const EdgeInsets.all(20),
         child: Form(
           key: _passwordFormKey,
+          autovalidateMode: _didAttemptPasswordSubmit
+              ? AutovalidateMode.onUserInteraction
+              : AutovalidateMode.disabled,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               TextFormField(
                 controller: _currentPasswordController,
                 obscureText: !_showCurrentPassword,
+                onTapOutside: (_) => FocusScope.of(context).unfocus(),
                 decoration: InputDecoration(
                   labelText: 'Current Password',
                   prefixIcon: const Icon(Icons.lock_outline),
@@ -485,6 +463,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               TextFormField(
                 controller: _newPasswordController,
                 obscureText: !_showNewPassword,
+                onTapOutside: (_) => FocusScope.of(context).unfocus(),
                 decoration: InputDecoration(
                   labelText: 'New Password',
                   prefixIcon: const Icon(Icons.lock),
@@ -521,6 +500,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               TextFormField(
                 controller: _confirmPasswordController,
                 obscureText: !_showNewPassword,
+                onTapOutside: (_) => FocusScope.of(context).unfocus(),
                 decoration: const InputDecoration(
                   labelText: 'Confirm New Password',
                   prefixIcon: Icon(Icons.lock),

@@ -1,19 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/multi_group_provider.dart';
 import '../../utils/app_colors.dart';
-import '../main/main_screen.dart';
-import '../onboarding/join_group_screen.dart';
-import '../onboarding/create_group_screen.dart';
-import '../onboarding/auth_screen.dart';
+import '../../utils/app_feedback.dart';
+import '../../utils/app_motion.dart';
+import '../../utils/app_routes.dart';
 import '../profile/profile_screen.dart';
 import '../../widgets/avatar_circle.dart';
 
 /// Screen showing all groups the user belongs to.
 /// This is the first screen after login.
 class GroupsScreen extends ConsumerStatefulWidget {
-  const GroupsScreen({super.key});
+  const GroupsScreen({
+    super.key,
+    this.initialSnackMessage,
+  });
+
+  final String? initialSnackMessage;
 
   @override
   ConsumerState<GroupsScreen> createState() => _GroupsScreenState();
@@ -27,6 +32,11 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(multiGroupProvider.notifier).refresh();
       ref.read(multiGroupProvider.notifier).startPeriodicRefresh();
+
+      final message = widget.initialSnackMessage;
+      if (message != null && message.isNotEmpty) {
+        AppFeedback.showInfo(context, message);
+      }
     });
   }
 
@@ -43,24 +53,21 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
 
   Future<void> _selectGroup(GroupInfo group) async {
     // Switch to this group via auth provider
+    HapticFeedback.selectionClick();
     await ref.read(authProvider.notifier).switchGroup(group.groupId);
     if (mounted) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const MainScreen()),
-      );
+      Navigator.of(context).pushNamed(AppRoutePaths.groupHome(group.groupId));
     }
   }
 
   void _joinGroup() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const JoinGroupScreen()),
-    );
+    HapticFeedback.selectionClick();
+    Navigator.of(context).pushNamed(AppRoutePaths.join);
   }
 
   void _createGroup() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const CreateGroupScreen()),
-    );
+    HapticFeedback.selectionClick();
+    Navigator.of(context).pushNamed(AppRoutePaths.create);
   }
 
   Future<void> _logout() async {
@@ -86,10 +93,8 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     if (confirmed == true && mounted) {
       await ref.read(authProvider.notifier).logout();
       if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const AuthScreen()),
-          (route) => false,
-        );
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil(AppRoutePaths.auth, (route) => false);
       }
     }
   }
@@ -117,17 +122,23 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
         leading: user != null
             ? Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                    );
-                  },
-                  child: AvatarCircle(
-                    colorHex: user.colorAvatar,
-                    initials: _getInitials(user.displayName),
-                    avatarUrl: user.avatarUrl,
-                    size: 36,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(24),
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                            builder: (_) => const ProfileScreen()),
+                      );
+                    },
+                    child: AvatarCircle(
+                      colorHex: user.colorAvatar,
+                      initials: _getInitials(user.displayName),
+                      avatarUrl: user.avatarUrl,
+                      size: 36,
+                    ),
                   ),
                 ),
               )
@@ -142,11 +153,25 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: _handleRefresh,
-        child: multiGroupState.isLoading && groups.isEmpty
-            ? const Center(child: CircularProgressIndicator())
-            : groups.isEmpty
-                ? _buildNoGroupsView(context)
-                : _buildGroupsList(context, groups, authState),
+        child: AnimatedSwitcher(
+          duration: AppMotion.short,
+          switchInCurve: AppMotion.outCurve,
+          switchOutCurve: AppMotion.inCurve,
+          child: multiGroupState.isLoading && groups.isEmpty
+              ? const Center(
+                  key: ValueKey('groups-loading'),
+                  child: CircularProgressIndicator(),
+                )
+              : groups.isEmpty
+                  ? KeyedSubtree(
+                      key: const ValueKey('groups-empty'),
+                      child: _buildNoGroupsView(context),
+                    )
+                  : KeyedSubtree(
+                      key: const ValueKey('groups-list'),
+                      child: _buildGroupsList(context, groups, authState),
+                    ),
+        ),
       ),
     );
   }
@@ -310,9 +335,15 @@ class _GroupCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: Theme.of(context).dividerColor.withValues(alpha: 0.45),
+        ),
+      ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(

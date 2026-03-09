@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/history_provider.dart';
+import '../../utils/app_motion.dart';
+import '../../utils/app_routes.dart';
 import '../../widgets/loading_shimmer.dart';
 import '../../widgets/error_display.dart';
 import '../../widgets/question_card.dart';
-import '../groups/groups_screen.dart';
+import '../../widgets/group_context_app_bar_title.dart';
 
 /// Screen displaying question history
 class HistoryScreen extends ConsumerStatefulWidget {
@@ -68,19 +70,29 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('History'),
+        title: const GroupContextAppBarTitle(title: 'History'),
         leading: IconButton(
           icon: const Icon(Icons.groups_outlined),
           onPressed: () {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const GroupsScreen()),
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              AppRoutePaths.groups,
               (route) => false,
             );
           },
           tooltip: 'All Groups',
         ),
       ),
-      body: _buildBody(historyState),
+      body: AnimatedSwitcher(
+        duration: AppMotion.short,
+        switchInCurve: AppMotion.outCurve,
+        switchOutCurve: AppMotion.inCurve,
+        child: KeyedSubtree(
+          key: ValueKey(
+            '${historyState.isLoading}-${historyState.error}-${historyState.questions.length}-${historyState.hasMore}',
+          ),
+          child: _buildBody(historyState),
+        ),
+      ),
     );
   }
 
@@ -127,7 +139,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
       },
       child: ListView.builder(
         controller: _scrollController,
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         itemCount: state.questions.length + (state.hasMore ? 1 : 0),
         itemBuilder: (context, index) {
           if (index >= state.questions.length) {

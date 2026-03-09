@@ -19,6 +19,7 @@
         "flutter_native_splash",
         "flutter_riverpod",
         "flutter_secure_storage",
+        "flutter_web_plugins",
         "http",
         "http_parser",
         "image_picker",
@@ -359,6 +360,13 @@
         "meta",
         "riverpod",
         "state_notifier"
+      ]
+    },
+    {
+      "name": "flutter_web_plugins",
+      "version": "0.0.0",
+      "dependencies": [
+        "flutter"
       ]
     },
     {
@@ -823,13 +831,6 @@
       "dependencies": [
         "csslib",
         "source_span"
-      ]
-    },
-    {
-      "name": "flutter_web_plugins",
-      "version": "0.0.0",
-      "dependencies": [
-        "flutter"
       ]
     },
     {

@@ -4,11 +4,13 @@ import '../../providers/group_provider.dart';
 import '../../models/group.dart';
 import '../../models/group_member.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/app_motion.dart';
+import '../../utils/app_routes.dart';
 import '../../widgets/loading_shimmer.dart';
 import '../../widgets/error_display.dart';
 import '../../widgets/avatar_circle.dart';
 import '../../widgets/streak_badge.dart';
-import '../groups/groups_screen.dart';
+import '../../widgets/group_context_app_bar_title.dart';
 
 /// Screen displaying group members
 class MembersScreen extends ConsumerStatefulWidget {
@@ -45,12 +47,12 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Members'),
+        title: const GroupContextAppBarTitle(title: 'Members'),
         leading: IconButton(
           icon: const Icon(Icons.groups_outlined),
           onPressed: () {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const GroupsScreen()),
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              AppRoutePaths.groups,
               (route) => false,
             );
           },
@@ -108,52 +110,70 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
           ),
         ],
       ),
-      body: membersAsync.when(
-        loading: () => const MemberListSkeleton(),
-        error: (error, _) => ErrorDisplay(
-          message: 'Failed to load members',
-          details: error.toString(),
-          onRetry: () => ref.refresh(groupMembersProvider),
-        ),
-        data: (members) {
-          if (members.isEmpty) {
-            return const EmptyStateDisplay(
-              title: 'No Members Yet',
-              subtitle: 'Share the invite code to get people to join!',
-              icon: Icons.people_outline,
-            );
-          }
-
-          return RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(groupMembersProvider);
-              await ref.read(groupMembersProvider.future);
-            },
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: sortedMembers.length + 1, // +1 for header
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  // Header with group info
-                  return groupInfoAsync.when(
-                    data: (group) =>
-                        group != null ? _buildHeader(group) : const SizedBox(),
-                    loading: () => const SizedBox(),
-                    error: (_, __) => const SizedBox(),
-                  );
-                }
-
-                final member = sortedMembers[index - 1];
-                final rank = _sortByStreak ? index : null;
-
-                return _MemberListItem(
-                  member: member,
-                  rank: rank,
-                );
-              },
+      body: AnimatedSwitcher(
+        duration: AppMotion.short,
+        switchInCurve: AppMotion.outCurve,
+        switchOutCurve: AppMotion.inCurve,
+        child: membersAsync.when(
+          loading: () => const KeyedSubtree(
+            key: ValueKey('members-loading'),
+            child: MemberListSkeleton(),
+          ),
+          error: (error, _) => KeyedSubtree(
+            key: const ValueKey('members-error'),
+            child: ErrorDisplay(
+              message: 'Failed to load members',
+              details: error.toString(),
+              onRetry: () => ref.refresh(groupMembersProvider),
             ),
-          );
-        },
+          ),
+          data: (members) {
+            if (members.isEmpty) {
+              return const KeyedSubtree(
+                key: ValueKey('members-empty'),
+                child: EmptyStateDisplay(
+                  title: 'No Members Yet',
+                  subtitle: 'Share the invite code to get people to join!',
+                  icon: Icons.people_outline,
+                ),
+              );
+            }
+
+            return KeyedSubtree(
+              key: const ValueKey('members-list'),
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  ref.invalidate(groupMembersProvider);
+                  await ref.read(groupMembersProvider.future);
+                },
+                child: ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  itemCount: sortedMembers.length + 1, // +1 for header
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      // Header with group info
+                      return groupInfoAsync.when(
+                        data: (group) => group != null
+                            ? _buildHeader(group)
+                            : const SizedBox(),
+                        loading: () => const SizedBox(),
+                        error: (_, __) => const SizedBox(),
+                      );
+                    }
+
+                    final member = sortedMembers[index - 1];
+                    final rank = _sortByStreak ? index : null;
+
+                    return _MemberListItem(
+                      member: member,
+                      rank: rank,
+                    );
+                  },
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -161,7 +181,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   Widget _buildHeader(Group group) {
     return Container(
       padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      margin: const EdgeInsets.fromLTRB(0, 4, 0, 14),
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
@@ -215,11 +235,13 @@ class _MemberListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).dividerColor.withValues(alpha: 0.45),
+        ),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

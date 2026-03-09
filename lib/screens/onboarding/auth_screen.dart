@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/app_colors.dart';
-import '../groups/groups_screen.dart';
+import '../../utils/app_feedback.dart';
+import '../../utils/app_routes.dart';
 import 'forgot_password_screen.dart';
-import 'welcome_screen.dart';
 
 /// Screen for login and registration
 class AuthScreen extends ConsumerStatefulWidget {
@@ -21,6 +21,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _displayNameController = TextEditingController();
+  bool _didAttemptSubmit = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -34,7 +35,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   Future<void> _handleSubmit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      setState(() => _didAttemptSubmit = true);
+      AppFeedback.showInfo(context, 'Please fix the highlighted fields.');
+      return;
+    }
 
     final authNotifier = ref.read(authProvider.notifier);
     bool success;
@@ -55,17 +60,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     if (success && mounted) {
       if (_isLogin) {
         // Login — go straight to groups
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const GroupsScreen()),
-          (route) => false,
-        );
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil(AppRoutePaths.groups, (route) => false);
       } else {
         // Registration — show short onboarding first
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-          (route) => false,
-        );
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil(AppRoutePaths.welcome, (route) => false);
       }
+    } else if (mounted) {
+      final authError = ref.read(authProvider).error;
+      AppFeedback.showError(
+        context,
+        authError ?? 'Authentication failed. Please try again.',
+      );
     }
   }
 
@@ -79,6 +86,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           padding: const EdgeInsets.all(24),
           child: Form(
             key: _formKey,
+            autovalidateMode: _didAttemptSubmit
+                ? AutovalidateMode.onUserInteraction
+                : AutovalidateMode.disabled,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -130,6 +140,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     ),
                     textCapitalization: TextCapitalization.words,
                     textInputAction: TextInputAction.next,
+                    onTapOutside: (_) => FocusScope.of(context).unfocus(),
                     autofillHints: const [AutofillHints.username],
                     onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
                     validator: (value) {
@@ -152,10 +163,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     prefixIcon: Icon(Icons.email_outlined),
                   ),
                   keyboardType: TextInputType.emailAddress,
-                  // Pressing Enter on the email field now submits the form
-                  textInputAction: TextInputAction.done,
+                  textInputAction: TextInputAction.next,
+                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
                   autocorrect: false,
-                  onFieldSubmitted: (_) => _handleSubmit(),
+                  onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Please enter your email';
@@ -189,8 +200,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     ),
                   ),
                   obscureText: _obscurePassword,
-                  textInputAction: TextInputAction.done,
-                  onFieldSubmitted: (_) => _handleSubmit(),
+                  textInputAction:
+                      _isLogin ? TextInputAction.done : TextInputAction.next,
+                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                  onFieldSubmitted: (_) => _isLogin
+                      ? _handleSubmit()
+                      : FocusScope.of(context).nextFocus(),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return 'Please enter your password';
@@ -244,6 +259,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     ),
                     obscureText: _obscureConfirmPassword,
                     textInputAction: TextInputAction.done,
+                    onTapOutside: (_) => FocusScope.of(context).unfocus(),
                     onFieldSubmitted: (_) => _handleSubmit(),
                     validator: (value) {
                       if (!_isLogin) {
@@ -320,6 +336,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       onPressed: () {
                         setState(() {
                           _isLogin = !_isLogin;
+                          _didAttemptSubmit = false;
                         });
                         ref.read(authProvider.notifier).clearError();
                       },

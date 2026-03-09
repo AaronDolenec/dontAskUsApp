@@ -5,8 +5,9 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/share_service.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/app_feedback.dart';
+import '../../utils/app_routes.dart';
 import '../../models/group.dart';
-import '../groups/groups_screen.dart';
 
 /// Screen for creating a new group
 class CreateGroupScreen extends ConsumerStatefulWidget {
@@ -23,6 +24,7 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
 
   Group? _createdGroup;
   bool _showSuccess = false;
+  bool _didAttemptSubmit = false;
 
   @override
   void dispose() {
@@ -32,7 +34,11 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
   }
 
   Future<void> _handleCreate() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      setState(() => _didAttemptSubmit = true);
+      AppFeedback.showInfo(context, 'Please correct the highlighted fields.');
+      return;
+    }
 
     final group = await ref.read(authProvider.notifier).createGroup(
           _nameController.text.trim(),
@@ -85,6 +91,9 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
           padding: const EdgeInsets.all(24),
           child: Form(
             key: _formKey,
+            autovalidateMode: _didAttemptSubmit
+                ? AutovalidateMode.onUserInteraction
+                : AutovalidateMode.disabled,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -129,8 +138,9 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                     hintText: 'How others should see you in this group',
                     prefixIcon: Icon(Icons.person_outline),
                   ),
+                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
                   textInputAction: TextInputAction.done,
-                  onFieldSubmitted: (_) => _handleCreate(),
+                  onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
                 ),
 
                 // Group Name Input
@@ -148,6 +158,9 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                     prefixIcon: Icon(Icons.group_outlined),
                   ),
                   textCapitalization: TextCapitalization.words,
+                  textInputAction: TextInputAction.done,
+                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                  onFieldSubmitted: (_) => _handleCreate(),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Please enter a group name';
@@ -312,9 +325,8 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                       const SizedBox(height: 20),
                       ElevatedButton(
                         onPressed: () {
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(
-                                builder: (_) => const GroupsScreen()),
+                          Navigator.of(context).pushNamedAndRemoveUntil(
+                            AppRoutePaths.groups,
                             (route) => false,
                           );
                         },
@@ -374,15 +386,16 @@ class _CreateGroupScreenState extends ConsumerState<CreateGroupScreen> {
                             ),
                       ),
                       const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 12,
+                        runSpacing: 8,
                         children: [
                           OutlinedButton.icon(
                             onPressed: _copyInviteCode,
                             icon: const Icon(Icons.copy, size: 18),
                             label: const Text('Copy'),
                           ),
-                          const SizedBox(width: 12),
                           ElevatedButton.icon(
                             onPressed: _shareInviteCode,
                             icon: const Icon(Icons.share, size: 18),

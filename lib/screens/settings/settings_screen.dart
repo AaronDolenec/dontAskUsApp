@@ -11,8 +11,10 @@ import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
 import '../../services/share_service.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/app_feedback.dart';
+import '../../utils/app_routes.dart';
 import '../../widgets/avatar_circle.dart';
-import '../groups/groups_screen.dart';
+import '../../widgets/group_context_app_bar_title.dart';
 import '../onboarding/welcome_screen.dart';
 import 'help_screen.dart';
 import 'notification_settings_screen.dart';
@@ -42,13 +44,13 @@ class SettingsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: const GroupContextAppBarTitle(title: 'Settings'),
         leading: IconButton(
           icon: const Icon(Icons.groups_outlined),
           tooltip: 'All Groups',
           onPressed: () {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const GroupsScreen()),
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              AppRoutePaths.groups,
               (route) => false,
             );
           },
@@ -59,6 +61,14 @@ class SettingsScreen extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(
+              'Group',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSecondary,
+                  ),
+            ),
+            const SizedBox(height: 8),
             _GroupSummaryCard(
               groupName: groupName,
               inviteCode: inviteCode,
@@ -82,8 +92,18 @@ class SettingsScreen extends ConsumerWidget {
                         groupName: groupName,
                       ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
+            Text(
+              'Preferences',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSecondary,
+                  ),
+            ),
+            const SizedBox(height: 8),
             Card(
+              margin: EdgeInsets.zero,
+              clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
                   ListTile(
@@ -140,8 +160,18 @@ class SettingsScreen extends ConsumerWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
+            Text(
+              'Account',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textSecondary,
+                  ),
+            ),
+            const SizedBox(height: 8),
             Card(
+              margin: EdgeInsets.zero,
+              clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
                   ListTile(
@@ -170,6 +200,7 @@ class SettingsScreen extends ConsumerWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -214,27 +245,60 @@ class SettingsScreen extends ConsumerWidget {
 
   Future<void> _showEditNameDialog(BuildContext context, WidgetRef ref) async {
     final controller = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    var didAttemptSave = false;
 
     final newName = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Change display name'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: 'Enter new display name'),
-          textInputAction: TextInputAction.done,
-          onSubmitted: (value) => Navigator.of(ctx).pop(value.trim()),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Change display name'),
+          content: Form(
+            key: formKey,
+            autovalidateMode: didAttemptSave
+                ? AutovalidateMode.onUserInteraction
+                : AutovalidateMode.disabled,
+            child: TextFormField(
+              controller: controller,
+              decoration:
+                  const InputDecoration(hintText: 'Enter new display name'),
+              textInputAction: TextInputAction.done,
+              onTapOutside: (_) => FocusScope.of(ctx).unfocus(),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Please enter a display name';
+                }
+                if (value.trim().length > 50) {
+                  return 'Display name must be 50 characters or less';
+                }
+                return null;
+              },
+              onFieldSubmitted: (_) {
+                if (formKey.currentState!.validate()) {
+                  Navigator.of(ctx).pop(controller.text.trim());
+                } else {
+                  setDialogState(() => didAttemptSave = true);
+                }
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.of(ctx).pop(controller.text.trim());
+                } else {
+                  setDialogState(() => didAttemptSave = true);
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
 
@@ -244,14 +308,11 @@ class SettingsScreen extends ConsumerWidget {
         await ref.read(authProvider.notifier).updateDisplayName(newName);
     if (!context.mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          success ? 'Display name updated' : 'Failed to update display name',
-        ),
-        backgroundColor: success ? AppColors.success : AppColors.error,
-      ),
-    );
+    if (success) {
+      AppFeedback.showSuccess(context, 'Display name updated');
+    } else {
+      AppFeedback.showError(context, 'Failed to update display name');
+    }
   }
 
   Future<void> _copyInviteCode(BuildContext context, String inviteCode) async {
@@ -277,8 +338,8 @@ class SettingsScreen extends ConsumerWidget {
               Navigator.of(ctx).pop();
               await ref.read(authProvider.notifier).logout();
               if (!context.mounted) return;
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const GroupsScreen()),
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                AppRoutePaths.groups,
                 (route) => false,
               );
             },
@@ -308,8 +369,8 @@ class SettingsScreen extends ConsumerWidget {
               Navigator.of(ctx).pop();
               await ref.read(authProvider.notifier).leaveGroup();
               if (!context.mounted) return;
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const GroupsScreen()),
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                AppRoutePaths.groups,
                 (route) => false,
               );
             },
@@ -356,12 +417,7 @@ class SettingsScreen extends ConsumerWidget {
       final accessToken = await AuthService.getAccessToken();
       if (accessToken == null) {
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Not authenticated'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppFeedback.showError(context, 'Not authenticated');
         return;
       }
 
@@ -376,14 +432,9 @@ class SettingsScreen extends ConsumerWidget {
       if (response.statusCode == 200) {
         await ref.read(authProvider.notifier).leaveGroup();
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Group deleted successfully'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const GroupsScreen()),
+        AppFeedback.showSuccess(context, 'Group deleted successfully');
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          AppRoutePaths.groups,
           (route) => false,
         );
       } else {
@@ -395,21 +446,11 @@ class SettingsScreen extends ConsumerWidget {
               message;
         } catch (_) {}
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(message),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppFeedback.showError(context, message);
       }
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      AppFeedback.showError(context, 'Error: $e');
     }
   }
 }
@@ -447,6 +488,7 @@ class _GroupSummaryCard extends StatelessWidget {
         .toUpperCase();
 
     return Card(
+      margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -515,9 +557,13 @@ class _GroupSummaryCard extends StatelessWidget {
                   ?.copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 6),
-            Row(
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Expanded(
+                SizedBox(
+                  width: MediaQuery.sizeOf(context).width * 0.45,
                   child: Text(
                     inviteCode.isEmpty ? 'Not available yet' : inviteCode,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -535,12 +581,12 @@ class _GroupSummaryCard extends StatelessWidget {
                 IconButton(
                   onPressed: onShowQr,
                   icon: const Icon(Icons.qr_code),
-                  tooltip: 'Show QR',
+                  tooltip: 'Show QR code',
                 ),
                 IconButton(
                   onPressed: onShareInvite,
                   icon: const Icon(Icons.share),
-                  tooltip: 'Share invite',
+                  tooltip: 'Share invite code',
                 ),
               ],
             ),

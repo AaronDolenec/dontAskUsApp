@@ -4,9 +4,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/app_bootstrap_service.dart';
 import '../../utils/app_colors.dart';
-import '../onboarding/auth_screen.dart';
-import '../groups/groups_screen.dart';
-import '../main/main_screen.dart';
+import '../../utils/app_routes.dart';
 
 /// Splash screen with token validation
 class SplashScreen extends ConsumerStatefulWidget {
@@ -84,7 +82,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     // Navigate based on auth state
     if (finalAuthState.user != null) {
       if (finalAuthState.groupId != null) {
-        _navigateToMain();
+        _navigateToMain(finalAuthState.groupId!);
       } else {
         _navigateToGroups();
       }
@@ -96,7 +94,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
         final hasCurrentGroup =
             (await AuthService.getCurrentGroupId())?.isNotEmpty == true;
         if (hasCurrentGroup) {
-          _navigateToMain();
+          _navigateToMain((await AuthService.getCurrentGroupId())!);
         } else {
           _navigateToGroups();
         }
@@ -106,40 +104,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     }
   }
 
-  void _navigateToMain() {
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const MainScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-      ),
-    );
+  void _navigateToMain(String groupId) {
+    Navigator.of(context)
+        .pushReplacementNamed(AppRoutePaths.groupHome(groupId));
   }
 
   void _navigateToGroups() {
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const GroupsScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-      ),
-    );
+    Navigator.of(context).pushReplacementNamed(AppRoutePaths.groups);
   }
 
   void _navigateToAuth() {
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const AuthScreen(),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-      ),
-    );
+    Navigator.of(context).pushReplacementNamed(AppRoutePaths.auth);
   }
 
   @override

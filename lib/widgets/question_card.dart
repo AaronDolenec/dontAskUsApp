@@ -187,7 +187,7 @@ class _QuestionHistoryCardState extends State<QuestionHistoryCard> {
         (question.answerDetails != null && question.answerDetails!.isNotEmpty);
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(vertical: 6),
       child: InkWell(
         onTap: hasResults
             ? () => setState(() => _expanded = !_expanded)

@@ -23,6 +23,8 @@ class AppColors {
   static const Color surfaceDark = Color(0xFF1E293B);
   static const Color card = Color(0xFFFFFFFF);
   static const Color cardDark = Color(0xFF334155);
+  static const Color surfaceSubtle = Color(0xFFF1F5FF);
+  static const Color surfaceSubtleDark = Color(0xFF111827);
 
   // ============= Text Colors =============
   static const Color textPrimary = Color(0xFF111827);
@@ -46,6 +48,8 @@ class AppColors {
   // ============= Border & Divider Colors =============
   static const Color border = Color(0xFFE5E7EB);
   static const Color borderDark = Color(0xFF374151);
+  static const Color borderStrong = Color(0xFFD1D5DB);
+  static const Color borderStrongDark = Color(0xFF4B5563);
   static const Color divider = Color(0xFFE5E7EB);
   static const Color dividerDark = Color(0xFF374151);
 

@@ -5,9 +5,11 @@ import '../../providers/auth_provider.dart';
 import '../../providers/group_provider.dart';
 import '../../providers/multi_group_provider.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/app_feedback.dart';
+import '../../utils/app_motion.dart';
+import '../../utils/app_routes.dart';
 import '../../widgets/color_picker.dart';
 import '../../widgets/error_display.dart';
-import '../groups/groups_screen.dart';
 import 'create_group_screen.dart';
 
 /// Screen for joining a group with invite code
@@ -31,6 +33,7 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
   String? _previewGroupName;
   int? _previewMemberCount;
   String? _previewError;
+  bool _didAttemptSubmit = false;
 
   @override
   void initState() {
@@ -78,11 +81,13 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
   }
 
   Future<void> _handleJoin() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      setState(() => _didAttemptSubmit = true);
+      AppFeedback.showInfo(context, 'Please fix the highlighted fields.');
+      return;
+    }
     if (_previewGroupName == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid invite code')),
-      );
+      AppFeedback.showInfo(context, 'Please enter a valid invite code.');
       return;
     }
 
@@ -101,35 +106,23 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
           if (widget.isAddingGroup) {
             // Just pop back to settings when adding another group
             Navigator.of(context).pop();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Joined "$_previewGroupName"!')),
-            );
+            AppFeedback.showSuccess(context, 'Joined "$_previewGroupName"!');
           } else {
             // Navigate to groups screen
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const GroupsScreen()),
-            );
+            Navigator.of(context).pushReplacementNamed(AppRoutePaths.groups);
           }
         } else {
           // Show error if joining failed
           final authState = ref.read(authProvider);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  authState.error ?? 'Failed to join group. Please try again.'),
-              backgroundColor: Colors.red,
-            ),
+          AppFeedback.showError(
+            context,
+            authState.error ?? 'Failed to join group. Please try again.',
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        AppFeedback.showError(context, 'Error: $e');
       }
     }
   }
@@ -144,10 +137,9 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
           _fetchGroupPreview(code);
         } else {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content:
-                      Text('Clipboard doesn\'t contain a valid invite code')),
+            AppFeedback.showInfo(
+              context,
+              'Clipboard doesn\'t contain a valid invite code.',
             );
           }
         }
@@ -155,10 +147,9 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
     } catch (e) {
       // Clipboard access may fail on web without HTTPS
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text(
-                  'Could not access clipboard. Please type the code manually.')),
+        AppFeedback.showInfo(
+          context,
+          'Could not access clipboard. Please type the code manually.',
         );
       }
     }
@@ -179,6 +170,9 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
           padding: const EdgeInsets.all(24),
           child: Form(
             key: _formKey,
+            autovalidateMode: _didAttemptSubmit
+                ? AutovalidateMode.onUserInteraction
+                : AutovalidateMode.disabled,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -217,6 +211,8 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
                       child: TextFormField(
                         controller: _inviteCodeController,
                         textCapitalization: TextCapitalization.characters,
+                        textInputAction: TextInputAction.next,
+                        onTapOutside: (_) => FocusScope.of(context).unfocus(),
                         decoration: const InputDecoration(
                           hintText: 'ABC123',
                           prefixIcon: Icon(Icons.link),
@@ -260,7 +256,7 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
                 // Group Preview
                 const SizedBox(height: 16),
                 AnimatedSize(
-                  duration: const Duration(milliseconds: 200),
+                  duration: AppMotion.short,
                   alignment: Alignment.topCenter,
                   child: _isLoadingPreview
                       ? const Padding(
@@ -323,10 +319,12 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
                                       const Icon(Icons.error_outline,
                                           color: AppColors.error),
                                       const SizedBox(width: 12),
-                                      Text(
-                                        _previewError!,
-                                        style: const TextStyle(
-                                            color: AppColors.error),
+                                      Expanded(
+                                        child: Text(
+                                          _previewError!,
+                                          style: const TextStyle(
+                                              color: AppColors.error),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -346,6 +344,9 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _displayNameController,
+                  textInputAction: TextInputAction.done,
+                  onTapOutside: (_) => FocusScope.of(context).unfocus(),
+                  onFieldSubmitted: (_) => _handleJoin(),
                   decoration: const InputDecoration(
                     hintText: 'How should others see you?',
                     prefixIcon: Icon(Icons.person_outline),
@@ -440,7 +441,8 @@ class _JoinGroupScreenState extends ConsumerState<JoinGroupScreen> {
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                            builder: (_) => const CreateGroupScreen()),
+                          builder: (_) => const CreateGroupScreen(),
+                        ),
                       );
                     },
                     child: const Text('Create a New Group'),

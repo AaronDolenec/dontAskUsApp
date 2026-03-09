@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/group_websocket_provider.dart';
 import '../../providers/question_provider.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/app_routes.dart';
 import '../../widgets/answer_details_section.dart';
 import '../../widgets/avatar_circle.dart';
 import '../../widgets/streak_badge.dart';
@@ -13,8 +14,8 @@ import '../../widgets/loading_shimmer.dart';
 import '../../widgets/error_display.dart';
 import '../../widgets/question_card.dart';
 import '../../widgets/vote_option_card.dart';
+import '../../widgets/group_context_app_bar_title.dart';
 import '../profile/profile_screen.dart';
-import '../groups/groups_screen.dart';
 
 /// Home screen displaying today's question
 class HomeScreen extends ConsumerStatefulWidget {
@@ -145,7 +146,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('dontAskUs'),
+        title: const GroupContextAppBarTitle(title: 'Home'),
         leading: user != null
             ? Padding(
                 padding: const EdgeInsets.all(8.0),
@@ -168,12 +169,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           IconButton(
             icon: const Icon(Icons.groups_outlined),
             onPressed: () {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const GroupsScreen()),
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                AppRoutePaths.groups,
                 (route) => false,
               );
             },
-            tooltip: 'My Groups',
+            tooltip: 'All Groups',
           ),
         ],
       ),

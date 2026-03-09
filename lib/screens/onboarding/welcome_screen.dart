@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../utils/app_colors.dart';
+import '../../utils/app_routes.dart';
 import '../../l10n/app_localizations.dart';
-import '../groups/groups_screen.dart';
 
 /// Short onboarding shown after a new user registers.
 /// 3 pages with tips, then navigates to GroupsScreen.
@@ -35,10 +35,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   void _finish() {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const GroupsScreen()),
-      (route) => false,
-    );
+    Navigator.of(context)
+        .pushNamedAndRemoveUntil(AppRoutePaths.groups, (route) => false);
   }
 
   @override
@@ -79,7 +77,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   ),
                   _WelcomePage(
                     icon: Icons.local_fire_department_rounded,
-                    iconColor: Color(0xFFF97316),
+                    iconColor: const Color(0xFFF97316),
                     title: l10n.welcomePage3Title,
                     description: l10n.welcomePage3Desc,
                   ),
