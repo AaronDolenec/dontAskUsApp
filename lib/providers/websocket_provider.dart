@@ -72,18 +72,21 @@ class WebSocketNotifier extends StateNotifier<WebSocketState> {
   }
 
   void _onConnected() {
+    if (!mounted) return;
     state = state.copyWith(
       connectionState: WebSocketConnectionState.connected,
     );
   }
 
   void _onDisconnected() {
+    if (!mounted) return;
     state = state.copyWith(
       connectionState: WebSocketConnectionState.disconnected,
     );
   }
 
   void _onError(dynamic error) {
+    if (!mounted) return;
     state = state.copyWith(
       connectionState: WebSocketConnectionState.error,
       errorMessage: error.toString(),
@@ -91,6 +94,7 @@ class WebSocketNotifier extends StateNotifier<WebSocketState> {
   }
 
   void _onVoteUpdate(Map<String, int> optionCounts, int totalVotes) {
+    if (!mounted) return;
     state = state.copyWith(
       latestResults: optionCounts,
       totalVotes: totalVotes,

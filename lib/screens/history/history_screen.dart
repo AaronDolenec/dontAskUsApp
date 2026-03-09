@@ -26,6 +26,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
     // Load initial data
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final state = ref.read(paginatedHistoryProvider);
       if (state.questions.isEmpty && !state.isLoading) {
         ref.read(paginatedHistoryProvider.notifier).loadInitial();

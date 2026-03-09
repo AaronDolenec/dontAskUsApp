@@ -5,10 +5,21 @@ import '../../services/auth_service.dart';
 import '../../services/app_bootstrap_service.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/app_routes.dart';
+import '../groups/groups_screen.dart';
+import '../main/main_screen.dart';
+import '../onboarding/auth_screen.dart';
+import '../onboarding/create_group_screen.dart';
+import '../onboarding/join_group_screen.dart';
+import '../onboarding/welcome_screen.dart';
 
 /// Splash screen with token validation
 class SplashScreen extends ConsumerStatefulWidget {
-  const SplashScreen({super.key});
+  const SplashScreen({
+    super.key,
+    this.initialDeepLinkPath,
+  });
+
+  final String? initialDeepLinkPath;
 
   @override
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
@@ -62,59 +73,113 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
     if (!mounted) return;
 
-    // Check auth state
-    final authState = ref.read(authProvider);
-
-    // Wait briefly for auth restore to finish.
-    if (authState.isLoading) {
-      final deadline = DateTime.now().add(const Duration(milliseconds: 1200));
-      while (mounted && DateTime.now().isBefore(deadline)) {
-        await Future.delayed(const Duration(milliseconds: 80));
-        final state = ref.read(authProvider);
-        if (!state.isLoading) break;
-      }
-    }
+    // Wait briefly for the initial auth restore.
+    await _waitForAuthRestore(const Duration(milliseconds: 1400));
 
     if (!mounted) return;
 
-    final finalAuthState = ref.read(authProvider);
+    var finalAuthState = ref.read(authProvider);
+    final hasToken = (await AuthService.getAccessToken())?.isNotEmpty == true;
 
-    // Navigate based on auth state
-    if (finalAuthState.user != null) {
-      if (finalAuthState.groupId != null) {
-        _navigateToMain(finalAuthState.groupId!);
-      } else {
-        _navigateToGroups();
-      }
+    // If there is a token but restore didn't yield a user yet, try one explicit
+    // reload before we ever send the user back to auth. This prevents false
+    // logouts on page refreshes where restore is slower.
+    if (hasToken && finalAuthState.user == null && !finalAuthState.isLoading) {
+      await ref.read(authProvider.notifier).reloadSession();
+      await _waitForAuthRestore(const Duration(milliseconds: 2200));
+      if (!mounted) return;
+      finalAuthState = ref.read(authProvider);
+    }
+
+    // Determine the intended path the user was trying to reach.
+    final intendedPath = widget.initialDeepLinkPath;
+    final deepLink = AppRoutePaths.parseGroupTabPath(intendedPath);
+    final normalizedPath = Uri.tryParse(intendedPath ?? '')?.path;
+
+    final isAuthenticated =
+        finalAuthState.user != null || (finalAuthState.isLoading && hasToken);
+
+    // ---- Not authenticated → always go to auth ----
+    if (!isAuthenticated) {
+      _navigateDirect(const AuthScreen());
+      return;
+    }
+
+    // ---- Authenticated: honour the intended path ----
+
+    // Deep-link to a specific group+tab  e.g. /groups/:id/members
+    if (deepLink != null) {
+      _navigateDirect(MainScreen(
+        initialIndex: deepLink.tab.index,
+        initialGroupId: deepLink.groupId,
+      ));
+      return;
+    }
+
+    // Explicit simple routes the user may have bookmarked / been on
+    switch (normalizedPath) {
+      case AppRoutePaths.groups:
+        final groupsMessage = AppRoutePaths.parseGroupsMessage(intendedPath);
+        _navigateDirect(GroupsScreen(initialSnackMessage: groupsMessage));
+        return;
+      case AppRoutePaths.join:
+        _navigateDirect(const JoinGroupScreen());
+        return;
+      case AppRoutePaths.create:
+        _navigateDirect(const CreateGroupScreen());
+        return;
+      case AppRoutePaths.welcome:
+        _navigateDirect(const WelcomeScreen());
+        return;
+      case AppRoutePaths.main:
+        final groupId =
+            finalAuthState.groupId ?? await AuthService.getCurrentGroupId();
+        _navigateDirect(MainScreen(initialGroupId: groupId));
+        return;
+      case AppRoutePaths.auth:
+        // User is already authenticated but landed on /auth — go to groups
+        _navigateDirect(const GroupsScreen());
+        return;
+    }
+
+    // Fallback: go to the appropriate "home" destination
+    if (finalAuthState.groupId != null) {
+      _navigateDirect(MainScreen(
+        initialIndex: MainTabRoute.home.index,
+        initialGroupId: finalAuthState.groupId,
+      ));
     } else {
-      // If restore is still in flight but a token exists, prefer Groups to avoid
-      // making users wait on a cold network restore path.
-      final hasToken = (await AuthService.getAccessToken())?.isNotEmpty == true;
-      if (finalAuthState.isLoading && hasToken) {
-        final hasCurrentGroup =
-            (await AuthService.getCurrentGroupId())?.isNotEmpty == true;
-        if (hasCurrentGroup) {
-          _navigateToMain((await AuthService.getCurrentGroupId())!);
-        } else {
-          _navigateToGroups();
-        }
+      final storedGroup = await AuthService.getCurrentGroupId();
+      if (storedGroup != null && storedGroup.isNotEmpty) {
+        _navigateDirect(MainScreen(
+          initialIndex: MainTabRoute.home.index,
+          initialGroupId: storedGroup,
+        ));
       } else {
-        _navigateToAuth();
+        _navigateDirect(const GroupsScreen());
       }
     }
   }
 
-  void _navigateToMain(String groupId) {
-    Navigator.of(context)
-        .pushReplacementNamed(AppRoutePaths.groupHome(groupId));
+  Future<void> _waitForAuthRestore(Duration maxWait) async {
+    final authState = ref.read(authProvider);
+    if (!authState.isLoading) return;
+
+    final deadline = DateTime.now().add(maxWait);
+    while (mounted && DateTime.now().isBefore(deadline)) {
+      await Future.delayed(const Duration(milliseconds: 80));
+      final state = ref.read(authProvider);
+      if (!state.isLoading) break;
+    }
   }
 
-  void _navigateToGroups() {
-    Navigator.of(context).pushReplacementNamed(AppRoutePaths.groups);
-  }
-
-  void _navigateToAuth() {
-    Navigator.of(context).pushReplacementNamed(AppRoutePaths.auth);
+  /// Navigate directly to a screen widget, bypassing named routes to avoid
+  /// re-entering [onGenerateRoute] (which always creates a SplashScreen).
+  void _navigateDirect(Widget screen) {
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => screen),
+    );
   }
 
   @override

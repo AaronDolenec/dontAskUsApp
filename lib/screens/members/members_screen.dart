@@ -28,6 +28,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
     super.initState();
     // Force a fresh fetch of members every time the screen is opened
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       ref.invalidate(groupMembersProvider);
     });
   }
@@ -223,7 +224,7 @@ class _MembersScreenState extends ConsumerState<MembersScreen> {
   }
 }
 
-class _MemberListItem extends StatelessWidget {
+class _MemberListItem extends StatefulWidget {
   final GroupMember member;
   final int? rank;
 
@@ -233,66 +234,97 @@ class _MemberListItem extends StatelessWidget {
   });
 
   @override
+  State<_MemberListItem> createState() => _MemberListItemState();
+}
+
+class _MemberListItemState extends State<_MemberListItem> {
+  bool _isHovering = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Theme.of(context).dividerColor.withValues(alpha: 0.45),
-        ),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (rank != null && rank! <= 3)
-              SizedBox(
-                width: 28,
-                child: Text(
-                  _getRankEmoji(rank!),
-                  style: const TextStyle(fontSize: 20),
-                  textAlign: TextAlign.center,
-                ),
-              )
-            else if (rank != null)
-              SizedBox(
-                width: 28,
-                child: Text(
-                  '#$rank',
-                  style: const TextStyle(
-                    color: AppColors.textLight,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 12,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            if (rank != null) const SizedBox(width: 8),
-            AvatarCircle(
-              colorHex: member.colorAvatar,
-              initials: member.initials,
-              avatarUrl: member.avatarUrl,
-              size: 48,
-            ),
-          ],
-        ),
-        title: Text(
-          member.displayName,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(
-          'Best: ${member.longestAnswerStreak} days',
-          style: const TextStyle(
-            color: AppColors.textLight,
-            fontSize: 12,
+    final borderColor = _isHovering
+        ? AppColors.primary.withValues(alpha: 0.3)
+        : Theme.of(context).dividerColor.withValues(alpha: 0.45);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.basic,
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: AnimatedScale(
+        scale: _isHovering ? 1.005 : 1,
+        duration: AppMotion.micro,
+        curve: AppMotion.hover,
+        child: AnimatedContainer(
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          duration: AppMotion.short,
+          curve: AppMotion.hover,
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: borderColor),
+            boxShadow: _isHovering
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.06),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ]
+                : null,
           ),
-        ),
-        trailing: StreakBadge(
-          streak: member.answerStreak,
-          compact: true,
+          child: ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.rank != null && widget.rank! <= 3)
+                  SizedBox(
+                    width: 28,
+                    child: Text(
+                      _getRankEmoji(widget.rank!),
+                      style: const TextStyle(fontSize: 20),
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                else if (widget.rank != null)
+                  SizedBox(
+                    width: 28,
+                    child: Text(
+                      '#${widget.rank}',
+                      style: const TextStyle(
+                        color: AppColors.textLight,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                if (widget.rank != null) const SizedBox(width: 8),
+                AvatarCircle(
+                  colorHex: widget.member.colorAvatar,
+                  initials: widget.member.initials,
+                  avatarUrl: widget.member.avatarUrl,
+                  size: 48,
+                ),
+              ],
+            ),
+            title: Text(
+              widget.member.displayName,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            subtitle: Text(
+              'Best: ${widget.member.longestAnswerStreak} days',
+              style: const TextStyle(
+                color: AppColors.textLight,
+                fontSize: 12,
+              ),
+            ),
+            trailing: StreakBadge(
+              streak: widget.member.answerStreak,
+              compact: true,
+            ),
+          ),
         ),
       ),
     );

@@ -317,22 +317,30 @@ class QuestionNotifier extends StateNotifier<QuestionState> {
       groupId: auth.groupId!,
       questionId: question.questionId,
       onVoteUpdate: (optionCounts, totalVotes, {answerDetails}) {
+        if (!mounted) return;
         updateVoteCounts(optionCounts, totalVotes,
             answerDetails: answerDetails);
       },
       onError: (error) {
+        if (!mounted) return;
         debugPrint('DEBUG: WebSocket error: $error');
       },
       onConnected: () {
+        if (!mounted) return;
         debugPrint(
             'DEBUG: WebSocket connected for question ${question.questionId}');
       },
       onDisconnected: () {
+        if (!mounted) return;
         debugPrint('DEBUG: WebSocket disconnected');
         _connectedQuestionId = null;
       },
     );
-    _wsService!.connect();
+    try {
+      _wsService!.connect();
+    } catch (e) {
+      debugPrint('DEBUG: WebSocket connect failed: $e');
+    }
   }
 
   /// Disconnect WebSocket

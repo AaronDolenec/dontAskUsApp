@@ -57,6 +57,92 @@ void main() async {
 class DontAskUsApp extends ConsumerWidget {
   const DontAskUsApp({super.key});
 
+  /// Whether the very first route has already been processed through the
+  /// splash screen.  Once true, subsequent `pushNamed` / `pushReplacementNamed`
+  /// calls build the target screen directly instead of showing splash again.
+  static bool _initialRouteProcessed = false;
+
+  /// Central route generator.
+  ///
+  /// The *first* route the app sees (the browser URL on load / the initial
+  /// deep-link) is always routed through [SplashScreen] so that session
+  /// restore has time to complete.  Every subsequent in-app navigation builds
+  /// the target screen directly — no extra splash screen in between.
+  static Route<dynamic> _onGenerateRoute(RouteSettings settings) {
+    final path = settings.name ?? AppRoutePaths.root;
+
+    // ----- First route: always go through splash for auth restore -----
+    if (!_initialRouteProcessed) {
+      _initialRouteProcessed = true;
+      return MaterialPageRoute(
+        settings: settings,
+        builder: (_) => SplashScreen(
+          initialDeepLinkPath: path == AppRoutePaths.root ? null : path,
+        ),
+      );
+    }
+
+    // ----- Subsequent in-app navigations: build the target directly -----
+    final deepLink = AppRoutePaths.parseGroupTabPath(path);
+    if (deepLink != null) {
+      return MaterialPageRoute(
+        settings: settings,
+        builder: (_) => MainScreen(
+          initialIndex: deepLink.tab.index,
+          initialGroupId: deepLink.groupId,
+        ),
+      );
+    }
+
+    final groupsMessage = AppRoutePaths.parseGroupsMessage(path);
+    final normalizedPath = Uri.tryParse(path)?.path;
+
+    switch (normalizedPath) {
+      case AppRoutePaths.root:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const SplashScreen(),
+        );
+      case AppRoutePaths.auth:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const AuthScreen(),
+        );
+      case AppRoutePaths.welcome:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const WelcomeScreen(),
+        );
+      case AppRoutePaths.groups:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => GroupsScreen(
+            initialSnackMessage: groupsMessage,
+          ),
+        );
+      case AppRoutePaths.join:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const JoinGroupScreen(),
+        );
+      case AppRoutePaths.create:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const CreateGroupScreen(),
+        );
+      case AppRoutePaths.main:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const MainScreen(),
+        );
+      default:
+        return MaterialPageRoute(
+          settings: settings,
+          builder: (_) => const SplashScreen(),
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeProvider);
@@ -81,65 +167,7 @@ class DontAskUsApp extends ConsumerWidget {
 
       // Routes
       initialRoute: AppRoutePaths.root,
-      onGenerateRoute: (settings) {
-        final deepLink = AppRoutePaths.parseGroupTabPath(settings.name);
-        if (deepLink != null) {
-          return MaterialPageRoute(
-            settings: settings,
-            builder: (context) => MainScreen(
-              initialIndex: deepLink.tab.index,
-              initialGroupId: deepLink.groupId,
-            ),
-          );
-        }
-
-        final groupsMessage = AppRoutePaths.parseGroupsMessage(settings.name);
-        final normalizedPath = Uri.tryParse(settings.name ?? '')?.path;
-        switch (normalizedPath) {
-          case AppRoutePaths.root:
-            return MaterialPageRoute(
-              settings: settings,
-              builder: (context) => const SplashScreen(),
-            );
-          case AppRoutePaths.auth:
-            return MaterialPageRoute(
-              settings: settings,
-              builder: (context) => const AuthScreen(),
-            );
-          case AppRoutePaths.welcome:
-            return MaterialPageRoute(
-              settings: settings,
-              builder: (context) => const WelcomeScreen(),
-            );
-          case AppRoutePaths.groups:
-            return MaterialPageRoute(
-              settings: settings,
-              builder: (context) => GroupsScreen(
-                initialSnackMessage: groupsMessage,
-              ),
-            );
-          case AppRoutePaths.join:
-            return MaterialPageRoute(
-              settings: settings,
-              builder: (context) => const JoinGroupScreen(),
-            );
-          case AppRoutePaths.create:
-            return MaterialPageRoute(
-              settings: settings,
-              builder: (context) => const CreateGroupScreen(),
-            );
-          case AppRoutePaths.main:
-            return MaterialPageRoute(
-              settings: settings,
-              builder: (context) => const MainScreen(),
-            );
-          default:
-            return MaterialPageRoute(
-              settings: settings,
-              builder: (context) => const SplashScreen(),
-            );
-        }
-      },
+      onGenerateRoute: _onGenerateRoute,
 
       // Accessibility
       builder: (context, child) {

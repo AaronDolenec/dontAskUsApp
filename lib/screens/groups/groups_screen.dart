@@ -30,6 +30,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
     super.initState();
     // Refresh groups list when screen loads and start periodic refresh
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       ref.read(multiGroupProvider.notifier).refresh();
       ref.read(multiGroupProvider.notifier).startPeriodicRefresh();
 
@@ -43,7 +44,11 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   @override
   void dispose() {
     // Stop periodic refresh when leaving the screen
-    ref.read(multiGroupProvider.notifier).stopPeriodicRefresh();
+    try {
+      ref.read(multiGroupProvider.notifier).stopPeriodicRefresh();
+    } catch (_) {
+      // Provider may already be disposed
+    }
     super.dispose();
   }
 
@@ -322,7 +327,7 @@ class _GroupsScreenState extends ConsumerState<GroupsScreen> {
   }
 }
 
-class _GroupCard extends StatelessWidget {
+class _GroupCard extends StatefulWidget {
   final GroupInfo group;
   final VoidCallback onTap;
 
@@ -332,105 +337,149 @@ class _GroupCard extends StatelessWidget {
   });
 
   @override
+  State<_GroupCard> createState() => _GroupCardState();
+}
+
+class _GroupCardState extends State<_GroupCard> {
+  bool _isHovering = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: Theme.of(context).dividerColor.withValues(alpha: 0.45),
-        ),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    group.groupName.isNotEmpty
-                        ? group.groupName[0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
-                    ),
+    final borderColor = _isHovering
+        ? AppColors.primary.withValues(alpha: 0.35)
+        : Theme.of(context).dividerColor.withValues(alpha: 0.45);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovering = true),
+        onExit: (_) => setState(() => _isHovering = false),
+        child: AnimatedScale(
+          scale: _isHovering ? 1.01 : 1,
+          duration: AppMotion.micro,
+          curve: AppMotion.hover,
+          child: AnimatedContainer(
+            duration: AppMotion.short,
+            curve: AppMotion.hover,
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: borderColor),
+              boxShadow: _isHovering
+                  ? [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.09),
+                        blurRadius: 14,
+                        offset: const Offset(0, 5),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
+                onTap: widget.onTap,
+                borderRadius: BorderRadius.circular(16),
+                hoverColor: AppColors.primary.withValues(alpha: 0.04),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Center(
+                          child: Text(
+                            widget.group.groupName.isNotEmpty
+                                ? widget.group.groupName[0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.group.groupName,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                            if (widget.group.memberCount > 0)
+                              Text(
+                                '${widget.group.memberCount} member${widget.group.memberCount != 1 ? 's' : ''}',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: AppColors.textSecondary,
+                                    ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      // Group streak indicator (highest streak in the group)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: widget.group.groupStreak > 0
+                              ? AppColors.streakActive.withValues(alpha: 0.12)
+                              : AppColors.streakInactiveBackground,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '🔥',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: widget.group.groupStreak > 0
+                                    ? AppColors.streakActive
+                                    : AppColors.streakInactive,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${widget.group.groupStreak}',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: widget.group.groupStreak > 0
+                                    ? AppColors.streakActive
+                                    : AppColors.streakInactive,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.chevron_right,
+                        color: AppColors.textSecondary,
+                      ),
+                    ],
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      group.groupName,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                    ),
-                    if (group.memberCount > 0)
-                      Text(
-                        '${group.memberCount} member${group.memberCount != 1 ? 's' : ''}',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
-                      ),
-                  ],
-                ),
-              ),
-              // Group streak indicator (highest streak in the group)
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: group.groupStreak > 0
-                      ? AppColors.streakActive.withValues(alpha: 0.12)
-                      : AppColors.streakInactiveBackground,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '🔥',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: group.groupStreak > 0
-                            ? AppColors.streakActive
-                            : AppColors.streakInactive,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${group.groupStreak}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: group.groupStreak > 0
-                            ? AppColors.streakActive
-                            : AppColors.streakInactive,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.chevron_right,
-                color: AppColors.textSecondary,
-              ),
-            ],
+            ),
           ),
         ),
       ),

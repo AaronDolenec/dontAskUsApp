@@ -116,11 +116,21 @@ class GroupWebSocketService {
         onDone: _handleDone,
       );
 
-      _isConnected = true;
-      _reconnectAttempts = 0;
-      _startPingTimer();
-      onConnected?.call();
-      debugPrint('GroupWS: Connected');
+      // On web, the ready future rejects when the connection is refused.
+      // Catch it so the error flows through _handleError instead of being
+      // an uncaught Future rejection.
+      _channel!.ready.then((_) {
+        if (!_isConnected) {
+          _isConnected = true;
+          _reconnectAttempts = 0;
+          _startPingTimer();
+          onConnected?.call();
+          debugPrint('GroupWS: Connected');
+        }
+      }).catchError((Object e) {
+        debugPrint('GroupWS: Connection refused: $e');
+        _handleError(e);
+      });
     } catch (e) {
       debugPrint('GroupWS: Connection failed: $e');
       _handleError(e);

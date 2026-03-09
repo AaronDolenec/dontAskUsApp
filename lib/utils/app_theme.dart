@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
+import 'app_motion.dart';
 
 /// App theme configuration
 class AppTheme {
@@ -13,6 +14,20 @@ class AppTheme {
       brightness: Brightness.light,
       primaryColor: AppColors.primary,
       scaffoldBackgroundColor: AppColors.background,
+      splashFactory: InkRipple.splashFactory,
+      visualDensity: VisualDensity.adaptivePlatformDensity,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+        },
+      ),
+      hoverColor: AppColors.primary.withValues(alpha: 0.05),
+      splashColor: AppColors.primary.withValues(alpha: 0.12),
+      highlightColor: AppColors.primary.withValues(alpha: 0.06),
       colorScheme: const ColorScheme.light(
         primary: AppColors.primary,
         secondary: AppColors.secondary,
@@ -63,6 +78,7 @@ class AppTheme {
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
+          animationDuration: AppMotion.short,
         ),
       ),
 
@@ -79,6 +95,7 @@ class AppTheme {
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
+          animationDuration: AppMotion.short,
         ),
       ),
 
@@ -91,6 +108,7 @@ class AppTheme {
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
+          animationDuration: AppMotion.short,
         ),
       ),
 
@@ -240,6 +258,20 @@ class AppTheme {
       brightness: Brightness.dark,
       primaryColor: AppColors.primary,
       scaffoldBackgroundColor: AppColors.backgroundDark,
+      splashFactory: InkRipple.splashFactory,
+      visualDensity: VisualDensity.adaptivePlatformDensity,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+        },
+      ),
+      hoverColor: AppColors.primaryLight.withValues(alpha: 0.08),
+      splashColor: AppColors.primaryLight.withValues(alpha: 0.18),
+      highlightColor: AppColors.primaryLight.withValues(alpha: 0.1),
       colorScheme: const ColorScheme.dark(
         primary: AppColors.primary,
         onPrimary: AppColors.textOnPrimary,
@@ -293,6 +325,7 @@ class AppTheme {
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
+          animationDuration: AppMotion.short,
         ),
       ),
 
@@ -309,6 +342,7 @@ class AppTheme {
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
+          animationDuration: AppMotion.short,
         ),
       ),
 

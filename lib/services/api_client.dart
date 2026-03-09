@@ -52,13 +52,15 @@ class ApiClient {
     final headers = _buildHeaders(
       accessToken: accessToken,
     );
+    final shouldTryRefresh =
+        accessToken != null && endpoint != '/api/auth/refresh';
 
     try {
       final response = await _client
           .get(Uri.parse(url), headers: headers)
           .timeout(ApiConfig.timeout);
       // if unauthorized, attempt to refresh session once
-      if (response.statusCode == 401) {
+      if (response.statusCode == 401 && shouldTryRefresh) {
         await AuthService.autoRefreshSession();
         // retry once with potentially refreshed token
         final newAccessToken = await AuthService.getAccessToken();
@@ -89,6 +91,8 @@ class ApiClient {
     final headers = _buildHeaders(
       accessToken: accessToken,
     );
+    final shouldTryRefresh =
+        accessToken != null && endpoint != '/api/auth/refresh';
 
     try {
       final response = await _client
@@ -98,7 +102,7 @@ class ApiClient {
             body: jsonEncode(body),
           )
           .timeout(ApiConfig.timeout);
-      if (response.statusCode == 401) {
+      if (response.statusCode == 401 && shouldTryRefresh) {
         await AuthService.autoRefreshSession();
         final newAccessToken = await AuthService.getAccessToken();
         if (newAccessToken != null) {
@@ -214,6 +218,8 @@ class ApiClient {
     final headers = _buildHeaders(
       accessToken: accessToken,
     );
+    final shouldTryRefresh =
+        accessToken != null && endpoint != '/api/auth/refresh';
 
     try {
       final response = await _client
@@ -223,7 +229,7 @@ class ApiClient {
             body: jsonEncode(body),
           )
           .timeout(ApiConfig.timeout);
-      if (response.statusCode == 401) {
+      if (response.statusCode == 401 && shouldTryRefresh) {
         await AuthService.autoRefreshSession();
         final newAccessToken = await AuthService.getAccessToken();
         if (newAccessToken != null) {
@@ -256,12 +262,14 @@ class ApiClient {
     final headers = _buildHeaders(
       accessToken: accessToken,
     );
+    final shouldTryRefresh =
+        accessToken != null && endpoint != '/api/auth/refresh';
 
     try {
       final response = await _client
           .delete(Uri.parse(url), headers: headers)
           .timeout(ApiConfig.timeout);
-      if (response.statusCode == 401) {
+      if (response.statusCode == 401 && shouldTryRefresh) {
         await AuthService.autoRefreshSession();
         final newAccessToken = await AuthService.getAccessToken();
         if (newAccessToken != null) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../utils/app_colors.dart';
+import '../utils/app_motion.dart';
 import 'answer_details_section.dart';
 
 /// Card displaying the daily question
@@ -177,6 +178,7 @@ class QuestionHistoryCard extends StatefulWidget {
 
 class _QuestionHistoryCardState extends State<QuestionHistoryCard> {
   bool _expanded = false;
+  bool _isHovering = false;
 
   @override
   Widget build(BuildContext context) {
@@ -186,112 +188,154 @@ class _QuestionHistoryCardState extends State<QuestionHistoryCard> {
             question.totalVotes > 0) ||
         (question.answerDetails != null && question.answerDetails!.isNotEmpty);
 
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      child: InkWell(
-        onTap: hasResults
-            ? () => setState(() => _expanded = !_expanded)
-            : widget.onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Date + featured member
-              Row(
-                children: [
-                  Text(
-                    _formatDate(question.questionDate),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textLight,
-                        ),
-                  ),
-                  if (question.featuredMember != null) ...[
-                    const SizedBox(width: 8),
-                    FeaturedMemberBadge(memberName: question.featuredMember!),
-                  ],
-                ],
-              ),
+    final borderColor = _isHovering
+        ? AppColors.primary.withValues(alpha: 0.28)
+        : Theme.of(context).dividerColor.withValues(alpha: 0.45);
 
-              const SizedBox(height: 8),
-
-              // Question text
-              Text(
-                question.questionText,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                maxLines: _expanded ? null : 2,
-                overflow: _expanded ? null : TextOverflow.ellipsis,
-              ),
-
-              const SizedBox(height: 12),
-
-              // Badges + expand hint
-              Row(
-                children: [
-                  if (question.hasUserVoted) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.success.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: MouseRegion(
+        cursor: hasResults || widget.onTap != null
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        onEnter: (_) => setState(() => _isHovering = true),
+        onExit: (_) => setState(() => _isHovering = false),
+        child: AnimatedScale(
+          scale: _isHovering ? 1.008 : 1,
+          duration: AppMotion.micro,
+          curve: AppMotion.hover,
+          child: AnimatedContainer(
+            duration: AppMotion.short,
+            curve: AppMotion.hover,
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: borderColor),
+              boxShadow: _isHovering
+                  ? [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.08),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
                       ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
+                    ]
+                  : null,
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(16),
+              child: InkWell(
+                onTap: hasResults
+                    ? () => setState(() => _expanded = !_expanded)
+                    : widget.onTap,
+                borderRadius: BorderRadius.circular(16),
+                hoverColor: AppColors.primary.withValues(alpha: 0.04),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Date + featured member
+                      Row(
                         children: [
-                          Icon(Icons.check_circle,
-                              size: 14, color: AppColors.success),
-                          SizedBox(width: 4),
                           Text(
-                            'Answered',
-                            style: TextStyle(
-                              color: AppColors.success,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                            ),
+                            _formatDate(question.questionDate),
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: AppColors.textLight,
+                                    ),
                           ),
+                          if (question.featuredMember != null) ...[
+                            const SizedBox(width: 8),
+                            FeaturedMemberBadge(
+                                memberName: question.featuredMember!),
+                          ],
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${question.totalVotes} vote${question.totalVotes != 1 ? 's' : ''}',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                  if (hasResults) ...[
-                    const Spacer(),
-                    Icon(
-                      _expanded ? Icons.expand_less : Icons.expand_more,
-                      size: 20,
-                      color: AppColors.textSecondary,
-                    ),
-                  ],
-                ],
-              ),
 
-              // Expandable results
-              if (_expanded && hasResults) ...[
-                const SizedBox(height: 16),
-                const Divider(height: 1),
-                const SizedBox(height: 16),
-                _HistoryResultsSection(question: question),
-              ],
-            ],
+                      const SizedBox(height: 8),
+
+                      // Question text
+                      Text(
+                        question.questionText,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                        maxLines: _expanded ? null : 2,
+                        overflow: _expanded ? null : TextOverflow.ellipsis,
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Badges + expand hint
+                      Row(
+                        children: [
+                          if (question.hasUserVoted) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.success.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.check_circle,
+                                      size: 14, color: AppColors.success),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Answered',
+                                    style: TextStyle(
+                                      color: AppColors.success,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${question.totalVotes} vote${question.totalVotes != 1 ? 's' : ''}',
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          if (hasResults) ...[
+                            const Spacer(),
+                            Icon(
+                              _expanded ? Icons.expand_less : Icons.expand_more,
+                              size: 20,
+                              color: AppColors.textSecondary,
+                            ),
+                          ],
+                        ],
+                      ),
+
+                      // Expandable results
+                      if (_expanded && hasResults) ...[
+                        const SizedBox(height: 16),
+                        const Divider(height: 1),
+                        const SizedBox(height: 16),
+                        _HistoryResultsSection(question: question),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

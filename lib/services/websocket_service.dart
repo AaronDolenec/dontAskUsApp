@@ -58,9 +58,20 @@ class WebSocketService {
         onDone: _handleDone,
       );
 
-      _isConnected = true;
-      _reconnectAttempts = 0;
-      onConnected?.call();
+      // On web, the ready future rejects when the connection is refused.
+      // Catch it so the error flows through _handleError instead of being
+      // an uncaught Future rejection.
+      _channel!.ready.then((_) {
+        if (!_isConnected) {
+          _isConnected = true;
+          _reconnectAttempts = 0;
+          onConnected?.call();
+        }
+      }).catchError((Object e) {
+        // Connection failed – will also fire onDone/onError on the stream,
+        // but this prevents the "Uncaught" console error.
+        _handleError(e);
+      });
     } catch (e) {
       _handleError(e);
     }

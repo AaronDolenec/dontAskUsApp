@@ -53,11 +53,42 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _loadSession();
   }
 
+  String _friendlyError(Object error, {String? fallback}) {
+    if (error is ApiException) {
+      return error.userFriendlyMessage;
+    }
+
+    final raw = error.toString();
+    final text = raw.toLowerCase();
+
+    if (text.contains('xmlhttprequest error') ||
+        text.contains('failed to fetch') ||
+        text.contains('network error') ||
+        text.contains('socketexception') ||
+        text.contains('connection refused')) {
+      return 'Network error. Please check your connection and server URL.';
+    }
+
+    if (text.contains('instance of minified') || text.contains('minified:')) {
+      return fallback ?? 'Something went wrong. Please try again.';
+    }
+
+    if (raw.isEmpty || raw == 'null') {
+      return fallback ?? 'Something went wrong. Please try again.';
+    }
+
+    return raw;
+  }
+
   /// Load existing session from secure storage
   Future<void> _loadSession() async {
     state = state.copyWith(isLoading: true);
 
     try {
+      // Wait for bootstrap (dotenv, etc.) so that ApiConfig has the correct
+      // server URL before we make any network requests.
+      await AppBootstrapService.ensureInitialized();
+
       final accessToken = await AuthService.getAccessToken();
       if (accessToken == null || accessToken.isEmpty) {
         debugPrint('DEBUG: No access token found');
@@ -155,7 +186,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
             'DEBUG: Network error, retry #$_loadSessionRetries in ${retryDelay.inSeconds}s');
 
         state = state.copyWith(
-          isLoading: false,
+          isLoading: true,
           error: 'Network error. Retrying in ${retryDelay.inSeconds}s...',
         );
 
@@ -165,7 +196,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       state = state.copyWith(
         isLoading: false,
-        error: 'Failed to restore session',
+        error: _friendlyError(
+          e,
+          fallback: 'Failed to restore session. Please sign in again.',
+        ),
       );
     }
   }
@@ -263,7 +297,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _friendlyError(e, fallback: 'Registration failed.'),
       );
       return false;
     }
@@ -298,7 +332,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _friendlyError(e, fallback: 'Login failed. Please try again.'),
       );
       return false;
     }
@@ -463,7 +497,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _friendlyError(e, fallback: 'Failed to join group.'),
       );
       return false;
     }
@@ -542,7 +576,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _friendlyError(e, fallback: 'Failed to create group.'),
       );
       return null;
     }
@@ -706,7 +740,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _friendlyError(e, fallback: 'Could not switch group.'),
       );
       return false;
     }
@@ -818,7 +852,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final exception = ApiException.fromResponse(response);
       return exception.userFriendlyMessage;
     } catch (e) {
-      return e.toString();
+      return _friendlyError(e, fallback: 'Upload failed. Please try again.');
     }
   }
 
@@ -875,7 +909,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final exception = ApiException.fromResponse(response);
       return exception.userFriendlyMessage;
     } catch (e) {
-      return e.toString();
+      return _friendlyError(e, fallback: 'Failed to remove avatar.');
     }
   }
 

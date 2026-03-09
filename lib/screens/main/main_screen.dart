@@ -55,6 +55,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       unawaited(_applyDeepLinkContext());
     });
   }

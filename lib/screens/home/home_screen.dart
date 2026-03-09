@@ -47,6 +47,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       curve: Curves.elasticOut,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       final authState = ref.read(authProvider);
       if (authState.hasGroup) {
         // Fetch question + connect group-level WebSocket
@@ -61,7 +62,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void dispose() {
     _celebrationController.dispose();
-    ref.read(questionProvider.notifier).stopPolling();
+    try {
+      ref.read(questionProvider.notifier).stopPolling();
+    } catch (_) {
+      // Provider may already be disposed during hot-reload or navigation
+    }
     _textAnswerController.dispose();
     super.dispose();
   }
