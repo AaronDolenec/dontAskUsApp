@@ -716,7 +716,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
     }
 
-    return user.oderId.isNotEmpty ? user.oderId : null;
+    if (user.groups.length == 1 && user.groups.first.userId.isNotEmpty) {
+      return user.groups.first.userId;
+    }
+
+    return null;
   }
 
   /// Switch to a different group

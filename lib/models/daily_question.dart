@@ -10,6 +10,7 @@ class DailyQuestion {
   final List<String>? options;
   final Map<String, int>? optionCounts;
   final DateTime questionDate;
+  final DateTime createdAt;
   final bool isActive;
   final int totalVotes;
   final bool allowMultiple;
@@ -36,6 +37,7 @@ class DailyQuestion {
     this.options,
     this.optionCounts,
     required this.questionDate,
+    required this.createdAt,
     required this.isActive,
     this.totalVotes = 0,
     this.allowMultiple = false,
@@ -106,6 +108,9 @@ class DailyQuestion {
           ? Map<String, int>.from(json['option_counts'] as Map)
           : null,
       questionDate: DateTime.parse(json['question_date'] as String),
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String)
+          : DateTime.parse(json['question_date'] as String),
       isActive: json['is_active'] as bool? ?? true,
       totalVotes: json['total_votes'] as int? ?? 0,
       allowMultiple: json['allow_multiple'] as bool? ?? false,
@@ -136,6 +141,7 @@ class DailyQuestion {
       'options': options,
       'option_counts': optionCounts,
       'question_date': questionDate.toIso8601String(),
+      'created_at': createdAt.toIso8601String(),
       'is_active': isActive,
       'total_votes': totalVotes,
       'allow_multiple': allowMultiple,
@@ -157,6 +163,7 @@ class DailyQuestion {
     List<String>? options,
     Map<String, int>? optionCounts,
     DateTime? questionDate,
+    DateTime? createdAt,
     bool? isActive,
     int? totalVotes,
     bool? allowMultiple,
@@ -176,6 +183,7 @@ class DailyQuestion {
       options: options ?? this.options,
       optionCounts: optionCounts ?? this.optionCounts,
       questionDate: questionDate ?? this.questionDate,
+      createdAt: createdAt ?? this.createdAt,
       isActive: isActive ?? this.isActive,
       totalVotes: totalVotes ?? this.totalVotes,
       allowMultiple: allowMultiple ?? this.allowMultiple,

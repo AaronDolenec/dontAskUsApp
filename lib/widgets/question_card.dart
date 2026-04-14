@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_motion.dart';
@@ -123,6 +126,9 @@ class QuestionCard extends StatelessWidget {
                   ),
             ),
 
+            const SizedBox(height: 8),
+            _NextQuestionCountdown(createdAt: question.createdAt),
+
             const SizedBox(height: 20),
 
             // Voting or Results widget
@@ -157,6 +163,81 @@ class QuestionCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _NextQuestionCountdown extends StatefulWidget {
+  final DateTime createdAt;
+
+  const _NextQuestionCountdown({required this.createdAt});
+
+  @override
+  State<_NextQuestionCountdown> createState() => _NextQuestionCountdownState();
+}
+
+class _NextQuestionCountdownState extends State<_NextQuestionCountdown> {
+  late DateTime _now;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _now = DateTime.now();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _now = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _formatDuration(Duration duration) {
+    final totalSeconds = duration.inSeconds.clamp(0, 8640000);
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
+    final two = NumberFormat('00');
+    return '${two.format(hours)}:${two.format(minutes)}:${two.format(seconds)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final nextChangeAt =
+        widget.createdAt.toLocal().add(const Duration(hours: 24));
+    final remaining = nextChangeAt.difference(_now);
+    final dueNow = !remaining.isNegative && remaining.inSeconds <= 1;
+
+    final message = remaining.isNegative
+        ? 'Next question is due now'
+        : dueNow
+            ? 'Next question is due now'
+            : 'Next question in ${_formatDuration(remaining)}';
+
+    final changeAtLabel = DateFormat('EEE, MMM d • HH:mm').format(nextChangeAt);
+
+    return Row(
+      children: [
+        const Icon(
+          Icons.schedule,
+          size: 15,
+          color: AppColors.textSecondary,
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            '$message (changes at $changeAtLabel)',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+          ),
+        ),
+      ],
     );
   }
 }
