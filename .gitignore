@@ -40,6 +40,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/.gradle/
+/android/gradle/wrapper/gradle-wrapper.jar
 
 # iOS build artifacts
 /ios/Flutter/Flutter.framework
@@ -50,6 +52,8 @@ app.*.map.json
 /ios/Runner.xcworkspace/xcuserdata/
 /ios/Runner.xcodeproj/xcuserdata/
 /ios/Runner.xcodeproj/project.xcworkspace/xcuserdata/
+ios/ExportOptions.plist
+ios/*.plist
 
 # Build outputs
 *.app
@@ -90,14 +94,23 @@ test_driver/screenshots/
 *.mocks.dart
 lib/generated/
 lib/l10n/app_localizations*.dart
+**/GeneratedPluginRegistrant.*
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
 
 # Local configuration
 local.properties
 *.local
+android/local.properties
+key.properties
+key.properties.example
 
 # Secrets
 secrets/
 *.pem
+
+# OS files
+.DS_Store
+Thumbs.db
 *.p12
 *.p8
 
