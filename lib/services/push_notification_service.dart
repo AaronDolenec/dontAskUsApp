@@ -43,7 +43,45 @@ class PushNotificationService {
     if (!_firebaseAvailable) return;
     if (_permissionRequested) return;
     _permissionRequested = true;
-    await FirebaseMessaging.instance.requestPermission();
+    debugPrint('🔔 Requesting push notification permission...');
+    final settings = await FirebaseMessaging.instance.requestPermission();
+    debugPrint('📊 Permission status: ${settings.authorizationStatus}');
+  }
+
+  /// Explicitly request notification permission (recommended for web)
+  static Future<bool> requestNotificationPermission() async {
+    await initialize();
+    if (!_firebaseAvailable) {
+      debugPrint('❌ Firebase not available, cannot request permission');
+      return false;
+    }
+    
+    debugPrint('🔔 Explicitly requesting notification permission...');
+    final settings = await FirebaseMessaging.instance.requestPermission();
+    final granted = settings.authorizationStatus == AuthorizationStatus.authorized ||
+        settings.authorizationStatus == AuthorizationStatus.provisional;
+    
+    if (granted) {
+      debugPrint('✅ Notification permission granted');
+      _permissionRequested = true;
+    } else if (settings.authorizationStatus == AuthorizationStatus.denied) {
+      debugPrint('❌ Notification permission denied by user');
+      // Allow re-requesting by resetting the flag
+      _permissionRequested = false;
+    } else {
+      debugPrint('⚠️ Notification permission status: ${settings.authorizationStatus}');
+    }
+    
+    return granted;
+  }
+
+  /// Check current notification permission status
+  static Future<AuthorizationStatus?> getNotificationPermissionStatus() async {
+    await initialize();
+    if (!_firebaseAvailable) return null;
+    
+    final settings = await FirebaseMessaging.instance.getNotificationSettings();
+    return settings.authorizationStatus;
   }
 
   static Future<String?> getDeviceToken() async {

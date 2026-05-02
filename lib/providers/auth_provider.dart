@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack, kIsWe
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../services/services.dart';
+import '../services/push_notification_service.dart';
 import 'api_provider.dart';
 import 'group_provider.dart';
 import 'device_token_provider.dart';
@@ -821,6 +822,39 @@ class AuthNotifier extends StateNotifier<AuthState> {
       debugPrintStack(stackTrace: stackTrace);
     }
     return false;
+  }
+
+  /// Request notification permission explicitly (important for web)
+  Future<bool> requestNotificationPermission() async {
+    try {
+      debugPrint('🔔 Auth provider requesting notification permission...');
+      final granted = await PushNotificationService.requestNotificationPermission();
+      if (granted) {
+        debugPrint('✅ Notification permission granted in auth provider');
+      } else {
+        debugPrint('❌ Notification permission denied in auth provider');
+      }
+      return granted;
+    } catch (e, stackTrace) {
+      debugPrint('❌ Exception requesting notification permission: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      return false;
+    }
+  }
+
+  /// Check notification permission status
+  Future<String> getNotificationPermissionStatus() async {
+    try {
+      final status = await PushNotificationService.getNotificationPermissionStatus();
+      if (status == null) {
+        return 'unavailable'; // Not on web or Firebase not available
+      }
+      // status is AuthorizationStatus enum
+      return status.toString().split('.').last.toLowerCase();
+    } catch (e) {
+      debugPrint('❌ Exception getting notification permission status: $e');
+      return 'unknown';
+    }
   }
 
   /// Get the account ID for global settings

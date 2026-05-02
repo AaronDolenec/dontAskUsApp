@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/notification_settings.dart';
@@ -40,9 +41,29 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
     setState(() => _loading = true);
 
     try {
-      final success = await ref
-          .read(authProvider.notifier)
-          .updateNotificationSettings(_settings!);
+      // If enabling push notifications on web, request permission first
+      if (kIsWeb && _settings!.pushNotificationsEnabled) {
+        debugPrint(
+          '🌐 Web app: requesting browser notification permission before saving',
+        );
+        final permissionGranted =
+            await ref.read(authProvider.notifier).requestNotificationPermission();
+        if (!permissionGranted) {
+          setState(() => _loading = false);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+              'Browser notification permission denied. Please allow notifications in your browser settings to receive push messages.',
+            ),
+            backgroundColor: AppColors.error,
+            duration: Duration(seconds: 6),
+          ));
+          return;
+        }
+      }
+
+      final success =
+          await ref.read(authProvider.notifier).updateNotificationSettings(_settings!);
       setState(() => _loading = false);
       if (!mounted) return;
 
@@ -72,12 +93,13 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
     setState(() => _loading = true);
     final success = await ref.read(authProvider.notifier).sendTestNotification();
     setState(() => _loading = false);
-    
+
     if (!mounted) return;
-    
+
     if (!success) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Failed to send test notification. Check logs and ensure push notifications are enabled.'),
+        content: Text(
+            'Failed to send test notification. Check logs and ensure push notifications are enabled.'),
         backgroundColor: AppColors.error,
         duration: Duration(seconds: 5),
       ));
@@ -151,7 +173,8 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
                             child: const Text('Save'),
                           ),
                           OutlinedButton(
-                            onPressed: _settings!.pushNotificationsEnabled ? _sendTestNotification : null,
+                            onPressed:
+                                _settings!.pushNotificationsEnabled ? _sendTestNotification : null,
                             child: const Text('Send Test Notification'),
                           ),
                         ],
