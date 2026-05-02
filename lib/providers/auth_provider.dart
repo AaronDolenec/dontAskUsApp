@@ -1,10 +1,13 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'dart:async';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../services/services.dart';
 import 'api_provider.dart';
 import 'group_provider.dart';
+import 'device_token_provider.dart';
 
 /// Auth state containing user info and session data
 class AuthState {
@@ -390,6 +393,56 @@ class AuthNotifier extends StateNotifier<AuthState> {
       groupId: currentGroupId,
       isLoading: false,
     );
+
+    // Auto-register device tokens for all groups after successful login
+    _registerDeviceTokensForAllGroups(user, accessToken);
+  }
+
+  /// Registers device tokens for all groups after login.
+  /// This is done asynchronously and doesn't block the UI.
+  void _registerDeviceTokensForAllGroups(User user, String accessToken) {
+    // Run in background without awaiting
+    unawaited(
+      _doRegisterDeviceTokensForAllGroups(user, accessToken),
+    );
+  }
+
+  /// Internal method to register device tokens for all groups
+  Future<void> _doRegisterDeviceTokensForAllGroups(
+    User user,
+    String accessToken,
+  ) async {
+    debugPrint('🔔 Starting device token registration for ${user.groups.length} groups');
+    final deviceTokenNotifier = _ref.read(deviceTokenProvider.notifier);
+    String platform;
+    if (kIsWeb) {
+      platform = 'web';
+    } else if (Platform.isIOS) {
+      platform = 'ios';
+    } else {
+      platform = 'android';
+    }
+
+    for (final group in user.groups) {
+      if (group.userId.isEmpty) continue;
+      try {
+        debugPrint(
+          '📱 Auto-registering device token for user ${group.userId} in group ${group.groupId}',
+        );
+        await deviceTokenNotifier.registerDeviceToken(
+          userId: group.userId,
+          accessToken: accessToken,
+          platform: platform,
+          deviceName: null,
+        );
+      } catch (e) {
+        debugPrint(
+          '⚠️ Failed to register device token for group ${group.groupId}: $e',
+        );
+        // Continue with other groups
+      }
+    }
+    debugPrint('✅ Device token registration completed for all groups');
   }
 
   /// Change password
@@ -651,32 +704,54 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Fetch notification settings for the current user/group.
   Future<NotificationSettings?> fetchNotificationSettings() async {
     final userId = _resolveCurrentUserIdForSettings();
-    if (userId == null) return null;
+    if (userId == null) {
+      debugPrint('❌ No user ID found when fetching notification settings');
+      return null;
+    }
     try {
       final accessToken = await AuthService.getAccessToken();
-      if (accessToken == null) return null;
+      if (accessToken == null) {
+        debugPrint('❌ No access token when fetching notification settings');
+        return null;
+      }
       final api = _ref.read(apiClientProvider);
+      debugPrint('📥 Fetching notification settings for user: $userId');
       final response = await api.get(
         '/api/users/$userId/settings',
         accessToken: accessToken,
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
+        debugPrint('✅ Notification settings loaded: $data');
         return NotificationSettings.fromJson(data);
+      } else {
+        debugPrint(
+          '❌ Failed to fetch notification settings (${response.statusCode}): ${response.body}',
+        );
       }
-    } catch (_) {}
+    } catch (e, stackTrace) {
+      debugPrint('❌ Exception fetching notification settings: $e');
+      debugPrintStack(stackTrace: stackTrace);
+    }
     return null;
   }
 
   /// Update notification settings on the server.
   Future<bool> updateNotificationSettings(NotificationSettings settings) async {
     final userId = _resolveCurrentUserIdForSettings();
-    if (userId == null) return false;
+    if (userId == null) {
+      debugPrint('❌ No user ID found for notification settings');
+      return false;
+    }
     try {
       final accessToken = await AuthService.getAccessToken();
-      if (accessToken == null) return false;
+      if (accessToken == null) {
+        debugPrint('❌ No access token for notification settings');
+        return false;
+      }
       final api = _ref.read(apiClientProvider);
 
+      debugPrint('📧 Updating email settings for user: $userId');
       final emailResponse = await api.put(
         '/api/users/$userId/email-settings',
         {
@@ -687,9 +762,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
 
       if (emailResponse.statusCode != 200) {
+        debugPrint(
+          '❌ Email settings update failed (${emailResponse.statusCode}): ${emailResponse.body}',
+        );
         return false;
       }
+      debugPrint('✅ Email settings updated successfully');
 
+      debugPrint('📱 Updating push notification settings for user: $userId');
       final pushResponse = await api.put(
         '/api/users/$userId/push-settings',
         {
@@ -698,8 +778,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
         accessToken: accessToken,
       );
 
-      return pushResponse.statusCode == 200;
-    } catch (_) {}
+      if (pushResponse.statusCode != 200) {
+        debugPrint(
+          '❌ Push settings update failed (${pushResponse.statusCode}): ${pushResponse.body}',
+        );
+        return false;
+      }
+      debugPrint('✅ Push notification settings updated successfully');
+      return true;
+    } catch (e, stackTrace) {
+      debugPrint('❌ Exception updating notification settings: $e');
+      debugPrintStack(stackTrace: stackTrace);
+    }
     return false;
   }
 
