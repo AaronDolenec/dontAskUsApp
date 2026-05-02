@@ -55,12 +55,12 @@ class PushNotificationService {
       debugPrint('❌ Firebase not available, cannot request permission');
       return false;
     }
-    
+
     debugPrint('🔔 Explicitly requesting notification permission...');
     final settings = await FirebaseMessaging.instance.requestPermission();
     final granted = settings.authorizationStatus == AuthorizationStatus.authorized ||
         settings.authorizationStatus == AuthorizationStatus.provisional;
-    
+
     if (granted) {
       debugPrint('✅ Notification permission granted');
       _permissionRequested = true;
@@ -71,7 +71,7 @@ class PushNotificationService {
     } else {
       debugPrint('⚠️ Notification permission status: ${settings.authorizationStatus}');
     }
-    
+
     return granted;
   }
 
@@ -79,7 +79,7 @@ class PushNotificationService {
   static Future<AuthorizationStatus?> getNotificationPermissionStatus() async {
     await initialize();
     if (!_firebaseAvailable) return null;
-    
+
     final settings = await FirebaseMessaging.instance.getNotificationSettings();
     return settings.authorizationStatus;
   }
@@ -140,8 +140,7 @@ class PushNotificationService {
     final api = apiClient ?? ApiClient();
     final shouldDispose = apiClient == null;
     try {
-      final endpoint =
-          '/api/users/$userId/device-token?token=${Uri.encodeComponent(deviceToken)}';
+      final endpoint = '/api/users/$userId/device-token?token=${Uri.encodeComponent(deviceToken)}';
       final response = await api.delete(endpoint, accessToken: accessToken);
       if (response.statusCode != 200) {
         throw ApiException.fromResponse(response);
@@ -159,8 +158,7 @@ class PushNotificationService {
     final api = apiClient ?? ApiClient();
     final shouldDispose = apiClient == null;
     try {
-      final response = await api.get('/api/users/$userId/device-tokens',
-          accessToken: accessToken);
+      final response = await api.get('/api/users/$userId/device-tokens', accessToken: accessToken);
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data is List) {

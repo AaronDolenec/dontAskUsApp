@@ -62,8 +62,7 @@ class _NotificationSettingsScreenState extends ConsumerState<NotificationSetting
         }
       }
 
-      final success =
-          await ref.read(authProvider.notifier).updateNotificationSettings(_settings!);
+      final success = await ref.read(authProvider.notifier).updateNotificationSettings(_settings!);
       setState(() => _loading = false);
       if (!mounted) return;
 
