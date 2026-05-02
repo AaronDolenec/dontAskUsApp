@@ -12,12 +12,10 @@ class NotificationSettingsScreen extends ConsumerStatefulWidget {
   const NotificationSettingsScreen({super.key});
 
   @override
-  ConsumerState<NotificationSettingsScreen> createState() =>
-      _NotificationSettingsScreenState();
+  ConsumerState<NotificationSettingsScreen> createState() => _NotificationSettingsScreenState();
 }
 
-class _NotificationSettingsScreenState
-    extends ConsumerState<NotificationSettingsScreen> {
+class _NotificationSettingsScreenState extends ConsumerState<NotificationSettingsScreen> {
   NotificationSettings? _settings;
   bool _loading = false;
 
@@ -29,8 +27,7 @@ class _NotificationSettingsScreenState
 
   Future<void> _loadSettings() async {
     setState(() => _loading = true);
-    final fetched =
-        await ref.read(authProvider.notifier).fetchNotificationSettings();
+    final fetched = await ref.read(authProvider.notifier).fetchNotificationSettings();
     setState(() {
       _settings = fetched ??
           NotificationSettings(
@@ -48,8 +45,7 @@ class _NotificationSettingsScreenState
 
     try {
       // If push notifications are being enabled, register device token first
-      if (_settings!.pushNotificationsEnabled &&
-          !(await _isPushAlreadyRegistered())) {
+      if (_settings!.pushNotificationsEnabled && !(await _isPushAlreadyRegistered())) {
         final registered = await _registerDeviceToken();
         if (!registered) {
           if (!mounted) return;
@@ -65,9 +61,7 @@ class _NotificationSettingsScreenState
         }
       }
 
-      final success = await ref
-          .read(authProvider.notifier)
-          .updateNotificationSettings(_settings!);
+      final success = await ref.read(authProvider.notifier).updateNotificationSettings(_settings!);
       setState(() => _loading = false);
       if (!mounted) return;
 

@@ -2,8 +2,7 @@ import 'package:flutter/foundation.dart' show debugPrint, debugPrintStack;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/push_notification_service.dart';
 
-final deviceTokenProvider =
-    StateNotifierProvider<DeviceTokenNotifier, DeviceTokenState>((ref) {
+final deviceTokenProvider = StateNotifierProvider<DeviceTokenNotifier, DeviceTokenState>((ref) {
   return DeviceTokenNotifier(ref);
 });
 
@@ -13,8 +12,7 @@ class DeviceTokenState {
   final String? message;
   DeviceTokenState({this.token, this.tokensList, this.message});
 
-  DeviceTokenState copyWith(
-      {String? token, List<dynamic>? tokensList, String? message}) {
+  DeviceTokenState copyWith({String? token, List<dynamic>? tokensList, String? message}) {
     return DeviceTokenState(
       token: token ?? this.token,
       tokensList: tokensList ?? this.tokensList,
@@ -70,9 +68,7 @@ class DeviceTokenNotifier extends StateNotifier<DeviceTokenState> {
   }
 
   Future<void> unregisterDeviceToken(
-      {required String userId,
-      required String accessToken,
-      required String deviceToken}) async {
+      {required String userId, required String accessToken, required String deviceToken}) async {
     try {
       debugPrint(
         '📱 Unregistering device token for user: $userId',
@@ -93,8 +89,7 @@ class DeviceTokenNotifier extends StateNotifier<DeviceTokenState> {
     }
   }
 
-  Future<void> listDeviceTokens(
-      {required String userId, required String accessToken}) async {
+  Future<void> listDeviceTokens({required String userId, required String accessToken}) async {
     final tokens = await PushNotificationService.listDeviceTokens(
       userId: userId,
       accessToken: accessToken,

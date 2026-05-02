@@ -111,8 +111,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         debugPrint('DEBUG: /api/auth/me response keys=${data.keys.toList()}');
         final user = User.fromMeJson(data);
-        debugPrint(
-            'DEBUG: _loadSession user.id=${user.id}, user.oderId=${user.oderId}');
+        debugPrint('DEBUG: _loadSession user.id=${user.id}, user.oderId=${user.oderId}');
 
         // Sync group memberships from server
         await Future.wait(
@@ -185,8 +184,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (isNetworkError && _loadSessionRetries < _maxLoadSessionRetries) {
         _loadSessionRetries += 1;
         final retryDelay = Duration(seconds: 3 * _loadSessionRetries);
-        debugPrint(
-            'DEBUG: Network error, retry #$_loadSessionRetries in ${retryDelay.inSeconds}s');
+        debugPrint('DEBUG: Network error, retry #$_loadSessionRetries in ${retryDelay.inSeconds}s');
 
         state = state.copyWith(
           isLoading: true,
@@ -215,8 +213,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Enrich the auth user with avatar_url and streak data from group members.
   /// /api/auth/me may not return these fields, but /api/groups/{id}/members does.
-  Future<void> _enrichUserFromGroupMembers(
-      String groupId, String accessToken) async {
+  Future<void> _enrichUserFromGroupMembers(String groupId, String accessToken) async {
     try {
       final api = _ref.read(apiClientProvider);
       final response = await api.get(
@@ -233,9 +230,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
         } else {
           return;
         }
-        final members = membersJson
-            .map((m) => GroupMember.fromJson(m as Map<String, dynamic>))
-            .toList();
+        final members =
+            membersJson.map((m) => GroupMember.fromJson(m as Map<String, dynamic>)).toList();
 
         // Find current user by display name
         final me = members.cast<GroupMember?>().firstWhere(
@@ -243,11 +239,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
               orElse: () => null,
             );
         if (me != null) {
-          final needsUpdate = (state.user!.avatarUrl == null &&
-                  me.avatarUrl != null &&
-                  me.avatarUrl!.isNotEmpty) ||
-              state.user!.answerStreak != me.answerStreak ||
-              state.user!.longestAnswerStreak != me.longestAnswerStreak;
+          final needsUpdate =
+              (state.user!.avatarUrl == null && me.avatarUrl != null && me.avatarUrl!.isNotEmpty) ||
+                  state.user!.answerStreak != me.answerStreak ||
+                  state.user!.longestAnswerStreak != me.longestAnswerStreak;
           if (needsUpdate) {
             state = state.copyWith(
               user: state.user!.copyWith(
@@ -359,8 +354,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     // Parse user
     final user = User.fromAuthJson(userData);
-    debugPrint(
-        'DEBUG: _handleAuthResponse user.id=${user.id}, user.oderId=${user.oderId}');
+    debugPrint('DEBUG: _handleAuthResponse user.id=${user.id}, user.oderId=${user.oderId}');
 
     // Save account info
     await AuthService.saveAccountInfo(
@@ -504,8 +498,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final groupId = (data['group_id'] ?? '').toString();
         final userId = (data['user_id'] ?? '').toString();
         final groupName = data['group_name'] as String? ?? '';
-        final memberDisplayName =
-            data['display_name'] as String? ?? displayName;
+        final memberDisplayName = data['display_name'] as String? ?? displayName;
 
         await AuthService.saveGroupMembership(
           groupId: groupId,
@@ -670,11 +663,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
                 : g)
             .toList();
 
-        final updatedCurrentGroup =
-            updatedGroups.cast<UserGroupMembership?>().firstWhere(
-                  (g) => g?.groupId == groupId,
-                  orElse: () => null,
-                );
+        final updatedCurrentGroup = updatedGroups.cast<UserGroupMembership?>().firstWhere(
+              (g) => g?.groupId == groupId,
+              orElse: () => null,
+            );
 
         // update local storage
         await AuthService.saveGroupMembership(
@@ -897,8 +889,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final userId = state.user!.oderId; // account_id as string
       debugPrint(
           'DEBUG: uploadAvatar userId=$userId, user.id=${state.user!.id}, fileName=$fileName, bytes=${fileBytes.length}');
-      debugPrint(
-          'DEBUG: uploadAvatar token=${accessToken.substring(0, 20)}...');
+      debugPrint('DEBUG: uploadAvatar token=${accessToken.substring(0, 20)}...');
       var response = await api.postMultipartBytes(
         '/api/users/$userId/avatar',
         fileBytes: fileBytes,
@@ -923,8 +914,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
               fileField: 'file',
               accessToken: accessToken,
             );
-            debugPrint(
-                'DEBUG: uploadAvatar retry status=${response.statusCode}');
+            debugPrint('DEBUG: uploadAvatar retry status=${response.statusCode}');
             debugPrint('DEBUG: uploadAvatar retry body=${response.body}');
           }
         }
@@ -979,8 +969,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final colorAvatar =
-            data['color_avatar'] as String? ?? state.user!.colorAvatar;
+        final colorAvatar = data['color_avatar'] as String? ?? state.user!.colorAvatar;
         // Build a new User directly to set avatarUrl to null (copyWith keeps old value for null params)
         state = state.copyWith(
           user: User(
