@@ -6,8 +6,7 @@ import 'api_provider.dart';
 import 'auth_provider.dart';
 
 /// Provider for question history
-final questionHistoryProvider =
-    FutureProvider.family<List<DailyQuestion>, int>((ref, page) async {
+final questionHistoryProvider = FutureProvider.family<List<DailyQuestion>, int>((ref, page) async {
   final auth = ref.watch(authProvider);
   if (!auth.hasGroup) return [];
 
@@ -42,9 +41,7 @@ final questionHistoryProvider =
         return [];
       }
 
-      return questionsJson
-          .map((q) => DailyQuestion.fromJson(q as Map<String, dynamic>))
-          .toList();
+      return questionsJson.map((q) => DailyQuestion.fromJson(q as Map<String, dynamic>)).toList();
     }
   } catch (e) {
     // Just throw the error, let the caller handle it
@@ -88,17 +85,34 @@ class HistoryState {
 }
 
 /// Provider for paginated history
-final paginatedHistoryProvider =
-    StateNotifierProvider<HistoryNotifier, HistoryState>((ref) {
+final paginatedHistoryProvider = StateNotifierProvider<HistoryNotifier, HistoryState>((ref) {
   return HistoryNotifier(ref);
 });
 
 class HistoryNotifier extends StateNotifier<HistoryState> {
   final Ref _ref;
   WebSocketService? _wsService;
+  String? _lastGroupId;
 
   HistoryNotifier(this._ref) : super(const HistoryState()) {
+    _initializeAndWatch();
+  }
+
+  void _initializeAndWatch() {
+    final auth = _ref.read(authProvider);
+    _lastGroupId = auth.groupId;
     _connectWebSocket();
+
+    // Watch for group changes
+    _ref.listen<AuthState>(authProvider, (previous, next) {
+      if (previous?.groupId != next.groupId && next.groupId != null) {
+        _lastGroupId = next.groupId;
+        // Reset history when switching groups
+        state = const HistoryState();
+        _connectWebSocket();
+        loadInitial();
+      }
+    });
   }
 
   /// Load initial history
@@ -163,11 +177,9 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
         } else {
           questionsJson = [];
         }
-        final newQuestions = questionsJson
-            .map((q) => DailyQuestion.fromJson(q as Map<String, dynamic>))
-            .toList();
-        final allQuestions =
-            page == 0 ? newQuestions : [...state.questions, ...newQuestions];
+        final newQuestions =
+            questionsJson.map((q) => DailyQuestion.fromJson(q as Map<String, dynamic>)).toList();
+        final allQuestions = page == 0 ? newQuestions : [...state.questions, ...newQuestions];
         final bool hasMore;
         if (totalCount != null) {
           hasMore = allQuestions.length < totalCount;
@@ -218,12 +230,10 @@ class HistoryNotifier extends StateNotifier<HistoryState> {
       final data = jsonDecode(message);
       if (data is Map<String, dynamic> && data['type'] == 'history_update') {
         final questionsJson = data['questions'] as List? ?? [];
-        final newQuestions = questionsJson
-            .map((q) => DailyQuestion.fromJson(q as Map<String, dynamic>))
-            .toList();
+        final newQuestions =
+            questionsJson.map((q) => DailyQuestion.fromJson(q as Map<String, dynamic>)).toList();
         // Prepend new questions to the history
-        state =
-            state.copyWith(questions: [...newQuestions, ...state.questions]);
+        state = state.copyWith(questions: [...newQuestions, ...state.questions]);
       }
     });
   }
