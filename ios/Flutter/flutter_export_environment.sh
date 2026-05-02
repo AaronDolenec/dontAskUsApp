@@ -1,7 +1,7 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
-export "FLUTTER_ROOT=/root/flutter"
-export "FLUTTER_APPLICATION_PATH=/root/coding/privat/dontAskUsApp"
+export "FLUTTER_ROOT=/Users/aaron/FlutterSDK/flutter"
+export "FLUTTER_APPLICATION_PATH=/Users/aaron/Library/CloudStorage/Nextcloud-83ca24d1-31a4-4f04-8d2d-1f101cd280e0@cloud․everblue․work/Coding/Github/DontAskUs/dontAskUsApp"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
 export "FLUTTER_TARGET=lib/main.dart"
 export "FLUTTER_BUILD_DIR=build"

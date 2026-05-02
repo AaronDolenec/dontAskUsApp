@@ -1,6 +1,6 @@
 // This is a generated file; do not edit or check into version control.
-FLUTTER_ROOT=/root/flutter
-FLUTTER_APPLICATION_PATH=/root/coding/privat/dontAskUsApp
+FLUTTER_ROOT=/Users/aaron/FlutterSDK/flutter
+FLUTTER_APPLICATION_PATH=/Users/aaron/Library/CloudStorage/Nextcloud-83ca24d1-31a4-4f04-8d2d-1f101cd280e0@cloud․everblue․work/Coding/Github/DontAskUs/dontAskUsApp
 COCOAPODS_PARALLEL_CODE_SIGN=true
 FLUTTER_TARGET=lib/main.dart
 FLUTTER_BUILD_DIR=build
