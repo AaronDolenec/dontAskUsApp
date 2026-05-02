@@ -693,11 +693,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
     return false;
   }
 
-  /// Fetch notification settings for the current user/group.
+  /// Fetch notification settings for the current user (GLOBAL, not group-specific).
   Future<NotificationSettings?> fetchNotificationSettings() async {
-    final userId = _resolveCurrentUserIdForSettings();
-    if (userId == null) {
-      debugPrint('❌ No user ID found when fetching notification settings');
+    final accountId = _getAccountId();
+    if (accountId == null) {
+      debugPrint('❌ No account ID found when fetching notification settings');
       return null;
     }
     try {
@@ -707,9 +707,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         return null;
       }
       final api = _ref.read(apiClientProvider);
-      debugPrint('📥 Fetching notification settings for user: $userId');
+      debugPrint('📥 Fetching global notification settings for account: $accountId');
       final response = await api.get(
-        '/api/users/$userId/settings',
+        '/api/accounts/$accountId/settings',
         accessToken: accessToken,
       );
       if (response.statusCode == 200) {
@@ -728,11 +728,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
     return null;
   }
 
-  /// Update notification settings on the server.
+  /// Update notification settings on the server (GLOBAL, not group-specific).
   Future<bool> updateNotificationSettings(NotificationSettings settings) async {
-    final userId = _resolveCurrentUserIdForSettings();
-    if (userId == null) {
-      debugPrint('❌ No user ID found for notification settings');
+    final accountId = _getAccountId();
+    if (accountId == null) {
+      debugPrint('❌ No account ID found for notification settings');
       return false;
     }
     try {
@@ -743,9 +743,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
       final api = _ref.read(apiClientProvider);
 
-      debugPrint('📧 Updating email settings for user: $userId');
+      debugPrint('📧 Updating global email settings for account: $accountId');
       final emailResponse = await api.put(
-        '/api/users/$userId/email-settings',
+        '/api/accounts/$accountId/email-settings',
         {
           'email_on_new_question': settings.emailOnNewQuestion,
           'email_on_reminder': settings.emailOnReminder,
@@ -761,9 +761,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
       debugPrint('✅ Email settings updated successfully');
 
-      debugPrint('📱 Updating push notification settings for user: $userId');
+      debugPrint('📱 Updating global push notification settings for account: $accountId');
       final pushResponse = await api.put(
-        '/api/users/$userId/push-settings',
+        '/api/accounts/$accountId/push-settings',
         {
           'push_notifications_enabled': settings.pushNotificationsEnabled,
         },
@@ -783,6 +783,50 @@ class AuthNotifier extends StateNotifier<AuthState> {
       debugPrintStack(stackTrace: stackTrace);
     }
     return false;
+  }
+
+  /// Send a test push notification to verify configuration
+  Future<bool> sendTestNotification() async {
+    final accountId = _getAccountId();
+    if (accountId == null) {
+      debugPrint('❌ No account ID found for test notification');
+      return false;
+    }
+    try {
+      final accessToken = await AuthService.getAccessToken();
+      if (accessToken == null) {
+        debugPrint('❌ No access token for test notification');
+        return false;
+      }
+      final api = _ref.read(apiClientProvider);
+
+      debugPrint('📤 Sending test notification to account: $accountId');
+      final response = await api.post(
+        '/api/accounts/$accountId/send-test-notification',
+        {},
+        accessToken: accessToken,
+      );
+
+      if (response.statusCode == 200) {
+        debugPrint('✅ Test notification sent successfully');
+        return true;
+      } else {
+        debugPrint(
+          '❌ Test notification failed (${response.statusCode}): ${response.body}',
+        );
+        return false;
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ Exception sending test notification: $e');
+      debugPrintStack(stackTrace: stackTrace);
+    }
+    return false;
+  }
+
+  /// Get the account ID for global settings
+  String? _getAccountId() {
+    final user = state.user;
+    return user?.oderId;
   }
 
   String? _resolveCurrentUserIdForSettings() {
