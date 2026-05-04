@@ -428,7 +428,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
           userId: group.userId,
           accessToken: accessToken,
           platform: platform,
-          deviceName: null,
         );
       } catch (e) {
         debugPrint(

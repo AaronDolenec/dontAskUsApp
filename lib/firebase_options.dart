@@ -5,8 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 
 class DefaultFirebaseOptions {
   static bool get isConfigured {
-    bool hasRealValue(String value) =>
-        value.trim().isNotEmpty && !value.startsWith('YOUR_');
+    bool hasRealValue(String value) => value.trim().isNotEmpty && !value.startsWith('YOUR_');
 
     return hasRealValue(web.apiKey) &&
         hasRealValue(web.projectId) &&
@@ -24,12 +23,12 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'YOUR_API_KEY',
-    authDomain: 'YOUR_AUTH_DOMAIN',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_STORAGE_BUCKET',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    appId: 'YOUR_APP_ID',
-    measurementId: 'YOUR_MEASUREMENT_ID',
+    apiKey: 'AIzaSyA6MIrdOnqw2zSAgthx6chWxp0fCDydRP4',
+    authDomain: 'dontaskus-753ab.firebaseapp.com',
+    projectId: 'dontaskus-753ab',
+    storageBucket: 'dontaskus-753ab.firebasestorage.app',
+    messagingSenderId: '216907158422',
+    appId: '1:216907158422:web:f67d76e3884ba8d785c3b7',
+    measurementId: '',
   );
 }

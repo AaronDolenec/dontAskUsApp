@@ -62,12 +62,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       TextInput.finishAutofillContext();
       if (_isLogin) {
         // Login — go straight to groups
-        Navigator.of(context)
-            .pushNamedAndRemoveUntil(AppRoutePaths.groups, (route) => false);
+        Navigator.of(context).pushNamedAndRemoveUntil(AppRoutePaths.groups, (route) => false);
       } else {
         // Registration — show short onboarding first
-        Navigator.of(context)
-            .pushNamedAndRemoveUntil(AppRoutePaths.welcome, (route) => false);
+        Navigator.of(context).pushNamedAndRemoveUntil(AppRoutePaths.welcome, (route) => false);
       }
     } else if (mounted) {
       final authError = ref.read(authProvider).error;
@@ -121,9 +119,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _isLogin
-                        ? 'Sign in to continue'
-                        : 'Join the fun with your friends',
+                    _isLogin ? 'Sign in to continue' : 'Join the fun with your friends',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: AppColors.textSecondary,
                         ),
@@ -145,11 +141,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       textInputAction: TextInputAction.next,
                       onTapOutside: (_) => FocusScope.of(context).unfocus(),
                       autofillHints: const [AutofillHints.name],
-                      onFieldSubmitted: (_) =>
-                          FocusScope.of(context).nextFocus(),
+                      onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
                       validator: (value) {
-                        if (!_isLogin &&
-                            (value == null || value.trim().isEmpty)) {
+                        if (!_isLogin && (value == null || value.trim().isEmpty)) {
                           return 'Please enter a display name';
                         }
                         return null;
@@ -170,10 +164,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     textInputAction: TextInputAction.next,
                     onTapOutside: (_) => FocusScope.of(context).unfocus(),
                     autocorrect: false,
-                    autofillHints: const [
-                      AutofillHints.username,
-                      AutofillHints.email,
-                    ],
+                    autofillHints:
+                        _isLogin ? const [AutofillHints.username] : const [AutofillHints.email],
                     onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
@@ -196,9 +188,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       prefixIcon: const Icon(Icons.lock_outline),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
+                          _obscurePassword ? Icons.visibility_off : Icons.visibility,
                         ),
                         onPressed: () {
                           setState(() {
@@ -211,16 +201,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     enableSuggestions: false,
                     autocorrect: false,
                     autofillHints: [
-                      _isLogin
-                          ? AutofillHints.password
-                          : AutofillHints.newPassword,
+                      _isLogin ? AutofillHints.password : AutofillHints.newPassword,
                     ],
-                    textInputAction:
-                        _isLogin ? TextInputAction.done : TextInputAction.next,
+                    textInputAction: _isLogin ? TextInputAction.done : TextInputAction.next,
                     onTapOutside: (_) => FocusScope.of(context).unfocus(),
-                    onFieldSubmitted: (_) => _isLogin
-                        ? _handleSubmit()
-                        : FocusScope.of(context).nextFocus(),
+                    onFieldSubmitted: (_) =>
+                        _isLogin ? _handleSubmit() : FocusScope.of(context).nextFocus(),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter your password';
@@ -261,14 +247,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscureConfirmPassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
+                            _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
                           ),
                           onPressed: () {
                             setState(() {
-                              _obscureConfirmPassword =
-                                  !_obscureConfirmPassword;
+                              _obscureConfirmPassword = !_obscureConfirmPassword;
                             });
                           },
                         ),
@@ -308,8 +291,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.error_outline,
-                                color: AppColors.error, size: 20),
+                            const Icon(Icons.error_outline, color: AppColors.error, size: 20),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
@@ -344,9 +326,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        _isLogin
-                            ? "Don't have an account?"
-                            : 'Already have an account?',
+                        _isLogin ? "Don't have an account?" : 'Already have an account?',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: AppColors.textSecondary,
                             ),
