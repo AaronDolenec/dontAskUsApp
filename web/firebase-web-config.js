@@ -1,13 +1,13 @@
 // Firebase Web config used by both index page and messaging service worker.
-// Replace placeholder values with your actual Firebase project values.
+// The container entrypoint overwrites this file from docker-compose env vars.
 (function (global) {
   global.FIREBASE_WEB_CONFIG = {
-    apiKey: 'AIzaSyA6MIrdOnqw2zSAgthx6chWxp0fCDydRP4',
-    authDomain: 'dontaskus-753ab.firebaseapp.com',
-    projectId: 'dontaskus-753ab',
-    storageBucket: 'dontaskus-753ab.firebasestorage.app',
-    messagingSenderId: '216907158422',
-    appId: '1:216907158422:web:f67d76e3884ba8d785c3b7',
+    apiKey: 'YOUR_FIREBASE_API_KEY',
+    authDomain: 'YOUR_FIREBASE_AUTH_DOMAIN',
+    projectId: 'YOUR_FIREBASE_PROJECT_ID',
+    storageBucket: 'YOUR_FIREBASE_STORAGE_BUCKET',
+    messagingSenderId: 'YOUR_FIREBASE_MESSAGING_SENDER_ID',
+    appId: 'YOUR_FIREBASE_APP_ID',
     measurementId: '',
   };
 })(typeof self !== 'undefined' ? self : this);

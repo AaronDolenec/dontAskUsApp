@@ -17,7 +17,17 @@ class PushNotificationService {
   static Future<void> initialize() async {
     if (_initialized) return;
 
-    if (!kIsWeb || !DefaultFirebaseOptions.isConfigured) {
+    if (!kIsWeb) {
+      _firebaseAvailable = false;
+      _initialized = true;
+      debugPrint(
+        'Push notifications disabled: Firebase web config is not set.',
+      );
+      return;
+    }
+
+    final firebaseOptions = await DefaultFirebaseOptions.load();
+    if (firebaseOptions == null) {
       _firebaseAvailable = false;
       _initialized = true;
       debugPrint(
@@ -28,7 +38,7 @@ class PushNotificationService {
 
     try {
       await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
+        options: firebaseOptions,
       );
       _firebaseAvailable = true;
     } catch (e) {

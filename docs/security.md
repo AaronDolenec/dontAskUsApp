@@ -15,7 +15,7 @@ Sensitive locations found in this repository
 What I added
 - `docker/docker-compose.example.yml` — an example compose file with placeholders for all runtime variables. This file is safe to commit and does not contain secrets.
 - `.gitignore` updated to exclude `docker-compose.yml` and `docker-compose.override.yml` so your private compose file containing secrets stays local.
-- `docker/caddy/` — Caddy-based static server (brotli + gzip) and an `entrypoint.sh` that emits a runtime `env.json` from compose environment variables. This keeps secret values in compose and out of the built static files.
+- `docker/caddy/` — Caddy-based static server (brotli + gzip) and an `entrypoint.sh` that emits a runtime `env.json` and Firebase web config from compose environment variables. This keeps runtime values in compose and out of the built static files.
 
 How to use (recommended) — local testing
 1. Build the Flutter web release locally:
@@ -24,6 +24,7 @@ How to use (recommended) — local testing
    ```
 2. Copy `docker/docker-compose.example.yml` to `docker/docker-compose.yml` (this file is ignored by git) and fill in your secrets and configuration:
    - `API_BASE_URL` — the API endpoint the web app should talk to
+   - `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_MESSAGING_SENDER_ID`, `FIREBASE_APP_ID` — Firebase web client configuration for web push and SDK initialization
    - `FCM_PROJECT_ID`, `FCM_SERVICE_ACCOUNT_JSON` — for push notifications (optional)
    - `SECRET_KEY`, etc. — any secrets your server requires. For the web client only public config should be provided here; keep private server-only secrets in the server's compose or secret management system.
 3. Start the service:
@@ -35,7 +36,7 @@ How to use (recommended) — local testing
 Notes about runtime configuration vs build-time configuration
 - Flutter web often uses a build-time `.env` (via `flutter_dotenv`). That is baked into the JS at build time and therefore cannot safely contain production secrets in a public repo. Instead:
   - Use `.env` (local) for developer convenience — ensure `.env` is in `.gitignore` (it is).
-  - For runtime secrets and public runtime configuration, use the `env.json` approach implemented in the Caddy image: Compose passes variables to the container which writes `/srv/app/env.json` that the web app can fetch at runtime.
+   - For runtime secrets and public runtime configuration, use the `env.json` and generated Firebase web config approach implemented in the Caddy image: Compose passes variables to the container which writes `/srv/app/env.json` and `/srv/app/firebase-web-config.js` at startup.
 
 Preparing for a public GitHub repo
 1. Remove any real secrets from the repo. Search for strings like `SECRET_KEY`, `API_KEY`, `private_key`, or any JSON-looking credentials. Replace with examples or placeholders.
